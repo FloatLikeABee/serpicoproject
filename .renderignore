@@ -1,0 +1,9 @@
+# Render ignore file
+node_modules/
+.git/
+.env
+*.log
+.DS_Store
+backend/__debug_bin*
+backend/data/cache/
+

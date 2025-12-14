@@ -1,0 +1,39 @@
+services:
+  # Main Frontend - Static Site
+  - type: web
+    name: serpico-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        sync: false  # Set this in Render dashboard to your backend URL
+
+  # Admin Frontend - Static Site
+  - type: web
+    name: serpico-admin
+    env: static
+    buildCommand: cd admin-frontend && npm install && npm run build
+    staticPublishPath: ./admin-frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        sync: false  # Set this in Render dashboard to your backend URL
+
+  # Backend - Web Service
+  - type: web
+    name: serpico-backend
+    env: go
+    buildCommand: cd backend && go mod download && go build -o serpico .
+    startCommand: ./serpico
+    envVars:
+      - key: PORT
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false  # Set this in Render dashboard
+      - key: GEMINI_DEFAULT_MODEL
+        value: gemini-2.5-flash
+      - key: RAG_DATA_PATH
+        value: ./data/rag
+      - key: ENABLE_WEB_SEARCH
+        value: "true"
+
