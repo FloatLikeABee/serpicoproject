@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5092/api/v1';
+// Backend API base URL
+// Priority:
+// 1. REACT_APP_API_URL environment variable (for local/dev overrides)
+// 2. Deployed Render backend URL as default
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL || 'https://serpicoproject.onrender.com/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
