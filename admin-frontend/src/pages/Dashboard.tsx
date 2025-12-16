@@ -17,6 +17,7 @@ const Dashboard: React.FC = () => {
     { id: 'officers', name: 'Officers', icon: '👮', description: 'View all officer records' },
     { id: 'emergencies', name: 'Emergencies', icon: '🚨', description: 'View all emergency records' },
     { id: 'users', name: 'Users', icon: '👥', description: 'View all user accounts' },
+    { id: 'rag-training', name: 'RAG Data Training', icon: '🤖', description: 'Format and input RAG data for AI training', special: true },
   ];
 
   return (
@@ -38,25 +39,14 @@ const Dashboard: React.FC = () => {
           {modules.map((module) => (
             <div
               key={module.id}
-              className="module-card"
-              onClick={() => navigate(`/data/${module.id}`)}
+              className={`module-card ${module.special ? 'special' : ''}`}
+              onClick={() => navigate(module.id === 'rag-training' ? '/rag-training' : `/data/${module.id}`)}
             >
               <div className="module-icon">{module.icon}</div>
               <h2>{module.name}</h2>
               <p>{module.description}</p>
             </div>
           ))}
-        </div>
-
-        <div className="special-module">
-          <div
-            className="module-card special"
-            onClick={() => navigate('/rag-training')}
-          >
-            <div className="module-icon">🤖</div>
-            <h2>RAG Data Training</h2>
-            <p>Format and input RAG data for AI training</p>
-          </div>
         </div>
       </div>
     </div>

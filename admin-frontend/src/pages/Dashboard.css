@@ -100,13 +100,4 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-.special-module {
-  display: flex;
-  justify-content: center;
-}
-
-.special-module .module-card {
-  max-width: 400px;
-  width: 100%;
-}
 
