@@ -3,7 +3,7 @@ services:
   - type: web
     name: serpico-frontend
     env: static
-    buildCommand: cd frontend && npm install && npm run build
+    buildCommand: cd frontend && npm config set registry https://registry.npmjs.org/ && npm install --registry=https://registry.npmjs.org/ && npm run build
     staticPublishPath: ./frontend/build
     envVars:
       - key: REACT_APP_API_URL
@@ -13,7 +13,7 @@ services:
   - type: web
     name: serpico-admin
     env: static
-    buildCommand: cd admin-frontend && npm install && npm run build
+    buildCommand: cd admin-frontend && npm config set registry https://registry.npmjs.org/ && npm install --registry=https://registry.npmjs.org/ && npm run build
     staticPublishPath: ./admin-frontend/build
     envVars:
       - key: REACT_APP_API_URL
