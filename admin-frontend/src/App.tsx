@@ -4,6 +4,7 @@ import { useHealthCheck } from './hooks/useHealthCheck';
 import Dashboard from './pages/Dashboard';
 import DataViewer from './pages/DataViewer';
 import RAGTraining from './pages/RAGTraining';
+import DataCollection from './pages/DataCollection';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -35,6 +36,14 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <RAGTraining />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/data-collection"
+        element={
+          <ProtectedRoute>
+            <DataCollection />
           </ProtectedRoute>
         }
       />

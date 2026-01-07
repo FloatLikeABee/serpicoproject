@@ -12,11 +12,13 @@ const Dashboard: React.FC = () => {
   };
 
   const modules = [
-    { id: 'cases', name: 'Cases', icon: '📚', description: 'View all case records' },
-    { id: 'perps', name: 'Perps', icon: '👤', description: 'View all perpetrator records' },
+    { id: 'cases', name: 'Serial Killer Cases', icon: '🔪', description: 'View all serial killer case records' },
+    { id: 'perps', name: 'Serial Killers', icon: '👤', description: 'View all serial killer records' },
+    { id: 'mysteries', name: 'Mysteries', icon: '🔍', description: 'View paranormal, urban legends & conspiracy theories' },
     { id: 'officers', name: 'Officers', icon: '👮', description: 'View all officer records' },
     { id: 'emergencies', name: 'Emergencies', icon: '🚨', description: 'View all emergency records' },
     { id: 'users', name: 'Users', icon: '👥', description: 'View all user accounts' },
+    { id: 'data-collection', name: 'Data Collection', icon: '📥', description: 'Collect data from web, APIs, or files', special: true },
     { id: 'rag-training', name: 'RAG Data Training', icon: '🤖', description: 'Format and input RAG data for AI training', special: true },
   ];
 
@@ -26,7 +28,7 @@ const Dashboard: React.FC = () => {
         <div className="header-content">
           <div>
             <h1>Serpico Admin - Backstage</h1>
-            <p>Manage and view all backend data modules</p>
+            <p>Manage serial killers, mysteries, paranormal events & conspiracy theories</p>
           </div>
           <button onClick={handleLogout} className="logout-button">
             Logout
@@ -40,7 +42,11 @@ const Dashboard: React.FC = () => {
             <div
               key={module.id}
               className={`module-card ${module.special ? 'special' : ''}`}
-              onClick={() => navigate(module.id === 'rag-training' ? '/rag-training' : `/data/${module.id}`)}
+              onClick={() => {
+                if (module.id === 'rag-training') navigate('/rag-training');
+                else if (module.id === 'data-collection') navigate('/data-collection');
+                else navigate(`/data/${module.id}`);
+              }}
             >
               <div className="module-icon">{module.icon}</div>
               <h2>{module.name}</h2>

@@ -10,6 +10,7 @@ interface RAGDocument {
   category: string;
   location?: string;
   tags: string[];
+  summary?: string;
 }
 
 const RAGTraining: React.FC = () => {
@@ -33,6 +34,27 @@ const RAGTraining: React.FC = () => {
   const fetchDocuments = async () => {
     setLoading(true);
     try {
+      // Try to get summaries first (with abstracted descriptions)
+      try {
+        const summariesResponse = await adminAPI.getRAGSummaries();
+        if (summariesResponse.data.summaries && summariesResponse.data.summaries.length > 0) {
+          // Convert summaries to documents format for display
+          const summaries = summariesResponse.data.summaries;
+          setDocuments(summaries.map((s: any) => ({
+            id: s.id,
+            title: s.title,
+            content: s.content_preview || '',
+            category: s.category,
+            location: s.location,
+            tags: s.tags || [],
+            summary: s.summary,
+          })));
+          return;
+        }
+      } catch (e) {
+        // Fallback to regular documents if summaries endpoint fails
+      }
+      
       const response = await adminAPI.getRAGDocuments();
       setDocuments(response.data.documents || []);
     } catch (error: any) {
@@ -160,7 +182,7 @@ const RAGTraining: React.FC = () => {
                   type="text"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="e.g., Olathe, KS"
+                  placeholder="e.g., Point Pleasant, WV"
                 />
               </div>
               <div className="form-group">
@@ -169,7 +191,7 @@ const RAGTraining: React.FC = () => {
                   type="text"
                   value={formData.tags}
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  placeholder="e.g., crime, statistics, olathe"
+                  placeholder="e.g., serial killer, paranormal, conspiracy"
                 />
               </div>
               <div className="form-actions">
@@ -202,6 +224,11 @@ const RAGTraining: React.FC = () => {
                 <span className="category">{doc.category}</span>
                 {doc.location && <span className="location">📍 {doc.location}</span>}
               </div>
+              {doc.summary && (
+                <div className="document-summary">
+                  <strong>Summary:</strong> {doc.summary}
+                </div>
+              )}
               <p className="document-content">{doc.content}</p>
               <div className="document-tags">
                 {doc.tags.map((tag, idx) => (

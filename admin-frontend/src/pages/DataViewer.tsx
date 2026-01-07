@@ -32,6 +32,9 @@ const DataViewer: React.FC = () => {
         case 'perps':
           response = await adminAPI.getAllPerps();
           break;
+        case 'mysteries':
+          response = await adminAPI.getAllMysteries();
+          break;
         case 'officers':
           response = await adminAPI.getAllOfficers();
           break;
@@ -47,6 +50,7 @@ const DataViewer: React.FC = () => {
       }
       const dataKey = module === 'cases' ? 'cases' : 
                      module === 'perps' ? 'perps' :
+                     module === 'mysteries' ? 'mysteries' :
                      module === 'officers' ? 'officers' :
                      module === 'emergencies' ? 'emergencies' : 'users';
       setData(response.data[dataKey] || []);
@@ -106,6 +110,14 @@ const DataViewer: React.FC = () => {
       initialData.category = '';
       initialData.assigned_officer_id = '';
       initialData.status = 'Open';
+    } else if (module === 'mysteries') {
+      initialData.title = '';
+      initialData.category = 'paranormal';
+      initialData.location = '';
+      initialData.date = new Date().toISOString().split('T')[0];
+      initialData.description = '';
+      initialData.credibility = 'Medium';
+      initialData.source = '';
     }
     setFormData(initialData);
     setShowForm(true);
@@ -127,6 +139,9 @@ const DataViewer: React.FC = () => {
           break;
         case 'emergencies':
           response = await adminAPI.createEmergency(formData);
+          break;
+        case 'mysteries':
+          response = await adminAPI.createMystery(formData);
           break;
         default:
           return;
@@ -352,6 +367,78 @@ const DataViewer: React.FC = () => {
           </div>
         </>
       );
+    } else if (module === 'mysteries') {
+      return (
+        <>
+          <div className="form-group">
+            <label>Title *</label>
+            <input
+              type="text"
+              value={formData.title || ''}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>Category *</label>
+            <select
+              value={formData.category || 'paranormal'}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              required
+            >
+              <option value="paranormal">Paranormal</option>
+              <option value="urban-legend">Urban Legend</option>
+              <option value="conspiracy">Conspiracy Theory</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Location *</label>
+            <input
+              type="text"
+              value={formData.location || ''}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>Date *</label>
+            <input
+              type="date"
+              value={formData.date || ''}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>Description</label>
+            <textarea
+              value={formData.description || ''}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={4}
+            />
+          </div>
+          <div className="form-group">
+            <label>Credibility</label>
+            <select
+              value={formData.credibility || 'Medium'}
+              onChange={(e) => setFormData({ ...formData, credibility: e.target.value })}
+            >
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Source</label>
+            <input
+              type="text"
+              value={formData.source || ''}
+              onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+              placeholder="e.g., Eyewitness reports, declassified documents"
+            />
+          </div>
+        </>
+      );
     }
     return null;
   };
@@ -363,7 +450,7 @@ const DataViewer: React.FC = () => {
           <button onClick={() => navigate('/')} className="back-button">
             ← Back to Dashboard
           </button>
-          {(module === 'cases' || module === 'perps' || module === 'officers' || module === 'emergencies') && (
+          {(module === 'cases' || module === 'perps' || module === 'mysteries' || module === 'officers' || module === 'emergencies') && (
             <button onClick={handleAdd} className="add-button">
               + Add New
             </button>

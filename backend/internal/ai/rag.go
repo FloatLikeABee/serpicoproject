@@ -281,3 +281,46 @@ func (r *RAGDatabase) DeleteDocument(id string) error {
 	return nil // Document not found
 }
 
+// GetDocumentSummary returns an abstracted description of the document
+func (r *RAGDatabase) GetDocumentSummary(doc RAGDocument) string {
+	// Create a summary from title, category, and first 150 chars of content
+	summary := doc.Title
+	if doc.Category != "" {
+		summary += " (" + doc.Category + ")"
+	}
+	if doc.Location != "" {
+		summary += " - " + doc.Location
+	}
+	
+	// Add content preview
+	contentPreview := doc.Content
+	if len(contentPreview) > 150 {
+		contentPreview = contentPreview[:150] + "..."
+	}
+	summary += ": " + contentPreview
+	
+	return summary
+}
+
+// GetAllDocumentSummaries returns summaries for all documents
+func (r *RAGDatabase) GetAllDocumentSummaries() []map[string]interface{} {
+	summaries := make([]map[string]interface{}, 0)
+	for _, doc := range r.documents {
+		summaries = append(summaries, map[string]interface{}{
+			"id":          doc.ID,
+			"title":       doc.Title,
+			"category":    doc.Category,
+			"location":    doc.Location,
+			"tags":        doc.Tags,
+			"summary":     r.GetDocumentSummary(doc),
+			"content_preview": func() string {
+				if len(doc.Content) > 200 {
+					return doc.Content[:200] + "..."
+				}
+				return doc.Content
+			}(),
+		})
+	}
+	return summaries
+}
+

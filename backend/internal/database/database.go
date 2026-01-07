@@ -116,6 +116,17 @@ func createTables(db *sql.DB) error {
 			status TEXT NOT NULL,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS mysteries (
+			id TEXT PRIMARY KEY,
+			title TEXT NOT NULL,
+			category TEXT NOT NULL,
+			location TEXT NOT NULL,
+			date TEXT NOT NULL,
+			description TEXT,
+			credibility TEXT,
+			source TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	for _, query := range queries {

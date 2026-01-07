@@ -16,15 +16,20 @@ func SeedDatabase(db *sql.DB) error {
 		return nil
 	}
 
-	log.Println("Seeding database with Olathe PD mock data...")
+	log.Println("Seeding database with serial killers and mysteries data...")
 
-	// Seed Cases
+	// Seed Cases (Serial Killer Cases)
 	if err := seedCases(db); err != nil {
 		return err
 	}
 
-	// Seed Perps
+	// Seed Perps (Serial Killers)
 	if err := seedPerps(db); err != nil {
+		return err
+	}
+
+	// Seed Mysteries
+	if err := seedMysteries(db); err != nil {
 		return err
 	}
 
@@ -57,16 +62,16 @@ func seedCases(db *sql.DB) error {
 		description string
 		solved      int
 	}{
-		{"case-001", "Armed Assault", "123 S Kansas Ave, Olathe", "2023-11-15", "Solved", "Armed robbery at convenience store. Olathe PD apprehended suspect.", 1},
-		{"case-002", "Robbery", "456 E Santa Fe St, Olathe", "2023-10-20", "Solved", "Store robbery during business hours. Multiple witnesses.", 1},
-		{"case-003", "Murder", "789 N Ridgeview Rd, Olathe", "2023-09-05", "Unsolved", "Homicide case. Olathe PD investigation ongoing.", 0},
-		{"case-004", "Sexual Assault", "321 W Park St, Olathe", "2023-08-12", "Solved", "Assault case resolved. Perpetrator in custody.", 1},
-		{"case-005", "Armed Assault", "654 S Mur-Len Rd, Olathe", "2023-12-01", "Open", "Recent armed assault. Olathe PD active investigation.", 0},
-		{"case-006", "Robbery", "987 E 151st St, Olathe", "2023-11-28", "Solved", "Bank robbery attempt. Olathe PD arrested suspects.", 1},
-		{"case-007", "Murder", "147 N Black Bob Rd, Olathe", "2023-07-20", "Unsolved", "Cold case. Olathe PD reviewing evidence.", 0},
-		{"case-008", "Armed Assault", "258 W 119th St, Olathe", "2024-01-10", "Open", "Ongoing investigation. Multiple suspects.", 0},
-		{"case-009", "Robbery", "369 S Parker St, Olathe", "2023-12-15", "Solved", "Gas station robbery. Case closed by Olathe PD.", 1},
-		{"case-010", "Sexual Assault", "741 E Dennis Ave, Olathe", "2023-10-05", "Solved", "Assault case. Perpetrator convicted.", 1},
+		{"case-001", "Serial Murder", "Seattle, Washington", "1974-01-31", "Solved", "Ted Bundy's first confirmed victim. Multiple murders across several states.", 1},
+		{"case-002", "Serial Murder", "Los Angeles, California", "1969-08-09", "Solved", "Sharon Tate murder - part of Manson Family killing spree.", 1},
+		{"case-003", "Serial Murder", "Chicago, Illinois", "1978-12-11", "Solved", "John Wayne Gacy victim discovered. 33 total victims found.", 1},
+		{"case-004", "Serial Murder", "Milwaukee, Wisconsin", "1991-07-22", "Solved", "Jeffrey Dahmer's apartment discovered with human remains.", 1},
+		{"case-005", "Serial Murder", "Wichita, Kansas", "1974-01-15", "Solved", "BTK Killer's first murders. Dennis Rader confessed to 10 murders.", 1},
+		{"case-006", "Serial Murder", "Green River, Washington", "1982-08-15", "Solved", "Green River Killer - Gary Ridgway murdered 49+ women.", 1},
+		{"case-007", "Serial Murder", "Anchorage, Alaska", "1980-06-13", "Solved", "Robert Hansen's hunting ground murders. 17+ victims.", 1},
+		{"case-008", "Serial Murder", "Sacramento, California", "1978-02-02", "Solved", "Golden State Killer - Joseph DeAngelo. 13 murders, 50+ rapes.", 1},
+		{"case-009", "Serial Murder", "Portland, Oregon", "2023-12-15", "Open", "Recent pattern of unsolved murders. Possible serial killer active.", 0},
+		{"case-010", "Serial Murder", "Phoenix, Arizona", "2024-01-05", "Open", "Multiple bodies found with similar MO. Investigation ongoing.", 0},
 	}
 
 	stmt, err := db.Prepare(`INSERT OR IGNORE INTO cases (id, type, location, date, status, description, solved) VALUES (?, ?, ?, ?, ?, ?, ?)`)
@@ -93,16 +98,16 @@ func seedPerps(db *sql.DB) error {
 		lastSeen  string
 		status    string
 	}{
-		{"perp-001", "Subject Alpha", "Downtown Olathe", "2024-01-15", "Active"},
-		{"perp-002", "Subject Bravo", "North Olathe", "2024-01-10", "Wanted"},
-		{"perp-003", "Subject Charlie", "East Olathe", "2023-12-20", "In Custody"},
-		{"perp-004", "Subject Delta", "South Olathe", "2024-01-05", "Active"},
-		{"perp-005", "Subject Echo", "West Olathe", "2023-12-28", "Wanted"},
-		{"perp-006", "Subject Foxtrot", "Central Olathe", "2024-01-12", "Active"},
-		{"perp-007", "Subject Golf", "North Olathe", "2023-11-15", "In Custody"},
-		{"perp-008", "Subject Hotel", "Downtown Olathe", "2024-01-18", "Wanted"},
-		{"perp-009", "Subject India", "East Olathe", "2023-12-10", "Active"},
-		{"perp-010", "Subject Juliet", "South Olathe", "2024-01-08", "In Custody"},
+		{"perp-001", "Ted Bundy", "Florida State Prison", "1989-01-24", "Executed"},
+		{"perp-002", "John Wayne Gacy", "Illinois State Prison", "1994-05-10", "Executed"},
+		{"perp-003", "Jeffrey Dahmer", "Columbia Correctional", "1994-11-28", "Deceased"},
+		{"perp-004", "Dennis Rader (BTK)", "El Dorado Correctional", "2005-02-25", "In Custody"},
+		{"perp-005", "Gary Ridgway (Green River)", "Washington State Penitentiary", "2001-11-30", "In Custody"},
+		{"perp-006", "Joseph DeAngelo (Golden State)", "California State Prison", "2018-04-24", "In Custody"},
+		{"perp-007", "Richard Ramirez (Night Stalker)", "San Quentin State Prison", "2013-06-07", "Deceased"},
+		{"perp-008", "David Berkowitz (Son of Sam)", "Sullivan Correctional", "1977-08-10", "In Custody"},
+		{"perp-009", "Edmund Kemper", "California Medical Facility", "1973-11-08", "In Custody"},
+		{"perp-010", "Aileen Wuornos", "Florida State Prison", "2002-10-09", "Executed"},
 	}
 
 	stmt, err := db.Prepare(`INSERT OR IGNORE INTO perps (id, alias, location, last_seen, status) VALUES (?, ?, ?, ?, ?)`)
@@ -219,6 +224,47 @@ func seedUsers(db *sql.DB) error {
 		_, err := stmt.Exec(u.id, u.email, u.name, u.role, u.rank)
 		if err != nil {
 			log.Printf("Error seeding user %s: %v", u.id, err)
+		}
+	}
+
+	return nil
+}
+
+func seedMysteries(db *sql.DB) error {
+	mysteries := []struct {
+		id          string
+		title       string
+		category    string
+		location    string
+		date        string
+		description string
+		credibility string
+		source      string
+	}{
+		{"mystery-001", "The Mothman Sightings", "paranormal", "Point Pleasant, West Virginia", "2024-01-15", "Multiple eyewitness reports of a large winged creature with glowing red eyes. First reported in 1966, sightings continue to this day across the Ohio River Valley.", "High", "Multiple eyewitnesses, documented since 1966"},
+		{"mystery-002", "The Philadelphia Experiment", "conspiracy", "Philadelphia, Pennsylvania", "2024-01-10", "Alleged 1943 US Navy experiment that made destroyer USS Eldridge invisible. Classified documents suggest possible truth behind the legend.", "Medium", "Military whistleblowers, declassified documents"},
+		{"mystery-003", "The Vanishing Hitchhiker", "urban-legend", "Various locations, North America", "2024-01-08", "Classic urban legend of a hitchhiker who disappears from moving vehicles. Reported across multiple states with similar details.", "Low", "Folklore, oral tradition"},
+		{"mystery-004", "Skinwalker Ranch", "paranormal", "Ballard, Utah", "2024-01-05", "Ranch with documented UFO sightings, strange creatures, and unexplained phenomena. Ongoing scientific investigation by multiple teams.", "High", "Scientific documentation, multiple researchers"},
+		{"mystery-005", "Area 51 Secrets", "conspiracy", "Groom Lake, Nevada", "2024-01-03", "Alleged reverse engineering of alien technology. Multiple whistleblower testimonies suggest hidden programs and recovered craft.", "Medium", "Whistleblower testimonies, government secrecy"},
+		{"mystery-006", "The Bell Witch", "paranormal", "Adams, Tennessee", "2023-12-28", "One of America's most documented poltergeist cases. Haunting of the Bell family in the early 1800s, witnessed by multiple people including Andrew Jackson.", "High", "Historical documentation, multiple witnesses"},
+		{"mystery-007", "The Dyatlov Pass Incident", "conspiracy", "Ural Mountains, Russia", "2023-12-20", "Nine hikers found dead in 1959 under mysterious circumstances. Official cause: avalanche, but evidence suggests otherwise.", "High", "Official investigation files, forensic evidence"},
+		{"mystery-008", "The Jersey Devil", "urban-legend", "Pine Barrens, New Jersey", "2023-12-15", "Legendary creature said to inhabit the Pine Barrens. Sightings date back to 1735, with modern reports continuing.", "Medium", "Historical records, modern sightings"},
+		{"mystery-009", "MK-Ultra Program", "conspiracy", "Various locations, USA", "2023-12-10", "CIA mind control program declassified in 1970s. Experiments on unwitting subjects suggest deeper, ongoing programs.", "High", "Declassified documents, congressional hearings"},
+		{"mystery-010", "The Black Eyed Children", "paranormal", "Various locations, North America", "2023-12-05", "Modern urban legend of children with completely black eyes appearing at doors and asking for entry. Reports span multiple states.", "Low", "Modern eyewitness reports"},
+		{"mystery-011", "The Roswell Incident", "conspiracy", "Roswell, New Mexico", "2023-11-28", "Alleged 1947 UFO crash and government cover-up. Multiple witnesses, conflicting official statements.", "High", "Military personnel testimonies, official documents"},
+		{"mystery-012", "The Amityville Horror", "paranormal", "Amityville, New York", "2023-11-20", "Infamous haunted house case from 1974. Family fled after 28 days, claiming paranormal activity. Multiple investigations.", "Medium", "Family testimonies, paranormal investigations"},
+	}
+
+	stmt, err := db.Prepare(`INSERT OR IGNORE INTO mysteries (id, title, category, location, date, description, credibility, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, m := range mysteries {
+		_, err := stmt.Exec(m.id, m.title, m.category, m.location, m.date, m.description, m.credibility, m.source)
+		if err != nil {
+			log.Printf("Error seeding mystery %s: %v", m.id, err)
 		}
 	}
 

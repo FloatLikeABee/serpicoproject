@@ -41,12 +41,12 @@ const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
     </svg>
   );
 
-  const LeisureIcon = () => (
+  const MysteriesIcon = () => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2L2 7l10 5 10-5-10-5z" />
-      <path d="M2 17l10 5 10-5" />
-      <path d="M2 12l10 5 10-5" />
-      <circle cx="12" cy="12" r="2" fill="currentColor" />
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6M8 10h8" />
+      <path d="M9 15l3-3 3 3" />
+      <circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.3" />
     </svg>
   );
 
@@ -85,7 +85,7 @@ const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
   const policeNavItems = [
     { path: '/in-pursue', label: 'Pursue', icon: <PursueIcon /> },
     { path: '/perps-cases', label: 'Records', icon: <PerpsCasesIcon /> },
-    { path: '/leisure', label: 'Leisure', icon: <LeisureIcon /> },
+    { path: '/mysteries', label: 'Mysteries', icon: <MysteriesIcon /> },
   ];
 
   const civilianNavItems = [

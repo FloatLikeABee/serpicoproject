@@ -1,6 +1,7 @@
 package api
 
 import (
+	"serpico/backend/internal/ai"
 	"serpico/backend/internal/database"
 
 	"github.com/gin-gonic/gin"
@@ -78,6 +79,8 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		admin.POST("/officers", func(c *gin.Context) { handleAdminCreateOfficer(c, db) })
 		admin.GET("/emergencies", func(c *gin.Context) { handleAdminGetAllEmergencies(c, db) })
 		admin.POST("/emergencies", func(c *gin.Context) { handleAdminCreateEmergency(c, db) })
+		admin.GET("/mysteries", func(c *gin.Context) { handleAdminGetAllMysteries(c, db) })
+		admin.POST("/mysteries", func(c *gin.Context) { handleAdminCreateMystery(c, db) })
 		admin.GET("/users", func(c *gin.Context) { handleAdminGetAllUsers(c, db) })
 	}
 
@@ -89,6 +92,43 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		rag.POST("/documents", func(c *gin.Context) { handleRAGCreateDocument(c, aiService) })
 		rag.PUT("/documents/:id", func(c *gin.Context) { handleRAGUpdateDocument(c, aiService) })
 		rag.DELETE("/documents/:id", func(c *gin.Context) { handleRAGDeleteDocument(c, aiService) })
+		rag.GET("/summaries", func(c *gin.Context) {
+			service, ok := aiService.(*ai.AIService)
+			if !ok {
+				c.JSON(500, gin.H{"error": "AI service type assertion failed"})
+				return
+			}
+			handleGetRAGSummaries(c, service)
+		})
+	}
+
+	// Data Collection routes (admin only)
+	collection := r.Group("/admin/collection")
+	{
+		collection.POST("/url", func(c *gin.Context) {
+			service, ok := aiService.(*ai.AIService)
+			if !ok {
+				c.JSON(500, gin.H{"error": "AI service type assertion failed"})
+				return
+			}
+			handleCollectFromURL(c, service)
+		})
+		collection.POST("/api", func(c *gin.Context) {
+			service, ok := aiService.(*ai.AIService)
+			if !ok {
+				c.JSON(500, gin.H{"error": "AI service type assertion failed"})
+				return
+			}
+			handleCollectFromAPI(c, service)
+		})
+		collection.POST("/file", func(c *gin.Context) {
+			service, ok := aiService.(*ai.AIService)
+			if !ok {
+				c.JSON(500, gin.H{"error": "AI service type assertion failed"})
+				return
+			}
+			handleCollectFromFile(c, service)
+		})
 	}
 }
 

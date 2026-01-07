@@ -203,6 +203,20 @@
   color: #666;
 }
 
+.document-summary {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  border-left: 3px solid #667eea;
+}
+
+.document-summary strong {
+  color: #667eea;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
 .document-content {
   color: #333;
   line-height: 1.6;

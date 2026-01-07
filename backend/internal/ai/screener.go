@@ -29,37 +29,21 @@ func NewPromptScreener() *PromptScreener {
 
 // ScreenPrompt checks if the prompt should be processed
 // Returns: (shouldProcess, reason)
+// Now allows general questions - only filters out jibberish and very short prompts
 func (s *PromptScreener) ScreenPrompt(prompt string) (bool, string) {
 	promptLower := strings.ToLower(strings.TrimSpace(prompt))
 
 	// Check for empty or very short prompts
-	if len(promptLower) < 3 {
+	if len(promptLower) < 2 {
 		return false, "Prompt too short"
 	}
 
-	// Check for blocked patterns (chitchat, jibberish)
-	for _, pattern := range s.blockedPatterns {
-		if strings.Contains(promptLower, pattern) {
-			// Check if it's just chitchat without context
-			if !s.hasContextKeywords(promptLower) {
-				return false, "Contains blocked pattern: " + pattern
-			}
-		}
-	}
-
-	// Check for context relevance
-	if !s.hasContextKeywords(promptLower) {
-		// Check if it's a valid question format
-		if !s.isValidQuestion(promptLower) {
-			return false, "No relevant context keywords found"
-		}
-	}
-
-	// Check for jibberish (repeated characters, random strings)
+	// Only check for obvious jibberish (repeated characters, random strings)
 	if s.isJibberish(promptLower) {
 		return false, "Detected jibberish"
 	}
 
+	// Allow all other prompts - AI can answer general questions
 	return true, ""
 }
 

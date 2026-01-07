@@ -631,6 +631,75 @@ func handleAdminGetAllUsers(c *gin.Context, db *database.Database) {
 	c.JSON(http.StatusOK, gin.H{"users": users, "total": len(users)})
 }
 
+func handleAdminGetAllMysteries(c *gin.Context, db *database.Database) {
+	rows, err := db.SQLite.Query("SELECT id, title, category, location, date, description, credibility, source FROM mysteries ORDER BY date DESC")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	mysteries := []gin.H{}
+	for rows.Next() {
+		var id, title, category, location, date, description, credibility, source string
+		if err := rows.Scan(&id, &title, &category, &location, &date, &description, &credibility, &source); err != nil {
+			continue
+		}
+		mysteries = append(mysteries, gin.H{
+			"id":          id,
+			"title":       title,
+			"category":    category,
+			"location":    location,
+			"date":        date,
+			"description": description,
+			"credibility": credibility,
+			"source":      source,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"mysteries": mysteries, "total": len(mysteries)})
+}
+
+func handleAdminCreateMystery(c *gin.Context, db *database.Database) {
+	var req struct {
+		Title       string `json:"title"`
+		Category    string `json:"category"`
+		Location    string `json:"location"`
+		Date        string `json:"date"`
+		Description string `json:"description"`
+		Credibility string `json:"credibility"`
+		Source      string `json:"source"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Credibility == "" {
+		req.Credibility = "Medium"
+	}
+
+	id := "mystery-" + uuid.New().String()
+	_, err := db.SQLite.Exec("INSERT INTO mysteries (id, title, category, location, date, description, credibility, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		id, req.Title, req.Category, req.Location, req.Date, req.Description, req.Credibility, req.Source)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"id":          id,
+		"title":       req.Title,
+		"category":    req.Category,
+		"location":    req.Location,
+		"date":        req.Date,
+		"description": req.Description,
+		"credibility": req.Credibility,
+		"source":      req.Source,
+	})
+}
+
 // Admin login handler
 func handleAdminLogin(c *gin.Context) {
 	var req struct {

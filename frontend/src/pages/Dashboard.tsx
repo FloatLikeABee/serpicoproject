@@ -6,7 +6,7 @@ import Navigation from '../components/Navigation';
 import InPursue from '../pages/police/InPursue';
 import PerpsAndCases from '../pages/police/PerpsAndCases';
 import Emergency from '../pages/police/Emergency';
-import Leisure from '../pages/police/Leisure';
+import Mysteries from '../pages/police/Mysteries';
 import EmergencyButton from '../components/EmergencyButton';
 import NearbyOfficers from '../pages/civilian/NearbyOfficers';
 import NearbyPerps from '../pages/civilian/NearbyPerps';
@@ -38,7 +38,8 @@ const Dashboard: React.FC = () => {
             <Route path="/perps" element={<PerpsAndCases />} />
             <Route path="/case-library" element={<PerpsAndCases />} />
             <Route path="/emergency" element={<Emergency />} />
-            <Route path="/leisure" element={<Leisure />} />
+            <Route path="/mysteries" element={<Mysteries />} />
+            <Route path="/leisure" element={<Mysteries />} />
             
             {/* Civilian routes */}
             <Route path="/nearby-officers" element={<NearbyOfficers />} />
