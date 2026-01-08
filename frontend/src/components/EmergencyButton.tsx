@@ -23,18 +23,19 @@ const EmergencyButton: React.FC = () => {
   return (
     <button
       onClick={handleClick}
-      className={`fixed top-4 right-4 z-50 ${
+      className={`fixed top-3 right-3 sm:top-4 sm:right-4 z-50 ${
         isEmergencyPage 
-          ? 'bg-gray-600 hover:bg-gray-700' 
-          : 'bg-red-600 hover:bg-red-700'
-      } text-white rounded-full p-4 shadow-2xl transition-all transform hover:scale-110 ${
+          ? 'bg-gray-600 active:bg-gray-700' 
+          : 'bg-red-600 active:bg-red-700'
+      } text-white rounded-full p-3 sm:p-4 shadow-2xl transition-all active:scale-95 touch-manipulation ${
         isPulsing && !isEmergencyPage ? 'animate-pulse' : ''
       }`}
+      onTouchStart={() => setIsPulsing(false)}
       onMouseEnter={() => setIsPulsing(false)}
       onMouseLeave={() => !isEmergencyPage && setIsPulsing(true)}
       style={{
-        width: '64px',
-        height: '64px',
+        width: '56px',
+        height: '56px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

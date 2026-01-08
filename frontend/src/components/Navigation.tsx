@@ -100,37 +100,37 @@ const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
   return (
     <nav className={`fixed bottom-0 left-0 right-0 ${
       theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-    } border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'} z-30`}>
-      <div className="flex items-center justify-around px-2 py-2">
+    } border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'} z-30 safe-area-inset-bottom`}>
+      <div className="flex items-center justify-around px-1 sm:px-2 py-1.5 sm:py-2">
         {navItems.map((item, index) => (
           <React.Fragment key={item.path}>
             <button
               onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-colors ${
+              className={`flex flex-col items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors touch-manipulation min-w-[60px] sm:min-w-0 ${
                 isActive(item.path)
                   ? 'text-serpico-blue bg-serpico-blue bg-opacity-10'
                   : theme === 'dark'
-                  ? 'text-gray-400 hover:text-gray-200'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-gray-400 active:text-gray-200'
+                  : 'text-gray-600 active:text-gray-900'
               }`}
             >
-              <span className="mb-1">{item.icon}</span>
-              <span className="text-xs font-medium">{item.label}</span>
+              <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100">{item.icon}</span>
+              <span className="text-[10px] sm:text-xs font-medium leading-tight">{item.label}</span>
             </button>
             {/* Insert AI Chat button right after Pursue (first item for police) */}
             {user?.role === 'police' && index === 0 && (
               <button
                 onClick={() => navigate('/ai-chat')}
-                className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-colors ${
+                className={`flex flex-col items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors touch-manipulation min-w-[60px] sm:min-w-0 ${
                   isActive('/ai-chat')
                     ? 'text-serpico-blue bg-serpico-blue bg-opacity-10'
                     : theme === 'dark'
-                    ? 'text-gray-400 hover:text-gray-200'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'text-gray-400 active:text-gray-200'
+                    : 'text-gray-600 active:text-gray-900'
                 }`}
               >
-                <span className="mb-1"><AIIcon /></span>
-                <span className="text-xs font-medium">AI Chat</span>
+                <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100"><AIIcon /></span>
+                <span className="text-[10px] sm:text-xs font-medium leading-tight">AI Chat</span>
               </button>
             )}
           </React.Fragment>
@@ -140,31 +140,31 @@ const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
         {user?.role !== 'police' && (
           <button
             onClick={() => navigate('/ai-chat')}
-            className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-colors ${
+            className={`flex flex-col items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors touch-manipulation min-w-[60px] sm:min-w-0 ${
               isActive('/ai-chat')
                 ? 'text-serpico-blue bg-serpico-blue bg-opacity-10'
                 : theme === 'dark'
-                ? 'text-gray-400 hover:text-gray-200'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'text-gray-400 active:text-gray-200'
+                : 'text-gray-600 active:text-gray-900'
             }`}
           >
-            <span className="mb-1"><AIIcon /></span>
-            <span className="text-xs font-medium">AI Chat</span>
+            <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100"><AIIcon /></span>
+            <span className="text-[10px] sm:text-xs font-medium leading-tight">AI Chat</span>
           </button>
         )}
 
         <button
           onClick={() => navigate('/settings')}
-          className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-colors ${
+          className={`flex flex-col items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors touch-manipulation min-w-[60px] sm:min-w-0 ${
             isActive('/settings')
               ? 'text-serpico-blue bg-serpico-blue bg-opacity-10'
               : theme === 'dark'
-              ? 'text-gray-400 hover:text-gray-200'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'text-gray-400 active:text-gray-200'
+              : 'text-gray-600 active:text-gray-900'
           }`}
         >
-          <span className="mb-1"><SettingsIcon /></span>
-          <span className="text-xs font-medium">Settings</span>
+          <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100"><SettingsIcon /></span>
+          <span className="text-[10px] sm:text-xs font-medium leading-tight">Settings</span>
         </button>
       </div>
     </nav>

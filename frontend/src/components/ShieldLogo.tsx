@@ -2,9 +2,10 @@ import React from 'react';
 
 interface ShieldLogoProps {
   size?: number;
+  className?: string;
 }
 
-const ShieldLogo: React.FC<ShieldLogoProps> = ({ size = 60 }) => {
+const ShieldLogo: React.FC<ShieldLogoProps> = ({ size = 60, className }) => {
   return (
     <svg
       width={size}
@@ -12,6 +13,7 @@ const ShieldLogo: React.FC<ShieldLogoProps> = ({ size = 60 }) => {
       viewBox="0 0 100 100"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      className={className}
     >
       {/* Shield shape */}
       <path

@@ -23,12 +23,12 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className={`w-full max-w-md p-8 rounded-lg shadow-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
-        <div className="flex flex-col items-center mb-8">
-          <ShieldLogo size={80} />
-          <h1 className="text-3xl font-bold mt-4 text-serpico-red dark:text-serpico-red-light">Serpico</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">AI Police Assistant</p>
+    <div className={`min-h-screen flex items-center justify-center p-4 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className={`w-full max-w-md p-6 sm:p-8 rounded-lg shadow-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+        <div className="flex flex-col items-center mb-6 sm:mb-8">
+          <ShieldLogo size={64} className="sm:w-20 sm:h-20" />
+          <h1 className="text-2xl sm:text-3xl font-bold mt-4 text-serpico-red dark:text-serpico-red-light">Serpico</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">Serial Killers & Mysteries Database</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -60,28 +60,28 @@ const Login: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full bg-serpico-blue text-white py-2 rounded-lg hover:bg-serpico-blue-dark transition-colors"
+            className="w-full bg-serpico-blue text-white py-3 rounded-lg active:bg-serpico-blue-dark transition-colors touch-manipulation font-medium text-base"
           >
             Login
           </button>
         </form>
 
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           <button
             onClick={handleQuickLogin}
-            className="w-full bg-serpico-red text-white py-2 rounded-lg hover:bg-serpico-red-dark transition-colors mb-4"
+            className="w-full bg-serpico-red text-white py-3 rounded-lg active:bg-serpico-red-dark transition-colors mb-4 touch-manipulation font-medium text-base"
           >
             Quick Login (Mock)
           </button>
         </div>
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-4 sm:mt-6 space-y-3">
           <button
             onClick={async () => {
               await loginWithGoogle();
               navigate('/');
             }}
-            className="w-full flex items-center justify-center gap-2 border-2 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:border-gray-600"
+            className="w-full flex items-center justify-center gap-2 border-2 py-3 rounded-lg active:bg-gray-100 dark:active:bg-gray-700 transition-colors dark:border-gray-600 touch-manipulation font-medium"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -97,7 +97,7 @@ const Login: React.FC = () => {
               await loginWithApple();
               navigate('/');
             }}
-            className="w-full flex items-center justify-center gap-2 border-2 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:border-gray-600"
+            className="w-full flex items-center justify-center gap-2 border-2 py-3 rounded-lg active:bg-gray-100 dark:active:bg-gray-700 transition-colors dark:border-gray-600 touch-manipulation font-medium"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.18 1.8-2.8 1.57-2.2 4.78.48 5.94-.6 1.5-1.29 2.99-2.2 4.2l-.01-.01zm-2.03-12.23c.58-.68.97-1.63.85-2.57-.82.04-1.82.56-2.41 1.24-.53.61-.99 1.6-.85 2.53.92.07 1.87-.49 2.41-1.2z"/>

@@ -38,9 +38,9 @@ const InPursue: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col">
-      <div className={`p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <h1 className="text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Pursue</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">Active cases, pursuits, and nearby perps</p>
+      <div className={`p-3 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Pursue</h1>
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Active cases, pursuits, and nearby perps</p>
       </div>
       
       <div className="flex-1 relative">
@@ -52,11 +52,11 @@ const InPursue: React.FC = () => {
         <AIChatPanel context="in-pursue" />
       </div>
 
-      <div className={`p-4 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+      <div className={`p-3 sm:p-4 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium dark:text-gray-300">Active Pursuits</span>
-            <span className="text-sm text-serpico-red dark:text-serpico-red-light font-bold">2</span>
+            <span className="text-xs sm:text-sm font-medium dark:text-gray-300">Active Pursuits</span>
+            <span className="text-xs sm:text-sm text-serpico-red dark:text-serpico-red-light font-bold">2</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium dark:text-gray-300">Nearby Possible Perps</span>

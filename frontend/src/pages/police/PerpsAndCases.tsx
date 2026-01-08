@@ -10,6 +10,21 @@ const PerpsAndCases: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const categories = ['all', 'assault', 'sexual-assault', 'murder', 'robbery', 'unsolved'];
+  
+  const getCategoryLabel = (cat: string, isMobile: boolean = false) => {
+    if (isMobile) {
+      const mobileLabels: Record<string, string> = {
+        'all': 'All',
+        'assault': 'Assault',
+        'sexual-assault': 'Sexual',
+        'murder': 'Murder',
+        'robbery': 'Robbery',
+        'unsolved': 'Unsolved',
+      };
+      return mobileLabels[cat] || cat;
+    }
+    return cat.charAt(0).toUpperCase() + cat.slice(1).replace('-', ' ');
+  };
 
   const mockPerps = [
     { id: '1', alias: 'Subject Alpha', lastSeen: '2024-01-15', location: 'Downtown Olathe', cases: 3, status: 'Active' },
@@ -27,23 +42,24 @@ const PerpsAndCases: React.FC = () => {
 
   return (
     <div className={`h-full flex flex-col ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className={`p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Perps & Cases</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">AI chat with perp database and case library</p>
+      <div className={`p-3 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Records</h1>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Serial killers & case library</p>
           </div>
           <button
             onClick={() => setIsChatOpen(true)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-lg font-medium transition-colors touch-manipulation text-xs sm:text-base ${
               theme === 'dark'
-                ? 'bg-serpico-blue hover:bg-serpico-blue-dark text-white'
-                : 'bg-serpico-blue hover:bg-serpico-blue-dark text-white'
+                ? 'bg-serpico-blue active:bg-serpico-blue-dark text-white'
+                : 'bg-serpico-blue active:bg-serpico-blue-dark text-white'
             }`}
           >
             <svg
-              width="20"
-              height="20"
+              width="18"
+              height="18"
+              className="sm:w-5 sm:h-5"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -55,46 +71,49 @@ const PerpsAndCases: React.FC = () => {
               <path d="M12 6v12M6 12h12" />
               <circle cx="12" cy="12" r="3" fill="currentColor" />
             </svg>
-            <span>AI Chat</span>
+            <span className="whitespace-nowrap">AI Chat</span>
           </button>
         </div>
         
         {/* Tab Switcher */}
-        <div className="mt-4 flex gap-2">
+        <div className="mt-3 sm:mt-4 flex gap-2">
           <button
             onClick={() => setActiveTab('perps')}
-            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium ${
+            className={`flex-1 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium touch-manipulation ${
               activeTab === 'perps'
                 ? 'bg-serpico-blue text-white'
                 : theme === 'dark'
-                ? 'bg-gray-700 text-gray-300'
-                : 'bg-gray-200 text-gray-700'
+                ? 'bg-gray-700 active:bg-gray-600 text-gray-300'
+                : 'bg-gray-200 active:bg-gray-300 text-gray-700'
             }`}
+            title="Serial Killers"
           >
-            Perps
+            <span className="hidden sm:inline">Serial Killers</span>
+            <span className="sm:hidden">Killers</span>
           </button>
           <button
             onClick={() => setActiveTab('cases')}
-            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium ${
+            className={`flex-1 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium touch-manipulation ${
               activeTab === 'cases'
                 ? 'bg-serpico-blue text-white'
                 : theme === 'dark'
-                ? 'bg-gray-700 text-gray-300'
-                : 'bg-gray-200 text-gray-700'
+                ? 'bg-gray-700 active:bg-gray-600 text-gray-300'
+                : 'bg-gray-200 active:bg-gray-300 text-gray-700'
             }`}
+            title="Cases"
           >
             Cases
           </button>
         </div>
 
         {/* Search */}
-        <div className="mt-4">
+        <div className="mt-3 sm:mt-4">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={activeTab === 'perps' ? 'Search perps...' : 'Search cases...'}
-            className={`w-full px-4 py-2 rounded-lg border ${
+            placeholder={activeTab === 'perps' ? 'Search serial killers...' : 'Search cases...'}
+            className={`w-full px-3 sm:px-4 py-2 rounded-lg border text-sm sm:text-base ${
               theme === 'dark'
                 ? 'bg-gray-700 border-gray-600 text-white'
                 : 'bg-white border-gray-300'
@@ -104,43 +123,45 @@ const PerpsAndCases: React.FC = () => {
 
         {/* Case Categories */}
         {activeTab === 'cases' && (
-          <div className="mt-4 flex gap-2 overflow-x-auto">
+          <div className="mt-3 sm:mt-4 flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 -mx-3 sm:mx-0 px-3 sm:px-0 scrollbar-hide">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
+                className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-sm font-medium whitespace-nowrap touch-manipulation flex-shrink-0 ${
                   selectedCategory === cat
                     ? 'bg-serpico-red text-white'
                     : theme === 'dark'
-                    ? 'bg-gray-700 text-gray-300'
-                    : 'bg-gray-200 text-gray-700'
+                    ? 'bg-gray-700 active:bg-gray-600 text-gray-300'
+                    : 'bg-gray-200 active:bg-gray-300 text-gray-700'
                 }`}
+                title={getCategoryLabel(cat, false)}
               >
-                {cat.charAt(0).toUpperCase() + cat.slice(1).replace('-', ' ')}
+                <span className="hidden sm:inline">{getCategoryLabel(cat, false)}</span>
+                <span className="sm:hidden">{getCategoryLabel(cat, true)}</span>
               </button>
             ))}
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
         {activeTab === 'perps' ? (
           mockPerps.map((perp) => (
             <div
               key={perp.id}
-              className={`p-4 rounded-lg ${
+              className={`p-3 sm:p-4 rounded-lg ${
                 theme === 'dark' ? 'bg-gray-800' : 'bg-white'
               } shadow-sm`}
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg dark:text-white">{perp.alias}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base sm:text-lg dark:text-white break-words">{perp.alias}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 break-words">
                     📍 {perp.location} • Last seen: {perp.lastSeen} • Cases: {perp.cases}
                   </p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 self-start sm:self-auto ${
                   perp.status === 'Active' || perp.status === 'Wanted'
                     ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                     : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
@@ -154,18 +175,18 @@ const PerpsAndCases: React.FC = () => {
           mockCases.map((caseItem) => (
             <div
               key={caseItem.id}
-              className={`p-4 rounded-lg ${
+              className={`p-3 sm:p-4 rounded-lg ${
                 theme === 'dark' ? 'bg-gray-800' : 'bg-white'
               } shadow-sm`}
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg dark:text-white">{caseItem.type}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base sm:text-lg dark:text-white break-words">{caseItem.type}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 break-words">
                     📅 {caseItem.date} • 📍 {caseItem.location}
                   </p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 self-start sm:self-auto ${
                   caseItem.status === 'Solved'
                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                     : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
@@ -178,9 +199,9 @@ const PerpsAndCases: React.FC = () => {
         )}
       </div>
 
-      <div className={`p-4 border-t ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-          💬 Click the AI Chat button above to query {activeTab === 'perps' ? 'perp' : 'case'} information
+      <div className={`p-3 sm:p-4 border-t ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center">
+          💬 Click the AI Chat button above to query {activeTab === 'perps' ? 'serial killer' : 'case'} information
         </p>
       </div>
 

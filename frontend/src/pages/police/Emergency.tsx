@@ -24,18 +24,18 @@ const Emergency: React.FC = () => {
 
   return (
     <div className={`h-full flex flex-col ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className={`p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <h1 className="text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Emergency / 911 Dispatch</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
+      <div className={`p-3 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Emergency / 911 Dispatch</h1>
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
           AI-categorized notifications for {user?.rank || 'Officer'}
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
         {emergencies.map((emergency) => (
           <div
             key={emergency.id}
-            className={`p-4 rounded-lg border-l-4 ${
+            className={`p-3 sm:p-4 rounded-lg border-l-4 ${
               emergency.priority === 'High'
                 ? 'border-red-500'
                 : emergency.priority === 'Medium'
@@ -43,9 +43,9 @@ const Emergency: React.FC = () => {
                 : 'border-green-500'
             } ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-sm`}
           >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-lg dark:text-white">{emergency.type}</h3>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(emergency.priority)}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+              <h3 className="font-semibold text-base sm:text-lg dark:text-white break-words">{emergency.type}</h3>
+              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 self-start sm:self-auto ${getPriorityColor(emergency.priority)}`}>
                 {emergency.priority}
               </span>
             </div>

@@ -25,21 +25,21 @@ const Settings: React.FC = () => {
 
   return (
     <div className={`h-full flex flex-col ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className={`p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <div className="flex items-center gap-3">
-          <ShieldLogo size={40} />
-          <div>
-            <h1 className="text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Settings</h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">Manage your profile and preferences</p>
+      <div className={`p-3 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <ShieldLogo size={32} className="sm:w-10 sm:h-10" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Settings</h1>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Manage your profile and preferences</p>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
         {/* User Profile */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">User Profile</h2>
-          <div className={`p-4 rounded-lg space-y-4 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+          <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 dark:text-white">User Profile</h2>
+          <div className={`p-3 sm:p-4 rounded-lg space-y-3 sm:space-y-4 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
             <div>
               <label className="block text-sm font-medium mb-2 dark:text-gray-300">Name</label>
               <input
