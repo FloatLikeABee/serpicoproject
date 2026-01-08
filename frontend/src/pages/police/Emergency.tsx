@@ -6,9 +6,10 @@ const Emergency: React.FC = () => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const [emergencies] = useState([
-    { id: '1', type: 'Armed Robbery', priority: 'High', location: '123 Main St', time: '2 min ago', category: 'Crime' },
-    { id: '2', type: 'Domestic Disturbance', priority: 'Medium', location: '456 Oak Ave', time: '5 min ago', category: 'Domestic' },
-    { id: '3', type: 'Traffic Accident', priority: 'Low', location: '789 Pine Rd', time: '10 min ago', category: 'Traffic' },
+    { id: '1', type: 'New Serial Killer Case', priority: 'High', location: 'Portland, Oregon', time: '2 hours ago', category: 'Serial Killer', description: 'Pattern of unsolved murders detected. Possible connection to previous cases.' },
+    { id: '2', type: 'Paranormal Activity Report', priority: 'Medium', location: 'Point Pleasant, WV', time: '5 hours ago', category: 'Paranormal', description: 'Multiple Mothman sightings reported. Witnesses describe large winged creature.' },
+    { id: '3', type: 'Conspiracy Theory Alert', priority: 'Low', location: 'Nevada', time: '1 day ago', category: 'Conspiracy', description: 'New Area 51 whistleblower testimony. Classified documents may be relevant.' },
+    { id: '4', type: 'Urban Legend Activity', priority: 'Medium', location: 'Various locations', time: '2 days ago', category: 'Urban Legend', description: 'Increased reports of vanishing hitchhiker phenomenon across multiple states.' },
   ]);
 
   const getPriorityColor = (priority: string) => {
@@ -25,9 +26,9 @@ const Emergency: React.FC = () => {
   return (
     <div className={`h-full flex flex-col ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className={`p-3 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Emergency / 911 Dispatch</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Alerts & Notifications</h1>
         <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
-          AI-categorized notifications for {user?.rank || 'Officer'}
+          New serial killer cases, paranormal events, urban legends & conspiracy theories
         </p>
       </div>
 
@@ -50,16 +51,21 @@ const Emergency: React.FC = () => {
               </span>
             </div>
             <div className="space-y-1 text-sm">
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-gray-600 dark:text-gray-400 break-words">
                 📍 {emergency.location}
               </p>
               <p className="text-gray-600 dark:text-gray-400">
                 🏷️ {emergency.category} • ⏰ {emergency.time}
               </p>
+              {(emergency as any).description && (
+                <p className="text-gray-700 dark:text-gray-300 mt-2 break-words">
+                  {(emergency as any).description}
+                </p>
+              )}
             </div>
             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                💡 AI Suggestion: Based on your rank and location, this case matches your expertise.
+                💡 AI Insight: This alert matches your interests and expertise in {emergency.category.toLowerCase()} cases.
               </p>
             </div>
           </div>

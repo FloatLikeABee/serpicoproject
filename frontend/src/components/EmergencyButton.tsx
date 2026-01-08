@@ -40,7 +40,7 @@ const EmergencyButton: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'center',
       }}
-      title={isEmergencyPage ? 'Close Emergency Panel' : 'Open Emergency / 911 Dispatch'}
+      title={isEmergencyPage ? 'Close Alerts Panel' : 'Open Alerts & Notifications'}
     >
       <svg
         width="32"
@@ -48,13 +48,21 @@ const EmergencyButton: React.FC = () => {
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-        <line x1="12" y1="9" x2="12" y2="13" />
-        <line x1="12" y1="17" x2="12.01" y2="17" />
+        {/* Crystal ball with sparkles - fun mystery icon */}
+        <circle cx="12" cy="10" r="7" />
+        <ellipse cx="12" cy="17" rx="7" ry="2" />
+        {/* Sparkles around the ball */}
+        <path d="M5 5l1 1M19 5l-1 1M5 19l1-1M19 19l-1-1" strokeWidth="1.5" />
+        <circle cx="5" cy="5" r="0.5" fill="currentColor" />
+        <circle cx="19" cy="5" r="0.5" fill="currentColor" />
+        <circle cx="5" cy="19" r="0.5" fill="currentColor" />
+        <circle cx="19" cy="19" r="0.5" fill="currentColor" />
+        {/* Inner glow */}
+        <circle cx="12" cy="10" r="3" fill="currentColor" opacity="0.3" />
       </svg>
     </button>
   );

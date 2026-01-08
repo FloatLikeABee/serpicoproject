@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import Navigation from '../components/Navigation';
@@ -11,7 +11,6 @@ import EmergencyButton from '../components/EmergencyButton';
 import NearbyOfficers from '../pages/civilian/NearbyOfficers';
 import NearbyPerps from '../pages/civilian/NearbyPerps';
 import SafeRoutes from '../pages/civilian/SafeRoutes';
-import CrimeNotifications from '../pages/civilian/CrimeNotifications';
 import Settings from '../pages/Settings';
 import AIChat from '../pages/AIChat';
 
@@ -45,7 +44,8 @@ const Dashboard: React.FC = () => {
             <Route path="/nearby-officers" element={<NearbyOfficers />} />
             <Route path="/nearby-perps" element={<NearbyPerps />} />
             <Route path="/safe-routes" element={<SafeRoutes />} />
-            <Route path="/crime-notifications" element={<CrimeNotifications />} />
+            {/* crime-notifications route redirects - now opens modal via Navigation */}
+            <Route path="/crime-notifications" element={<Navigate to="/" replace />} />
             
             {/* Common routes */}
             <Route path="/ai-chat" element={<AIChat />} />

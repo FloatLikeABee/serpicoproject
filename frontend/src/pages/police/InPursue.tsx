@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import MapCanvas from '../../components/MapCanvas';
-import AIChatPanel from '../../components/AIChatPanel';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const InPursue: React.FC = () => {
@@ -49,7 +48,6 @@ const InPursue: React.FC = () => {
           zoom={13}
           markers={pursuits}
         />
-        <AIChatPanel context="in-pursue" />
       </div>
 
       <div className={`p-3 sm:p-4 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>

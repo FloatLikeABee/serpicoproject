@@ -1,78 +1,78 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
-
-interface Notification {
-  id: string;
-  type: string;
-  category: string;
-  severity: string;
-  location: string;
-  time: string;
-  description: string;
-}
 
 const CrimeNotifications: React.FC = () => {
   const { theme } = useTheme();
+  const navigate = useNavigate();
 
-  const mockNotifications: Notification[] = [
-    { id: '1', type: 'New Serial Case', category: 'Serial Killer', severity: 'High', location: 'Portland, Oregon', time: '2 days ago', description: 'Pattern of unsolved murders detected' },
-    { id: '2', type: 'Paranormal Event', category: 'Paranormal', severity: 'Medium', location: 'Point Pleasant, WV', time: '5 days ago', description: 'Mothman sightings reported' },
-    { id: '3', type: 'Urban Legend', category: 'Urban Legend', severity: 'Low', location: 'Various locations', time: '1 week ago', description: 'New reports of vanishing hitchhiker' },
-    { id: '4', type: 'Conspiracy Theory', category: 'Conspiracy', severity: 'Medium', location: 'Nevada', time: '3 days ago', description: 'Area 51 whistleblower testimony' },
-    { id: '5', type: 'New Serial Case', category: 'Serial Killer', severity: 'High', location: 'Phoenix, Arizona', time: '1 week ago', description: 'Multiple bodies found with similar MO' },
-    { id: '6', type: 'Paranormal Event', category: 'Paranormal', severity: 'High', location: 'Ballard, Utah', time: '2 weeks ago', description: 'Skinwalker Ranch new documentation' },
-  ];
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'High':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'Medium':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      default:
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-    }
+  const handleAIChatClick = () => {
+    navigate('/ai-chat');
   };
 
   return (
-    <div className={`h-full flex flex-col ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className={`p-3 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <h1 className="text-xl sm:text-2xl font-bold text-serpico-blue dark:text-serpico-blue-light">Notifications</h1>
-        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">New serial cases, paranormal events, urban legends & conspiracy theories</p>
-      </div>
+    <div className={`h-full flex flex-col items-center justify-center p-4 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className={`w-full max-w-md p-6 sm:p-8 rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-serpico-blue bg-opacity-10 mb-4">
+            <svg
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-serpico-blue"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v12M6 12h12" />
+              <circle cx="12" cy="12" r="3" fill="currentColor" />
+            </svg>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-serpico-blue dark:text-serpico-blue-light mb-2">
+            AI Chat
+          </h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+            Get instant answers about serial killers, mysteries, and case information
+          </p>
+        </div>
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
-        {mockNotifications.map((notification) => (
-          <div
-            key={notification.id}
-            className={`p-3 sm:p-4 rounded-lg border-l-4 ${
-              notification.severity === 'High'
-                ? 'border-red-500'
-                : notification.severity === 'Medium'
-                ? 'border-yellow-500'
-                : 'border-green-500'
-            } ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-sm`}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-base sm:text-lg dark:text-white break-words">{notification.type}</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{notification.category}</p>
-              </div>
-              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 self-start sm:self-auto ${getSeverityColor(notification.severity)}`}>
-                {notification.severity}
-              </span>
-            </div>
-            <div className="space-y-1 text-sm">
-              <p className="text-gray-700 dark:text-gray-300 break-words">{notification.description}</p>
-              <p className="text-gray-600 dark:text-gray-400 break-words">
-                📍 {notification.location}
-              </p>
-              <p className="text-gray-600 dark:text-gray-400">
-                ⏰ {notification.time}
-              </p>
+        <button
+          onClick={handleAIChatClick}
+          className={`w-full py-4 px-6 rounded-lg font-semibold text-lg transition-all transform active:scale-95 touch-manipulation ${
+            theme === 'dark'
+              ? 'bg-serpico-blue hover:bg-serpico-blue-dark text-white'
+              : 'bg-serpico-blue hover:bg-serpico-blue-dark text-white'
+          } shadow-lg`}
+        >
+          Open AI Chat
+        </button>
+
+        <div className="mt-6 space-y-3 text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">🔍</span>
+            <div>
+              <p className="font-medium dark:text-gray-300">Search Cases</p>
+              <p className="text-xs">Ask about serial killers and their cases</p>
             </div>
           </div>
-        ))}
+          <div className="flex items-start gap-3">
+            <span className="text-xl">👻</span>
+            <div>
+              <p className="font-medium dark:text-gray-300">Explore Mysteries</p>
+              <p className="text-xs">Learn about paranormal events and urban legends</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="text-xl">📚</span>
+            <div>
+              <p className="font-medium dark:text-gray-300">Study Guides</p>
+              <p className="text-xs">Access forensic studies and profiling techniques</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

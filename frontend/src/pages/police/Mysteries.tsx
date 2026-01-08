@@ -304,7 +304,7 @@ const Mysteries: React.FC = () => {
       )}
 
       {/* Content List */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3 sm:space-y-4" style={{ minHeight: 0 }}>
         {selectedCategory === 'studies' ? (
           // Studies content
           (() => {
@@ -322,18 +322,18 @@ const Mysteries: React.FC = () => {
               studies.map((study) => (
                 <div
                   key={study.id}
-                  className={`p-4 sm:p-5 rounded-lg border-l-4 border-blue-500 ${
+                  className={`p-3 sm:p-4 sm:p-5 rounded-lg border-l-4 border-blue-500 ${
                     theme === 'dark' ? 'bg-gray-800' : 'bg-white'
                   } shadow-sm hover:shadow-md transition-shadow`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0 mb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-2 sm:gap-0 mb-2 sm:mb-3">
                     <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                      <span className="text-2xl sm:text-3xl flex-shrink-0">
+                      <span className="text-xl sm:text-2xl sm:text-3xl flex-shrink-0">
                         {selectedStudyType === 'forensic' ? '🔬' : selectedStudyType === 'case-studies' ? '📋' : '🧠'}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-bold text-base sm:text-lg dark:text-white break-words">{study.title}</h3>
-                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 break-words">
+                        <h3 className="font-bold text-sm sm:text-base sm:text-lg dark:text-white break-words">{study.title}</h3>
+                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 break-words">
                           📅 {study.date}
                           {selectedStudyType === 'forensic' && ' • ' + (study as any).duration}
                           {selectedStudyType === 'case-studies' && ' • ' + (study as any).cases}
@@ -365,11 +365,11 @@ const Mysteries: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words mb-2">
+                  <p className="text-xs sm:text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words mb-1 sm:mb-2">
                     {study.description}
                   </p>
                   {selectedStudyType === 'profiling' && (
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 italic">
+                    <p className="text-[10px] sm:text-xs sm:text-sm text-gray-600 dark:text-gray-400 italic">
                       Examples: {(study as any).examples}
                     </p>
                   )}
@@ -385,7 +385,7 @@ const Mysteries: React.FC = () => {
           filteredMysteries.map((mystery) => (
             <div
               key={mystery.id}
-              className={`p-4 sm:p-5 rounded-lg border-l-4 ${
+              className={`p-3 sm:p-4 sm:p-5 rounded-lg border-l-4 ${
                 mystery.category === 'paranormal'
                   ? 'border-purple-500'
                   : mystery.category === 'urban-legend'
@@ -393,12 +393,12 @@ const Mysteries: React.FC = () => {
                   : 'border-orange-500'
               } ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-sm hover:shadow-md transition-shadow`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0 mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-2 sm:gap-0 mb-2 sm:mb-3">
                 <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                  <span className="text-2xl sm:text-3xl flex-shrink-0">{getCategoryIcon(mystery.category)}</span>
+                  <span className="text-xl sm:text-2xl sm:text-3xl flex-shrink-0">{getCategoryIcon(mystery.category)}</span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-base sm:text-lg dark:text-white break-words">{mystery.title}</h3>
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 break-words">
+                    <h3 className="font-bold text-sm sm:text-base sm:text-lg dark:text-white break-words">{mystery.title}</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 break-words">
                       📍 {mystery.location} • 📅 {mystery.date}
                     </p>
                   </div>
@@ -407,13 +407,13 @@ const Mysteries: React.FC = () => {
                   {mystery.credibility}
                 </span>
               </div>
-              <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words">{mystery.description}</p>
+              <p className="text-xs sm:text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words">{mystery.description}</p>
             </div>
           ))
         )}
       </div>
 
-      <div className={`p-3 sm:p-4 border-t ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className={`p-2 sm:p-3 sm:p-4 border-t flex-shrink-0 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center">
           💬 Open AI Chat to explore mysteries and get detailed information
         </p>
