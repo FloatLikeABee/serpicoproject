@@ -131,6 +131,49 @@ Provide a helpful, accurate, and informative response. If relevant context is av
 	return responseText, nil
 }
 
+// GenerateWithPrompt sends a custom system + user prompt to Mistral.
+func (m *MistralClient) GenerateWithPrompt(systemPrompt, userPrompt string) (string, error) {
+	request := MistralChatRequest{
+		Model: m.model,
+		Messages: []MistralMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+	}
+
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://api.mistral.ai/v1/chat/completions", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+m.apiKey)
+
+	resp, err := m.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("API error: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var chatResp MistralChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+	if len(chatResp.Choices) == 0 || chatResp.Choices[0].Message.Content == "" {
+		return "", fmt.Errorf("empty response from API")
+	}
+	return chatResp.Choices[0].Message.Content, nil
+}
+
 func (m *MistralClient) buildContext(ragDocs []RAGDocument, webSearch string) string {
 	if len(ragDocs) == 0 && webSearch == "" {
 		return "No relevant context found."
