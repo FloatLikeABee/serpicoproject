@@ -5,6 +5,10 @@ services:
     env: static
     buildCommand: cd frontend && npm config set registry https://registry.npmjs.org/ && sed -i 's|https://r2\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && sed -i 's|https://r\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && npm install --registry=https://registry.npmjs.org/ && npm run build
     staticPublishPath: ./frontend/build
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: REACT_APP_API_URL
         sync: false  # Set this in Render dashboard to your backend URL
@@ -15,6 +19,10 @@ services:
     env: static
     buildCommand: cd admin-frontend && npm config set registry https://registry.npmjs.org/ && sed -i 's|https://r2\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && sed -i 's|https://r\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && npm install --registry=https://registry.npmjs.org/ && npm run build
     staticPublishPath: ./admin-frontend/build
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: REACT_APP_API_URL
         sync: false  # Set this in Render dashboard to your backend URL
