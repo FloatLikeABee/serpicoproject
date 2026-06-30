@@ -52,6 +52,17 @@ const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
     </svg>
   );
 
+  const ChaseGameIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 17h14l-1.5-4.5H6.5L5 17z" />
+      <path d="M7 17l-1-3h12l-1 3" />
+      <circle cx="7.5" cy="17.5" r="1.5" fill="currentColor" />
+      <circle cx="16.5" cy="17.5" r="1.5" fill="currentColor" />
+      <path d="M9 9.5l3-4 3 4" />
+      <path d="M12 5.5V3" />
+    </svg>
+  );
+
   const OfficersIcon = () => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -88,6 +99,7 @@ const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
   const policeNavItems: NavItem[] = [
     { path: '/in-pursue', label: 'Pursue', icon: <PursueIcon /> },
     { path: '/perps-cases', label: 'Records', icon: <PerpsCasesIcon /> },
+    { path: '/chase-game', label: 'Chase', icon: <ChaseGameIcon /> },
     { path: '/mysteries', label: 'Mysteries', icon: <MysteriesIcon /> },
   ];
 

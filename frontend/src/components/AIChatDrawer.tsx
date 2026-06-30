@@ -31,6 +31,7 @@ const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose, context })
       'nearby-perps': 'Hello! I can provide information about recent criminal activity in Olathe. What would you like to know?',
       'safe-routes': 'Hello! I can help you find safe routes in Olathe based on recent crime data. Where would you like to go?',
       'crime-notifications': 'Hello! I can help you understand recent crime notifications in Olathe. What information do you need?',
+      'chase-game': 'Hello! Ready for pursuit training? I can explain Chase Game rules, pursuit codex tips, and debrief your strategy.',
     };
     return contextMessages[context || ''] || 'Hello! I\'m your Serpico AI assistant for Olathe PD. How can I help you today?';
   };

@@ -7,6 +7,7 @@ import InPursue from '../pages/police/InPursue';
 import PerpsAndCases from '../pages/police/PerpsAndCases';
 import Emergency from '../pages/police/Emergency';
 import Mysteries from '../pages/police/Mysteries';
+import ChaseGame from '../pages/police/ChaseGame';
 import EmergencyButton from '../components/EmergencyButton';
 import NearbyOfficers from '../pages/civilian/NearbyOfficers';
 import NearbyPerps from '../pages/civilian/NearbyPerps';
@@ -39,6 +40,7 @@ const Dashboard: React.FC = () => {
             <Route path="/emergency" element={<Emergency />} />
             <Route path="/mysteries" element={<Mysteries />} />
             <Route path="/leisure" element={<Mysteries />} />
+            <Route path="/chase-game" element={<ChaseGame />} />
             
             {/* Civilian routes */}
             <Route path="/nearby-officers" element={<NearbyOfficers />} />

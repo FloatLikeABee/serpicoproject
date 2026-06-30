@@ -145,6 +145,51 @@ Provide a helpful, accurate, and informative response. If relevant context is av
 	return responseText, nil
 }
 
+// GenerateWithPrompt sends a custom system + user prompt to Gemini.
+func (g *GeminiClient) GenerateWithPrompt(systemPrompt, userPrompt string) (string, error) {
+	prompt := fmt.Sprintf("%s\n\n%s", systemPrompt, userPrompt)
+
+	request := ChatRequest{
+		Contents: []Content{
+			{
+				Parts: []Part{{Text: prompt}},
+			},
+		},
+	}
+
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", g.model, g.apiKey)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("API error: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var chatResp ChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+	if len(chatResp.Candidates) == 0 || len(chatResp.Candidates[0].Content.Parts) == 0 {
+		return "", fmt.Errorf("empty response from API")
+	}
+	return chatResp.Candidates[0].Content.Parts[0].Text, nil
+}
+
 func (g *GeminiClient) buildContext(ragDocs []RAGDocument, webSearch string) string {
 	if len(ragDocs) == 0 && webSearch == "" {
 		return "No relevant context found."

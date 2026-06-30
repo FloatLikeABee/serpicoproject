@@ -14,6 +14,7 @@ type AIService struct {
 	rag         *RAGDatabase
 	webSearch   *WebSearchTool
 	screener    *PromptScreener
+	ChaseGame   *ChaseGameService
 }
 
 func NewAIService(config *Config) (*AIService, error) {
@@ -24,18 +25,23 @@ func NewAIService(config *Config) (*AIService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize RAG database: %w", err)
 	}
+	rag.EnsureChaseGameDocuments()
 
 	webSearch := NewWebSearchTool(config.EnableWebSearch)
 	screener := NewPromptScreener()
+	imageGen := NewImageGenerator(config)
 
-	return &AIService{
+	service := &AIService{
 		config:    config,
 		gemini:    gemini,
 		mistral:   mistral,
 		rag:       rag,
 		webSearch: webSearch,
 		screener:  screener,
-	}, nil
+	}
+	service.ChaseGame = NewChaseGameService(service, imageGen, config.ChaseGameMaxRounds)
+
+	return service, nil
 }
 
 // ProcessChat handles a chat message and returns AI response

@@ -36,4 +36,16 @@ services:
         value: ./data/rag
       - key: ENABLE_WEB_SEARCH
         value: "true"
+      - key: CHASE_GAME_MAX_ROUNDS
+        value: "4"
+      - key: IMAGE_PROVIDER
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_IMAGE_MODEL
+        value: dall-e-3
+      - key: STABILITY_API_KEY
+        sync: false
+      - key: REPLICATE_API_TOKEN
+        sync: false
 

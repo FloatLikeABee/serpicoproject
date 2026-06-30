@@ -60,6 +60,14 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		chat.POST("", func(c *gin.Context) { handleChat(c, aiService) })
 	}
 
+	// Chase Game routes
+	chaseGame := r.Group("/chase-game")
+	{
+		chaseGame.POST("/start", func(c *gin.Context) { handleChaseGameStart(c, aiService) })
+		chaseGame.GET("/:id", func(c *gin.Context) { handleChaseGameGet(c, aiService) })
+		chaseGame.POST("/:id/respond", func(c *gin.Context) { handleChaseGameRespond(c, aiService) })
+	}
+
 	// Recommendations routes
 	recommendations := r.Group("/recommendations")
 	{

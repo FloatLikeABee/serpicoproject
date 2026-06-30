@@ -163,6 +163,76 @@ func (r *RAGDatabase) seedDocuments() error {
 	return r.saveDocuments()
 }
 
+// EnsureChaseGameDocuments adds pursuit codex docs if missing (for existing installs).
+func (r *RAGDatabase) EnsureChaseGameDocuments() {
+	chaseDocs := []RAGDocument{
+		{
+			ID:       "rag-chase-001",
+			Title:    "IACP Pursuit Operation Codex — Core Principles",
+			Content:  "Standard pursuit doctrine: 1) Pursuits must balance apprehension with public safety. 2) Supervisors must be notified immediately. 3) Terminate when risk to uninvolved persons exceeds benefit of immediate capture. 4) Primary unit maintains radio updates every 30 seconds. 5) Only trained units perform PIT or precision immobilization. 6) Foot pursuits require perimeter coordination before entry into unknown structures.",
+			Category: "chase-game",
+			Location: "National",
+			Tags:     []string{"chase", "game", "codex", "pursuit", "operation", "IACP"},
+		},
+		{
+			ID:       "rag-chase-002",
+			Title:    "Olathe PD Vehicle Pursuit Decision Matrix",
+			Content:  "Vehicle pursuit scoring criteria: +15 call supervisor early, +10 maintain 3-5 car length gap, +10 request air or parallel units, +10 coordinate spike strips on highway exits, -20 unnecessary high-speed in residential zones, -25 passing stopped school bus or active crosswalk, -30 PIT without authorization. Terminate pursuit when suspect identity is confirmed and containment is viable.",
+			Category: "chase-game",
+			Location: "Olathe, KS",
+			Tags:     []string{"chase", "game", "vehicle", "scoring", "codex"},
+		},
+		{
+			ID:       "rag-chase-003",
+			Title:    "Foot Pursuit Operation Codex",
+			Content:  "Foot pursuit protocol: 1) Announce foot pursuit on radio with direction of travel. 2) Primary pursuer must not enter blind alleys alone — hold containment. 3) K-9 request within first 2 minutes when available. 4) Perimeter units seal exits before interior entry. 5) Less-lethal and med standby for known armed subjects. 6) Document suspect description and discarded clothing/weapons.",
+			Category: "chase-game",
+			Location: "Olathe, KS",
+			Tags:     []string{"chase", "game", "foot", "pursuit", "codex"},
+		},
+		{
+			ID:       "rag-chase-004",
+			Title:    "Specimen Case OPS-2019-14 — Downtown Containment Success",
+			Content:  "Case study: Stolen vehicle pursuit downtown Olathe. Lead unit reduced speed, maintained visual, parallel unit blocked side streets. Suspect bailed on foot; perimeter established within 3 minutes. K-9 track from discarded jacket led to arrest in 12 minutes. Zero civilian injuries. Key lesson: containment beat raw speed.",
+			Category: "chase-game",
+			Location: "Olathe, KS",
+			Tags:     []string{"chase", "game", "case-study", "specimen", "containment"},
+		},
+		{
+			ID:       "rag-chase-005",
+			Title:    "Specimen Case HWY-2021-07 — Highway Spike Deployment",
+			Content:  "Case study: Armed robbery suspect on I-35. Units maintained distance, state patrol coordinated spike strips at exit 151. Suspect vehicle disabled safely; felony stop completed. No collisions. Key lesson: pre-staging tools beats prolonged high-speed chase.",
+			Category: "chase-game",
+			Location: "Olathe, KS",
+			Tags:     []string{"chase", "game", "case-study", "highway", "spike-strips"},
+		},
+		{
+			ID:       "rag-chase-006",
+			Title:    "Specimen Case RES-2020-03 — Residential Pursuit Termination",
+			Content:  "Case study: Pursuit entered dense neighborhood at 50+ mph. Supervisor ordered termination; air unit maintained visual. Suspect parked and fled on foot; perimeter + K-9 secured arrest 20 minutes later. Key lesson: correct termination preserved public safety without losing case.",
+			Category: "chase-game",
+			Location: "Olathe, KS",
+			Tags:     []string{"chase", "game", "case-study", "residential", "termination"},
+		},
+	}
+
+	existing := make(map[string]bool)
+	for _, doc := range r.documents {
+		existing[doc.ID] = true
+	}
+
+	added := false
+	for _, doc := range chaseDocs {
+		if !existing[doc.ID] {
+			r.documents = append(r.documents, doc)
+			added = true
+		}
+	}
+	if added {
+		_ = r.saveDocuments()
+	}
+}
+
 // Search finds relevant documents based on query
 func (r *RAGDatabase) Search(query string, limit int) []RAGDocument {
 	if limit <= 0 {
