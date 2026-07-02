@@ -11,7 +11,7 @@ interface MapCanvasProps {
   markers?: Array<{
     id: string;
     position: [number, number]; // [lat, lng]
-    type: 'officer' | 'perp' | 'case' | 'emergency' | 'danger';
+    type: 'officer' | 'perp' | 'case' | 'emergency' | 'danger' | 'police-vehicle' | 'suspect-vehicle' | 'vehicle';
     title?: string;
     description?: string;
   }>;
@@ -27,7 +27,47 @@ const MapUpdater: React.FC<{ center: [number, number]; zoom: number }> = ({ cent
 };
 
 // Custom marker icon based on type
+const vehicleSvg = (fill: string, accent: string, siren = false) => `
+  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+    <circle cx="18" cy="18" r="17" fill="white" opacity="0.95"/>
+    <circle cx="18" cy="18" r="16" fill="${fill}" stroke="white" stroke-width="2"/>
+    <path d="M8 20h20l-2-6H10l-2 6z" fill="${accent}" stroke="white" stroke-width="0.8"/>
+    <rect x="11" y="12" width="14" height="5" rx="1.5" fill="${accent}" stroke="white" stroke-width="0.8"/>
+    <circle cx="12" cy="21" r="2.5" fill="#1f2937" stroke="white" stroke-width="0.8"/>
+    <circle cx="24" cy="21" r="2.5" fill="#1f2937" stroke="white" stroke-width="0.8"/>
+    ${siren ? '<rect x="14" y="9" width="8" height="2.5" rx="1" fill="#ef4444"/><rect x="16" y="7" width="4" height="2" rx="0.5" fill="#3b82f6"/>' : ''}
+  </svg>`;
+
 const getMarkerIcon = (type: string): L.DivIcon => {
+  const isVehicleType = ['police-vehicle', 'suspect-vehicle', 'vehicle', 'case'].includes(type);
+
+  if (isVehicleType) {
+    const isPolice = type === 'police-vehicle' || type === 'case' || type === 'vehicle';
+    const isSuspect = type === 'suspect-vehicle';
+
+    let fill = '#2563EB';
+    let accent = '#1e40af';
+    let siren = true;
+
+    if (isSuspect) {
+      fill = '#DC2626';
+      accent = '#991b1b';
+      siren = false;
+    } else if (type === 'vehicle') {
+      fill = '#F59E0B';
+      accent = '#d97706';
+      siren = false;
+    }
+
+    return L.divIcon({
+      className: 'custom-marker vehicle-marker',
+      html: `<div style="width:36px;height:36px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">${vehicleSvg(fill, accent, isPolice && siren)}</div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+      popupAnchor: [0, -18],
+    });
+  }
+
   const getColor = () => {
     switch (type) {
       case 'officer':
