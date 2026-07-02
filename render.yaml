@@ -2,7 +2,7 @@ services:
   # Main Frontend - Static Site
   - type: web
     name: serpico-frontend
-    env: static
+    runtime: static
     buildCommand: cd frontend && npm config set registry https://registry.npmjs.org/ && sed -i 's|https://r2\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && sed -i 's|https://r\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && npm install --registry=https://registry.npmjs.org/ && npm run build
     staticPublishPath: ./frontend/build
     routes:
@@ -16,7 +16,7 @@ services:
   # Admin Frontend - Static Site
   - type: web
     name: serpico-admin
-    env: static
+    runtime: static
     buildCommand: cd admin-frontend && npm config set registry https://registry.npmjs.org/ && sed -i 's|https://r2\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && sed -i 's|https://r\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && npm install --registry=https://registry.npmjs.org/ && npm run build
     staticPublishPath: ./admin-frontend/build
     routes:
