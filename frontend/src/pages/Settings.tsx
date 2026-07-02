@@ -24,8 +24,8 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className={`h-full flex flex-col ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className={`p-3 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+    <div className="page-fill">
+      <div className="game-header p-2 sm:p-4">
         <div className="flex items-center gap-2 sm:gap-3">
           <ShieldLogo size={32} className="sm:w-10 sm:h-10" />
           <div className="min-w-0 flex-1">
@@ -35,7 +35,7 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
+      <div className="scroll-area p-3 sm:p-4 space-y-4 sm:space-y-6">
         {/* User Profile */}
         <section>
           <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 dark:text-white">User Profile</h2>

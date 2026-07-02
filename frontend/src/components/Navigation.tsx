@@ -7,7 +7,9 @@ interface NavigationProps {
   onChatClick?: () => void;
 }
 
-const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
+const iconProps = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+
+const Navigation: React.FC<NavigationProps> = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -15,163 +17,140 @@ const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Fancy abstract icon components
   const PursueIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...iconProps}>
       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
       <circle cx="12" cy="9" r="2.5" fill="currentColor" />
-      <path d="M8 15l4-4 4 4" />
     </svg>
   );
 
   const AIIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...iconProps}>
       <circle cx="12" cy="12" r="10" />
       <path d="M12 6v12M6 12h12" />
-      <circle cx="12" cy="12" r="3" fill="currentColor" />
+      <circle cx="12" cy="12" r="2.5" fill="currentColor" />
     </svg>
   );
 
   const PerpsCasesIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...iconProps}>
       <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M9 9h6M9 15h6M9 12h6" />
-      <circle cx="7" cy="7" r="1" fill="currentColor" />
-      <circle cx="17" cy="17" r="1" fill="currentColor" />
+      <path d="M9 9h6M9 15h6" />
     </svg>
   );
 
   const MysteriesIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...iconProps}>
       <circle cx="12" cy="12" r="10" />
       <path d="M12 6v6M8 10h8" />
-      <path d="M9 15l3-3 3 3" />
-      <circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.3" />
     </svg>
   );
 
   const ChaseGameIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...iconProps}>
       <path d="M5 17h14l-1.5-4.5H6.5L5 17z" />
-      <path d="M7 17l-1-3h12l-1 3" />
       <circle cx="7.5" cy="17.5" r="1.5" fill="currentColor" />
       <circle cx="16.5" cy="17.5" r="1.5" fill="currentColor" />
-      <path d="M9 9.5l3-4 3 4" />
-      <path d="M12 5.5V3" />
     </svg>
   );
 
   const OfficersIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...iconProps}>
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 
   const RoutesIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...iconProps}>
       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
       <circle cx="12" cy="10" r="3" fill="currentColor" />
-      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
     </svg>
   );
 
   const ChatBubbleIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      <path d="M8 10h.01M12 10h.01M16 10h.01" />
     </svg>
   );
 
   const SettingsIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...iconProps}>
       <circle cx="12" cy="12" r="3" />
-      <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24" />
+      <path d="M12 1v3m0 16v3M5.64 5.64l2.12 2.12m8.48 8.48l2.12 2.12M1 12h3m16 0h3" />
     </svg>
   );
 
-  type NavItem = { path: string; label: string; icon: JSX.Element; isModal?: boolean };
+  type NavItem = { path: string; label: string; shortLabel: string; icon: JSX.Element; isModal?: boolean };
 
   const policeNavItems: NavItem[] = [
-    { path: '/in-pursue', label: 'Pursue', icon: <PursueIcon /> },
-    { path: '/perps-cases', label: 'Records', icon: <PerpsCasesIcon /> },
-    { path: '/chase-game', label: 'Chase', icon: <ChaseGameIcon /> },
-    { path: '/mysteries', label: 'Mysteries', icon: <MysteriesIcon /> },
+    { path: '/in-pursue', label: 'Pursue', shortLabel: 'Go', icon: <PursueIcon /> },
+    { path: '/perps-cases', label: 'Records', shortLabel: 'Rec', icon: <PerpsCasesIcon /> },
+    { path: '/chase-game', label: 'Chase', shortLabel: 'Game', icon: <ChaseGameIcon /> },
+    { path: '/mysteries', label: 'Mysteries', shortLabel: 'Myst', icon: <MysteriesIcon /> },
   ];
 
   const civilianNavItems: NavItem[] = [
-    { path: '/nearby-officers', label: 'Officers', icon: <OfficersIcon /> },
-    { path: '/nearby-perps', label: 'Perps', icon: <PerpsCasesIcon /> },
-    { path: '/safe-routes', label: 'Routes', icon: <RoutesIcon /> },
-    { path: '/crime-notifications', label: 'AI Chat', icon: <ChatBubbleIcon />, isModal: true },
+    { path: '/nearby-officers', label: 'Officers', shortLabel: 'PD', icon: <OfficersIcon /> },
+    { path: '/nearby-perps', label: 'Perps', shortLabel: 'Perp', icon: <PerpsCasesIcon /> },
+    { path: '/safe-routes', label: 'Routes', shortLabel: 'Map', icon: <RoutesIcon /> },
+    { path: '/crime-notifications', label: 'AI Chat', shortLabel: 'Chat', icon: <ChatBubbleIcon />, isModal: true },
   ];
 
   const navItems = user?.role === 'police' ? policeNavItems : civilianNavItems;
 
   const navButtonClass = (active: boolean) =>
-    `flex flex-col items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all touch-manipulation min-w-[60px] sm:min-w-0 font-display ${
-      active
-        ? 'hud-nav-active'
-        : 'text-synth-muted hover:text-neon-cyan/80 active:scale-95'
+    `nav-btn flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 px-0.5 min-w-0 max-w-[4.5rem] rounded-md transition-all touch-manipulation font-display ${
+      active ? 'hud-nav-active' : 'text-synth-muted active:scale-95'
     }`;
 
+  const renderNavButton = (path: string, label: string, shortLabel: string, icon: JSX.Element, onClick?: () => void) => (
+    <button
+      key={path}
+      type="button"
+      title={label}
+      onClick={onClick ?? (() => navigate(path))}
+      className={navButtonClass(isActive(path))}
+    >
+      <span className="flex-shrink-0">{icon}</span>
+      <span className="text-[9px] sm:text-[10px] font-semibold leading-none tracking-wide uppercase truncate w-full text-center hidden min-[360px]:block">
+        {label}
+      </span>
+      <span className="text-[9px] font-semibold leading-none tracking-wide uppercase min-[360px]:hidden">
+        {shortLabel}
+      </span>
+    </button>
+  );
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 hud-nav z-30 safe-area-inset-bottom">
-      <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-neon-cyan/50 to-transparent" />
-      <div className="flex items-center justify-around px-1 sm:px-2 py-1.5 sm:py-2">
+    <nav className="hud-nav z-30">
+      <div className="absolute top-0 left-2 right-2 h-px bg-gradient-to-r from-transparent via-neon-cyan/50 to-transparent" />
+      <div className="flex items-stretch justify-between gap-0 px-0.5 py-1 max-w-[100vw] overflow-hidden">
         {navItems.map((item, index) => (
           <React.Fragment key={item.path}>
-            <button
-              onClick={() => {
-                if (item.isModal) {
-                  setIsAIChatModalOpen(true);
-                } else {
-                  navigate(item.path);
-                }
-              }}
-              className={navButtonClass(isActive(item.path))}
-            >
-              <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100">{item.icon}</span>
-              <span className="text-[10px] sm:text-xs font-semibold leading-tight tracking-wide uppercase">{item.label}</span>
-            </button>
-            {user?.role === 'police' && index === 0 && (
-              <button
-                onClick={() => navigate('/ai-chat')}
-                className={navButtonClass(isActive('/ai-chat'))}
-              >
-                <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100"><AIIcon /></span>
-                <span className="text-[10px] sm:text-xs font-semibold leading-tight tracking-wide uppercase">AI</span>
-              </button>
+            {renderNavButton(
+              item.path,
+              item.label,
+              item.shortLabel,
+              item.icon,
+              item.isModal ? () => setIsAIChatModalOpen(true) : undefined
             )}
+            {user?.role === 'police' && index === 0 &&
+              renderNavButton('/ai-chat', 'AI Chat', 'AI', <AIIcon />)
+            }
           </React.Fragment>
         ))}
-        
-        {user?.role !== 'police' && (
-          <button
-            onClick={() => navigate('/ai-chat')}
-            className={navButtonClass(isActive('/ai-chat'))}
-          >
-            <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100"><AIIcon /></span>
-            <span className="text-[10px] sm:text-xs font-semibold leading-tight tracking-wide uppercase">AI</span>
-          </button>
-        )}
 
-        <button
-          onClick={() => navigate('/settings')}
-          className={navButtonClass(isActive('/settings'))}
-        >
-          <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100"><SettingsIcon /></span>
-          <span className="text-[10px] sm:text-xs font-semibold leading-tight tracking-wide uppercase">Config</span>
-        </button>
+        {user?.role !== 'police' &&
+          renderNavButton('/ai-chat', 'AI Chat', 'AI', <AIIcon />)
+        }
+
+        {renderNavButton('/settings', 'Settings', 'Cfg', <SettingsIcon />)}
       </div>
 
-      {/* AI Chat Modal */}
       <AIChatModal isOpen={isAIChatModalOpen} onClose={() => setIsAIChatModalOpen(false)} />
     </nav>
   );
 };
 
 export default Navigation;
-

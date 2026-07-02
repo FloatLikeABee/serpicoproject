@@ -21,26 +21,27 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen synth-grid-bg synth-scanlines flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="app-shell synth-grid-bg synth-scanlines overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-4 py-6 relative">
       {/* Ambient glow orbs */}
-      <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full bg-neon-purple/20 blur-3xl animate-glow-shift pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full bg-neon-green/10 blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-40 sm:w-64 h-40 sm:h-64 rounded-full bg-neon-purple/20 blur-3xl animate-glow-shift pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-32 sm:w-48 h-32 sm:h-48 rounded-full bg-neon-green/10 blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-md relative z-10">
-        <div className="game-panel p-6 sm:p-8 animate-glow-shift">
-          <div className="flex flex-col items-center mb-6 sm:mb-8">
-            <ShieldLogo size={72} className="sm:w-24 sm:h-24 mb-2" />
-            <h1 className="font-display text-3xl sm:text-4xl font-bold neon-text-magenta tracking-widest">SERPICO</h1>
-            <p className="text-sm sm:text-base text-synth-muted mt-2 font-mono tracking-wider uppercase">
-              /// Neon Ops Terminal v0.1
+      <div className="w-full max-w-md relative z-10 my-auto">
+        <div className="game-panel p-4 sm:p-8">
+          <div className="flex flex-col items-center mb-4 sm:mb-8">
+            <ShieldLogo size={56} className="sm:w-20 sm:h-20 mb-2" />
+            <h1 className="font-display text-2xl sm:text-4xl font-bold neon-text-magenta tracking-widest">SERPICO</h1>
+            <p className="text-xs sm:text-base text-synth-muted mt-1 sm:mt-2 font-mono tracking-wider uppercase text-center">
+              Neon Ops Terminal v0.1
             </p>
-            <div className="mt-3 flex gap-2 text-xs font-mono text-neon-green/80">
+            <div className="mt-2 sm:mt-3 flex flex-wrap justify-center gap-1.5 text-[10px] sm:text-xs font-mono text-neon-green/80">
               <span className="px-2 py-0.5 border border-neon-green/30 rounded">SYS ONLINE</span>
-              <span className="px-2 py-0.5 border border-neon-cyan/30 rounded text-neon-cyan/80">SECURE LINK</span>
+              <span className="px-2 py-0.5 border border-neon-cyan/30 rounded text-neon-cyan/80">SECURE</span>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             <div>
               <label className="block text-xs font-display font-semibold mb-2 text-neon-cyan/90 tracking-widest uppercase">
                 Agent ID
@@ -113,9 +114,10 @@ const Login: React.FC = () => {
           </div>
         </div>
 
-        <p className="text-center text-xs font-mono text-synth-muted/60 mt-4 tracking-wider">
-          © 198X SERPICO SYNTH DIVISION — ALL FREQUENCIES MONITORED
+        <p className="text-center text-[10px] sm:text-xs font-mono text-synth-muted/60 mt-3 sm:mt-4 tracking-wider px-2">
+          © SERPICO SYNTH DIVISION
         </p>
+      </div>
       </div>
     </div>
   );

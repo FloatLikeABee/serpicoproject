@@ -27,10 +27,8 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen synth-grid-bg synth-scanlines ${theme === 'dark' ? '' : 'synth-light'}`}>
-      <div className="flex flex-col h-screen relative">
-        {/* Main content area */}
-        <div className="flex-1 relative overflow-hidden">
+    <div className={`app-shell synth-grid-bg synth-scanlines ${theme === 'dark' ? '' : 'synth-light'}`}>
+      <div className="flex-1 min-h-0 overflow-hidden relative">
           <Routes>
             {/* Police routes */}
             <Route path="/in-pursue" element={<InPursue />} />
@@ -56,12 +54,9 @@ const Dashboard: React.FC = () => {
           </Routes>
         </div>
 
-        {/* Emergency Button - Overlay */}
         {user?.role === 'police' && <EmergencyButton />}
 
-        {/* Navigation */}
         <Navigation />
-      </div>
     </div>
   );
 };

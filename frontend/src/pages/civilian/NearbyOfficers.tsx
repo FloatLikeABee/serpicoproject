@@ -30,7 +30,7 @@ const NearbyOfficers: React.FC = () => {
   ]);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="page-fill">
       <div className={`p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <h1 className="text-2xl font-bold text-serpico-blue dark:text-serpico-blue-light">Nearby Officers</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">Police vehicles and possible dangers</p>

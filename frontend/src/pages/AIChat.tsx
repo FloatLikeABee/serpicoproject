@@ -156,7 +156,7 @@ const AIChat: React.FC = () => {
   const [showSidebar, setShowSidebar] = useState(false);
 
   return (
-    <div className={`h-screen flex ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`} style={{ paddingBottom: '80px', overflow: 'hidden' }}>
+    <div className={`h-full min-h-0 flex overflow-hidden ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Left Sidebar - Chat Sessions */}
       <div className={`hidden sm:flex w-64 border-r flex-shrink-0 ${
         theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'

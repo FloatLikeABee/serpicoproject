@@ -72,9 +72,8 @@ const ChaseGame: React.FC = () => {
     : 0;
 
   return (
-    <div className={`h-full flex flex-col ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      {/* Header */}
-      <div className={`p-3 sm:p-4 border-b flex-shrink-0 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+    <div className={`page-fill ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className="game-header p-2 sm:p-4 flex-shrink-0">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light flex items-center gap-2">
@@ -114,7 +113,7 @@ const ChaseGame: React.FC = () => {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4" style={{ minHeight: 0 }}>
+      <div className="scroll-area p-2 sm:p-4">
         {error && (
           <div className="mb-3 p-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">
             {error}

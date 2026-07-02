@@ -110,7 +110,7 @@ const MapCanvas: React.FC<MapCanvasProps> = ({
     <MapContainer
       center={center}
       zoom={zoom}
-      style={{ height: '100%', width: '100%', minHeight: '400px' }}
+      style={{ height: '100%', width: '100%' }}
       scrollWheelZoom={true}
     >
       <TileLayer

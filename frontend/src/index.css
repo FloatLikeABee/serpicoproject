@@ -5,6 +5,8 @@
 /* ─── Synth World Base ─── */
 html.synth-world {
   color-scheme: dark;
+  height: 100%;
+  overflow: hidden;
 }
 
 html.synth-world body {
@@ -15,6 +17,16 @@ html.synth-world body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #07050f;
   color: #e8e0ff;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+html.synth-world #root {
+  height: 100%;
+  overflow: hidden;
+  max-width: 100vw;
 }
 
 html.synth-world h1,
@@ -78,7 +90,7 @@ code {
   }
 
   .game-header {
-    @apply border-b border-neon-cyan/20 bg-synth-deep/95 backdrop-blur-md;
+    @apply flex-shrink-0 border-b border-neon-cyan/20 bg-synth-deep/95 backdrop-blur-md;
     box-shadow: 0 4px 24px rgba(123, 47, 247, 0.12);
   }
 
@@ -121,7 +133,7 @@ code {
   }
 
   .hud-nav {
-    @apply border-t border-neon-cyan/25 bg-synth-deep/95 backdrop-blur-lg;
+    @apply shrink-0 w-full border-t border-neon-cyan/25 bg-synth-deep/95 backdrop-blur-lg safe-area-inset-bottom;
     box-shadow: 0 -4px 30px rgba(123, 47, 247, 0.2), inset 0 1px 0 rgba(0, 245, 255, 0.1);
   }
 
@@ -131,9 +143,53 @@ code {
     background: rgba(0, 245, 255, 0.08);
     box-shadow: inset 0 0 12px rgba(0, 245, 255, 0.15);
   }
+
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100vw;
+    height: 100dvh;
+    height: 100svh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .page-fill {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .scroll-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
 }
 
 /* ─── Global class remaps under synth-world ─── */
+/* Every routed page fills the shell without overflowing the viewport */
+.app-shell > .flex-1.min-h-0 > * {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell .flex-1.overflow-y-auto,
+.app-shell .scroll-area {
+  min-height: 0;
+  overflow-x: hidden;
+}
+
 html.synth-world .bg-gray-900 { background-color: #07050f !important; }
 html.synth-world .bg-gray-800 { background-color: rgba(15, 10, 32, 0.95) !important; }
 html.synth-world .bg-gray-700 { background-color: rgba(21, 16, 48, 0.9) !important; }
@@ -222,16 +278,49 @@ html.synth-world ::-webkit-scrollbar-thumb {
 }
 
 @media (max-width: 640px) {
-  button, a { min-height: 44px; min-width: 44px; }
+  /* Touch targets for primary actions only — NOT HUD nav (causes horizontal overflow) */
+  .btn-neon-primary,
+  .btn-neon-danger,
+  .synth-input,
+  form button:not(.nav-btn) {
+    min-height: 44px;
+  }
+
+  .hud-nav .nav-btn {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .game-header {
+    @apply p-2;
+  }
+
+  .game-header h1 {
+    font-size: 1.125rem;
+    line-height: 1.3;
+  }
+
+  .game-header p {
+    font-size: 0.65rem;
+    line-height: 1.2;
+  }
+
   button {
     -webkit-tap-highlight-color: transparent;
     user-select: none;
   }
-  * { -webkit-overflow-scrolling: touch; }
+
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .safe-area-inset-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-inset-top {
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .touch-manipulation {

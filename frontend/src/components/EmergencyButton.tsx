@@ -19,7 +19,7 @@ const EmergencyButton: React.FC = () => {
   return (
     <button
       onClick={handleClick}
-      className={`fixed top-3 right-3 sm:top-4 sm:right-4 z-50 rounded-full p-3 sm:p-4 transition-all active:scale-95 touch-manipulation font-display ${
+      className={`fixed z-50 rounded-full p-2.5 transition-all active:scale-95 touch-manipulation ${
         isEmergencyPage
           ? 'bg-synth-panel border border-neon-purple/50 text-synth-muted'
           : 'btn-neon-danger border-2 border-neon-magenta/60 animate-neon-pulse'
@@ -28,8 +28,10 @@ const EmergencyButton: React.FC = () => {
       onMouseEnter={() => setIsPulsing(false)}
       onMouseLeave={() => !isEmergencyPage && setIsPulsing(true)}
       style={{
-        width: '56px',
-        height: '56px',
+        top: 'max(0.5rem, env(safe-area-inset-top))',
+        right: 'max(0.5rem, env(safe-area-inset-right))',
+        width: '44px',
+        height: '44px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -38,8 +40,8 @@ const EmergencyButton: React.FC = () => {
       title={isEmergencyPage ? 'Close Alerts Panel' : 'Open Alerts & Notifications'}
     >
       <svg
-        width="32"
-        height="32"
+        width="24"
+        height="24"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"

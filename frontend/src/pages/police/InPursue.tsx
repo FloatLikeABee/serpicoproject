@@ -64,16 +64,16 @@ const InPursue: React.FC = () => {
   const suspectCount = pursuits.filter((m) => m.type === 'suspect-vehicle').length;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className={`p-3 sm:p-4 game-header`}>
-        <h1 className="text-xl sm:text-2xl font-display font-bold text-serpico-red dark:text-serpico-red-light tracking-wide">Pursue</h1>
-        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1 font-mono uppercase tracking-wider text-xs">
+    <div className="page-fill">
+      <div className="game-header p-2 sm:p-3">
+        <h1 className="text-lg sm:text-xl font-display font-bold text-serpico-red dark:text-serpico-red-light tracking-wide">Pursue</h1>
+        <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 mt-0.5 font-mono uppercase tracking-wider truncate">
           <span className="text-neon-green/70">{'/// '}</span>
-          Active pursuit grid — Olathe sector
+          Olathe pursuit grid
         </p>
       </div>
       
-      <div className="flex-1 relative">
+      <div className="flex-1 min-h-0 relative">
         <MapCanvas
           center={OLATHE_CENTER}
           zoom={13}
@@ -81,21 +81,17 @@ const InPursue: React.FC = () => {
         />
       </div>
 
-      <div className={`p-3 sm:p-4 game-header border-t border-neon-purple/20`}>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs sm:text-sm font-medium dark:text-gray-300 flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 rounded-full bg-serpico-blue" aria-hidden />
-              Police Vehicles
-            </span>
-            <span className="text-xs sm:text-sm text-serpico-blue dark:text-serpico-blue-light font-bold">{policeCount}</span>
+      <div className="game-header border-t border-neon-purple/20 p-2 sm:p-3">
+        <div className="flex items-center justify-between gap-4 text-xs sm:text-sm">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="inline-block w-2 h-2 rounded-full bg-serpico-blue flex-shrink-0" aria-hidden />
+            <span className="font-medium dark:text-gray-300 truncate">Police</span>
+            <span className="text-serpico-blue font-bold">{policeCount}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium dark:text-gray-300 flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 rounded-full bg-serpico-red" aria-hidden />
-              Suspect Vehicles
-            </span>
-            <span className="text-sm text-serpico-red dark:text-serpico-red-light font-bold">{suspectCount}</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="inline-block w-2 h-2 rounded-full bg-serpico-red flex-shrink-0" aria-hidden />
+            <span className="font-medium dark:text-gray-300 truncate">Suspects</span>
+            <span className="text-serpico-red font-bold">{suspectCount}</span>
           </div>
         </div>
       </div>
