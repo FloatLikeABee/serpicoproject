@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import MapCanvas from '../../components/MapCanvas';
-import { useTheme } from '../../contexts/ThemeContext';
 
 const OLATHE_CENTER: [number, number] = [38.8814, -94.8191];
 
@@ -60,17 +59,18 @@ function generatePursuitMarkers() {
 }
 
 const InPursue: React.FC = () => {
-  const { theme } = useTheme();
-
   const pursuits = useMemo(() => generatePursuitMarkers(), []);
   const policeCount = pursuits.filter((m) => m.type === 'police-vehicle').length;
   const suspectCount = pursuits.filter((m) => m.type === 'suspect-vehicle').length;
 
   return (
     <div className="h-full flex flex-col">
-      <div className={`p-3 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Pursue</h1>
-        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Active pursuits and suspect vehicles across Olathe</p>
+      <div className={`p-3 sm:p-4 game-header`}>
+        <h1 className="text-xl sm:text-2xl font-display font-bold text-serpico-red dark:text-serpico-red-light tracking-wide">Pursue</h1>
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1 font-mono uppercase tracking-wider text-xs">
+          <span className="text-neon-green/70">{'/// '}</span>
+          Active pursuit grid — Olathe sector
+        </p>
       </div>
       
       <div className="flex-1 relative">
@@ -81,7 +81,7 @@ const InPursue: React.FC = () => {
         />
       </div>
 
-      <div className={`p-3 sm:p-4 ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+      <div className={`p-3 sm:p-4 game-header border-t border-neon-purple/20`}>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs sm:text-sm font-medium dark:text-gray-300 flex items-center gap-1.5">

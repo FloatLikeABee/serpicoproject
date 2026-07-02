@@ -10,15 +10,18 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
-    return (saved as 'light' | 'dark') || 'light';
+    return (saved as 'light' | 'dark') || 'dark';
   });
 
   useEffect(() => {
     const root = document.documentElement;
+    root.classList.add('synth-world');
     if (theme === 'dark') {
       root.classList.add('dark');
+      root.classList.remove('synth-light');
     } else {
       root.classList.remove('dark');
+      root.classList.add('synth-light');
     }
     localStorage.setItem('theme', theme);
   }, [theme]);
@@ -41,4 +44,3 @@ export const useTheme = () => {
   }
   return context;
 };
-

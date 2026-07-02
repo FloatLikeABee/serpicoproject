@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
 import AIChatModal from './AIChatModal';
 
 interface NavigationProps {
@@ -12,7 +11,6 @@ const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { theme } = useTheme();
   const [isAIChatModalOpen, setIsAIChatModalOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
@@ -112,10 +110,16 @@ const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
 
   const navItems = user?.role === 'police' ? policeNavItems : civilianNavItems;
 
+  const navButtonClass = (active: boolean) =>
+    `flex flex-col items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all touch-manipulation min-w-[60px] sm:min-w-0 font-display ${
+      active
+        ? 'hud-nav-active'
+        : 'text-synth-muted hover:text-neon-cyan/80 active:scale-95'
+    }`;
+
   return (
-    <nav className={`fixed bottom-0 left-0 right-0 ${
-      theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-    } border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'} z-30 safe-area-inset-bottom`}>
+    <nav className="fixed bottom-0 left-0 right-0 hud-nav z-30 safe-area-inset-bottom">
+      <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-neon-cyan/50 to-transparent" />
       <div className="flex items-center justify-around px-1 sm:px-2 py-1.5 sm:py-2">
         {navItems.map((item, index) => (
           <React.Fragment key={item.path}>
@@ -127,65 +131,39 @@ const Navigation: React.FC<NavigationProps> = ({ onChatClick }) => {
                   navigate(item.path);
                 }
               }}
-              className={`flex flex-col items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors touch-manipulation min-w-[60px] sm:min-w-0 ${
-                isActive(item.path)
-                  ? 'text-serpico-blue bg-serpico-blue bg-opacity-10'
-                  : theme === 'dark'
-                  ? 'text-gray-400 active:text-gray-200'
-                  : 'text-gray-600 active:text-gray-900'
-              }`}
+              className={navButtonClass(isActive(item.path))}
             >
               <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100">{item.icon}</span>
-              <span className="text-[10px] sm:text-xs font-medium leading-tight">{item.label}</span>
+              <span className="text-[10px] sm:text-xs font-semibold leading-tight tracking-wide uppercase">{item.label}</span>
             </button>
-            {/* Insert AI Chat button right after Pursue (first item for police) */}
             {user?.role === 'police' && index === 0 && (
               <button
                 onClick={() => navigate('/ai-chat')}
-                className={`flex flex-col items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors touch-manipulation min-w-[60px] sm:min-w-0 ${
-                  isActive('/ai-chat')
-                    ? 'text-serpico-blue bg-serpico-blue bg-opacity-10'
-                    : theme === 'dark'
-                    ? 'text-gray-400 active:text-gray-200'
-                    : 'text-gray-600 active:text-gray-900'
-                }`}
+                className={navButtonClass(isActive('/ai-chat'))}
               >
                 <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100"><AIIcon /></span>
-                <span className="text-[10px] sm:text-xs font-medium leading-tight">AI Chat</span>
+                <span className="text-[10px] sm:text-xs font-semibold leading-tight tracking-wide uppercase">AI</span>
               </button>
             )}
           </React.Fragment>
         ))}
         
-        {/* AI Chat button for civilians (after all nav items) */}
         {user?.role !== 'police' && (
           <button
             onClick={() => navigate('/ai-chat')}
-            className={`flex flex-col items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors touch-manipulation min-w-[60px] sm:min-w-0 ${
-              isActive('/ai-chat')
-                ? 'text-serpico-blue bg-serpico-blue bg-opacity-10'
-                : theme === 'dark'
-                ? 'text-gray-400 active:text-gray-200'
-                : 'text-gray-600 active:text-gray-900'
-            }`}
+            className={navButtonClass(isActive('/ai-chat'))}
           >
             <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100"><AIIcon /></span>
-            <span className="text-[10px] sm:text-xs font-medium leading-tight">AI Chat</span>
+            <span className="text-[10px] sm:text-xs font-semibold leading-tight tracking-wide uppercase">AI</span>
           </button>
         )}
 
         <button
           onClick={() => navigate('/settings')}
-          className={`flex flex-col items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors touch-manipulation min-w-[60px] sm:min-w-0 ${
-            isActive('/settings')
-              ? 'text-serpico-blue bg-serpico-blue bg-opacity-10'
-              : theme === 'dark'
-              ? 'text-gray-400 active:text-gray-200'
-              : 'text-gray-600 active:text-gray-900'
-          }`}
+          className={navButtonClass(isActive('/settings'))}
         >
           <span className="mb-0.5 sm:mb-1 scale-90 sm:scale-100"><SettingsIcon /></span>
-          <span className="text-[10px] sm:text-xs font-medium leading-tight">Settings</span>
+          <span className="text-[10px] sm:text-xs font-semibold leading-tight tracking-wide uppercase">Config</span>
         </button>
       </div>
 

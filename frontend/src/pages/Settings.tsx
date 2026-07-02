@@ -112,22 +112,24 @@ const Settings: React.FC = () => {
 
         {/* Appearance */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">Appearance</h2>
-          <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+          <h2 className="text-lg font-display font-semibold mb-4 dark:text-white tracking-wide">VISUAL MODE</h2>
+          <div className={`p-4 rounded-xl game-panel`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium dark:text-white">Theme</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Switch between light and dark mode</p>
+                <p className="font-display font-medium dark:text-white tracking-wide">Synth Atmosphere</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+                  {theme === 'dark' ? 'Neon Night — deep purple grid' : 'Synth Dawn — brighter arcade glow'}
+                </p>
               </div>
               <button
                 onClick={toggleTheme}
-                className={`px-4 py-2 rounded-lg ${
+                className={`px-4 py-2 rounded-lg font-display text-sm tracking-wider uppercase transition-all ${
                   theme === 'dark'
-                    ? 'bg-yellow-500 text-white'
-                    : 'bg-gray-800 text-white'
+                    ? 'btn-neon-primary'
+                    : 'bg-neon-purple/30 border border-neon-cyan/40 text-neon-cyan shadow-neon-cyan'
                 }`}
               >
-                {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
+                {theme === 'dark' ? '🌃 Night' : '🌅 Dawn'}
               </button>
             </div>
           </div>

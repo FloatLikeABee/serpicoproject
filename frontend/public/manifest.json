@@ -1,6 +1,6 @@
 {
   "short_name": "Serpico",
-  "name": "Serpico - AI Police Assistant",
+  "name": "Serpico — Neon Ops Terminal",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,7 +10,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#DC2626",
-  "background_color": "#ffffff"
+  "theme_color": "#07050f",
+  "background_color": "#07050f"
 }
-

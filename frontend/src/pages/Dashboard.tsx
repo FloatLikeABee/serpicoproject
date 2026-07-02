@@ -27,8 +27,8 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className="flex flex-col h-screen">
+    <div className={`min-h-screen synth-grid-bg synth-scanlines ${theme === 'dark' ? '' : 'synth-light'}`}>
+      <div className="flex flex-col h-screen relative">
         {/* Main content area */}
         <div className="flex-1 relative overflow-hidden">
           <Routes>
