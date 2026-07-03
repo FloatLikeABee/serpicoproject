@@ -40,7 +40,6 @@ const AIChat: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Get context from current route
   const getContext = () => {
     const path = location.pathname;
     if (path.includes('/in-pursue')) return 'in-pursue';
@@ -73,7 +72,6 @@ const AIChat: React.FC = () => {
     return contextMessages[context || ''] || 'Hello! I\'m your Serpico AI assistant for Olathe PD. How can I help you today?';
   };
 
-  // Initialize messages for current session
   useEffect(() => {
     const context = getContext();
     const initialMessage: Message = {
@@ -109,7 +107,7 @@ const AIChat: React.FC = () => {
 
     try {
       const response = await chatAPI.sendMessage(messageText, context);
-      
+
       const aiMessage: Message = {
         id: response.response.id || (Date.now() + 1).toString(),
         role: 'assistant',
@@ -117,28 +115,26 @@ const AIChat: React.FC = () => {
         timestamp: new Date(response.response.timestamp || new Date()),
         context,
       };
-      
+
       setMessages(prev => [...prev, aiMessage]);
-      
-      // Update session last message
-      setSessions(prev => prev.map(session => 
-        session.id === currentSessionId 
+
+      setSessions(prev => prev.map(session =>
+        session.id === currentSessionId
           ? { ...session, lastMessage: messageText, timestamp: new Date() }
           : session
       ));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('AI chat error:', error);
-      
+      const err = error as { response?: { data?: { error?: string } } };
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: error.response?.data?.error 
-          ? `Error: ${error.response.data.error}` 
+        content: err.response?.data?.error
+          ? `Error: ${err.response.data.error}`
           : 'Sorry, I encountered an error processing your request. Please try again.',
         timestamp: new Date(),
         context,
       };
-      
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -153,156 +149,81 @@ const AIChat: React.FC = () => {
     'Search for perp information',
   ];
 
-  const [showSidebar, setShowSidebar] = useState(false);
-
   return (
-    <div className={`h-full min-h-0 flex overflow-hidden ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      {/* Left Sidebar - Chat Sessions */}
-      <div className={`hidden sm:flex w-64 border-r flex-shrink-0 ${
+    <div className="ai-chat-layout">
+      {/* Left Sidebar — desktop only */}
+      <div className={`hidden sm:flex w-56 lg:w-64 border-r flex-shrink-0 flex-col min-h-0 ${
         theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-      } flex-col h-full`}>
-        <div className={`p-4 border-b ${
-          theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-        }`}>
-          <h2 className="text-lg font-bold text-serpico-blue dark:text-serpico-blue-light">
-            Chat Sessions
+      }`}>
+        <div className="game-header p-3 flex-shrink-0">
+          <h2 className="text-sm font-display font-bold text-serpico-blue neon-text-cyan">
+            Sessions
           </h2>
         </div>
-        
-        <div className="flex-1 overflow-y-auto p-2 space-y-2">
+
+        <div className="scroll-area p-2 space-y-2">
           {sessions.map((session) => (
             <button
               key={session.id}
+              type="button"
               onClick={() => setCurrentSessionId(session.id)}
-              className={`w-full text-left p-3 rounded-lg transition-colors ${
+              className={`w-full text-left p-2.5 rounded-lg transition-colors ${
                 currentSessionId === session.id
-                  ? 'bg-serpico-blue bg-opacity-10 text-serpico-blue'
+                  ? 'bg-serpico-blue bg-opacity-10 text-serpico-blue border border-neon-cyan/30'
                   : theme === 'dark'
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  ? 'bg-gray-700/50 hover:bg-gray-600 text-gray-300'
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               }`}
             >
-              <div className="font-medium text-sm truncate">{session.title}</div>
-              <div className={`text-xs mt-1 truncate ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-              }`}>
-                {session.lastMessage}
-              </div>
-              <div className={`text-xs mt-1 ${
-                theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-              }`}>
-                {session.timestamp.toLocaleDateString()}
-              </div>
+              <div className="font-medium text-xs truncate">{session.title}</div>
+              <div className="text-[10px] mt-1 truncate text-gray-400">{session.lastMessage}</div>
             </button>
           ))}
         </div>
-
-        <div className={`p-2 border-t ${
-          theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-        }`}>
-          <button
-            className={`w-full px-3 py-2 rounded-lg text-sm font-medium ${
-              theme === 'dark'
-                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-            }`}
-          >
-            + New Session
-          </button>
-        </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full min-w-0">
-        {/* Header */}
-        <div className={`p-3 sm:p-4 border-b flex-shrink-0 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        }`}>
-          <div className="flex items-center justify-between gap-2">
-            <button
-              onClick={() => setShowSidebar(!showSidebar)}
-              className="sm:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 12h18M3 6h18M3 18h18"/>
-              </svg>
-            </button>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold text-serpico-blue dark:text-serpico-blue-light truncate">
-                AI Assistant
-              </h1>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 hidden sm:block">
-                Your intelligent assistant for serial killers & mysteries
-              </p>
-            </div>
-            {/* Tools Selection */}
-            <div className="hidden sm:flex items-center gap-2">
-              <span className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Tools:</span>
-              <div className="flex gap-1">
-                <button
-                  className={`px-2 py-1 rounded text-xs font-medium touch-manipulation ${
-                    theme === 'dark'
-                      ? 'bg-gray-700 active:bg-gray-600 text-gray-300'
-                      : 'bg-gray-200 active:bg-gray-300 text-gray-700'
-                  }`}
-                  title="RAG Database - Crime data search"
-                >
-                  RAG
-                </button>
-                <button
-                  className={`px-2 py-1 rounded text-xs font-medium touch-manipulation ${
-                    theme === 'dark'
-                      ? 'bg-gray-700 active:bg-gray-600 text-gray-300'
-                      : 'bg-gray-200 active:bg-gray-300 text-gray-700'
-                  }`}
-                  title="Web Search - Latest online information"
-                >
-                  Web
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Main chat column — fills remaining height */}
+      <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">
+        <div className="game-header p-2 sm:p-3 flex-shrink-0">
+          <h1 className="text-base sm:text-lg font-display font-bold text-serpico-blue neon-text-cyan truncate">
+            AI Assistant
+          </h1>
+          <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 truncate hidden sm:block">
+            Serial killers, mysteries & pursuit intel
+          </p>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4" style={{ minHeight: 0, maxHeight: '100%' }}>
+        <div className="scroll-area flex-1 p-2 sm:p-3 space-y-2 sm:space-y-3">
           {messages.map((message) => (
             <div
               key={message.id}
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] sm:max-w-[70%] rounded-lg p-2.5 sm:p-3 ${
+                className={`max-w-[90%] sm:max-w-[75%] rounded-lg p-2 sm:p-2.5 ${
                   message.role === 'user'
                     ? 'bg-serpico-blue text-white'
                     : theme === 'dark'
-                    ? 'bg-gray-700 text-gray-100'
+                    ? 'bg-gray-700/90 text-gray-100 border border-neon-purple/20'
                     : 'bg-gray-100 text-gray-900'
                 }`}
               >
                 {message.role === 'assistant' ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
                     <ReactMarkdown
                       components={{
-                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                        ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-                        li: ({ children }) => <li className="ml-2">{children}</li>,
-                        h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
-                        h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
-                        h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
+                        p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc list-inside mb-1.5 space-y-0.5">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal list-inside mb-1.5 space-y-0.5">{children}</ol>,
+                        li: ({ children }) => <li className="ml-1">{children}</li>,
                         code: ({ children, className }) => {
                           const isInline = !className;
                           return isInline ? (
-                            <code className="bg-gray-800 dark:bg-gray-900 px-1 py-0.5 rounded text-xs">{children}</code>
+                            <code className="bg-gray-900 px-1 py-0.5 rounded text-xs">{children}</code>
                           ) : (
-                            <code className="block bg-gray-800 dark:bg-gray-900 p-2 rounded mb-2 overflow-x-auto">{children}</code>
+                            <code className="block bg-gray-900 p-2 rounded mb-1.5 overflow-x-auto text-xs">{children}</code>
                           );
                         },
-                        pre: ({ children }) => <pre className="bg-gray-800 dark:bg-gray-900 p-2 rounded mb-2 overflow-x-auto">{children}</pre>,
-                        strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-                        em: ({ children }) => <em className="italic">{children}</em>,
-                        blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-400 pl-2 italic mb-2">{children}</blockquote>,
                       }}
                     >
                       {message.content}
@@ -311,23 +232,19 @@ const AIChat: React.FC = () => {
                 ) : (
                   <p className="text-sm">{message.content}</p>
                 )}
-                <p className={`text-xs mt-2 ${
-                  message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
-                }`}>
-                  {message.timestamp.toLocaleTimeString()}
+                <p className={`text-[10px] mt-1 ${message.role === 'user' ? 'text-blue-100/70' : 'text-gray-500'}`}>
+                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             </div>
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className={`rounded-lg p-3 ${
-                theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
-              }`}>
-                <div className="flex space-x-2">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+              <div className={`rounded-lg p-2.5 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <div className="flex space-x-1.5">
+                  <div className="w-1.5 h-1.5 bg-neon-cyan rounded-full animate-bounce" />
+                  <div className="w-1.5 h-1.5 bg-neon-cyan rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  <div className="w-1.5 h-1.5 bg-neon-cyan rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
                 </div>
               </div>
             </div>
@@ -335,67 +252,53 @@ const AIChat: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className={`p-3 sm:p-4 border-t flex-shrink-0 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        }`}>
-          <div className="flex gap-2">
+        {/* Input — pinned to bottom of chat column */}
+        <div className="flex-shrink-0 game-header border-t border-neon-purple/20 p-2 sm:p-3">
+          <div className="flex gap-2 items-center">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder="Type your message..."
-              className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg border text-sm sm:text-base ${
-                theme === 'dark'
-                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                  : 'bg-white border-gray-300 placeholder-gray-500'
-              } focus:outline-none focus:ring-2 focus:ring-serpico-blue`}
+              className="synth-input flex-1 min-w-0 py-2 text-sm"
             />
             <button
+              type="button"
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
-              className="bg-serpico-blue text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg active:bg-serpico-blue-dark disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base touch-manipulation"
+              className="btn-neon-primary px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm flex-shrink-0 disabled:opacity-50"
             >
               Send
             </button>
           </div>
-          <div className="mt-2 hidden sm:flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span>💡 Tip: Use suggestions on the right or type your question</span>
-          </div>
         </div>
       </div>
 
-      {/* Right Sidebar - Suggestions (hidden on mobile) */}
-      <div className={`hidden lg:flex w-48 border-l flex-shrink-0 ${
+      {/* Right suggestions — large desktop only */}
+      <div className={`hidden lg:flex w-44 border-l flex-shrink-0 flex-col min-h-0 ${
         theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-      } flex-col h-full overflow-hidden`}>
-        <div className="p-3 flex-shrink-0">
-          <h3 className={`text-sm font-bold mb-3 ${
-            theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-          }`}>
+      }`}>
+        <div className="game-header p-3 flex-shrink-0">
+          <h3 className="text-xs font-display font-bold text-synth-muted uppercase tracking-wider">
             Suggestions
           </h3>
         </div>
-        <div className="flex-1 overflow-y-auto px-3 pb-3">
-          <div className="space-y-2">
-            {suggestions.map((suggestion, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  setInput(suggestion);
-                  // Auto-send could be added here if desired
-                }}
-                className={`w-full text-left p-2 rounded text-xs ${
-                  theme === 'dark'
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                } transition-colors`}
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
+        <div className="scroll-area px-2 pb-2 space-y-1.5">
+          {suggestions.map((suggestion, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => setInput(suggestion)}
+              className={`w-full text-left p-2 rounded-lg text-[10px] leading-snug ${
+                theme === 'dark'
+                  ? 'bg-gray-700/50 hover:bg-gray-600 text-gray-300 border border-neon-purple/20'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              } transition-colors`}
+            >
+              {suggestion}
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -403,4 +306,3 @@ const AIChat: React.FC = () => {
 };
 
 export default AIChat;
-

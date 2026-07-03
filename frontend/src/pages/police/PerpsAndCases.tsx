@@ -1,25 +1,21 @@
 import React, { useState } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
-import AIChatDrawer from '../../components/AIChatDrawer';
 
 const PerpsAndCases: React.FC = () => {
-  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<'perps' | 'cases'>('perps');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const categories = ['all', 'assault', 'sexual-assault', 'murder', 'robbery', 'unsolved'];
-  
-  const getCategoryLabel = (cat: string, isMobile: boolean = false) => {
+
+  const getCategoryLabel = (cat: string, isMobile = false) => {
     if (isMobile) {
       const mobileLabels: Record<string, string> = {
-        'all': 'All',
-        'assault': 'Assault',
+        all: 'All',
+        assault: 'Assault',
         'sexual-assault': 'Sexual',
-        'murder': 'Murder',
-        'robbery': 'Robbery',
-        'unsolved': 'Unsolved',
+        murder: 'Murder',
+        robbery: 'Robbery',
+        unsolved: 'Unsolved',
       };
       return mobileLabels[cat] || cat;
     }
@@ -41,179 +37,110 @@ const PerpsAndCases: React.FC = () => {
   ];
 
   return (
-    <div className={`h-full flex flex-col ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className={`p-3 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Records</h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Serial killers & case library</p>
-          </div>
+    <div className="page-fill">
+      <div className="game-header p-2 sm:p-4 flex-shrink-0">
+        <h1 className="text-lg sm:text-xl font-display font-bold neon-text-magenta tracking-wide">Records</h1>
+        <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider">
+          Serial killer database & case files
+        </p>
+
+        {/* Neon tab switcher */}
+        <div className="neon-tab-bar mt-3">
           <button
-            onClick={() => setIsChatOpen(true)}
-            className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-lg font-medium transition-colors touch-manipulation text-xs sm:text-base ${
-              theme === 'dark'
-                ? 'bg-serpico-blue active:bg-serpico-blue-dark text-white'
-                : 'bg-serpico-blue active:bg-serpico-blue-dark text-white'
-            }`}
-          >
-            <svg
-              width="18"
-              height="18"
-              className="sm:w-5 sm:h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v12M6 12h12" />
-              <circle cx="12" cy="12" r="3" fill="currentColor" />
-            </svg>
-            <span className="whitespace-nowrap">AI Chat</span>
-          </button>
-        </div>
-        
-        {/* Tab Switcher */}
-        <div className="mt-3 sm:mt-4 flex gap-2">
-          <button
+            type="button"
             onClick={() => setActiveTab('perps')}
-            className={`flex-1 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium touch-manipulation ${
-              activeTab === 'perps'
-                ? 'bg-serpico-blue text-white'
-                : theme === 'dark'
-                ? 'bg-gray-700 active:bg-gray-600 text-gray-300'
-                : 'bg-gray-200 active:bg-gray-300 text-gray-700'
-            }`}
-            title="Serial Killers"
+            className={`neon-tab ${activeTab === 'perps' ? 'neon-tab-active-cyan' : ''}`}
           >
-            <span className="hidden sm:inline">Serial Killers</span>
-            <span className="sm:hidden">Killers</span>
+            <span aria-hidden>🔪</span>
+            <span>Killers</span>
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('cases')}
-            className={`flex-1 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium touch-manipulation ${
-              activeTab === 'cases'
-                ? 'bg-serpico-blue text-white'
-                : theme === 'dark'
-                ? 'bg-gray-700 active:bg-gray-600 text-gray-300'
-                : 'bg-gray-200 active:bg-gray-300 text-gray-700'
-            }`}
-            title="Cases"
+            className={`neon-tab ${activeTab === 'cases' ? 'neon-tab-active-magenta' : ''}`}
           >
-            Cases
+            <span aria-hidden>📁</span>
+            <span>Cases</span>
           </button>
         </div>
 
-        {/* Search */}
-        <div className="mt-3 sm:mt-4">
+        <div className="mt-3">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={activeTab === 'perps' ? 'Search serial killers...' : 'Search cases...'}
-            className={`w-full px-3 sm:px-4 py-2 rounded-lg border text-sm sm:text-base ${
-              theme === 'dark'
-                ? 'bg-gray-700 border-gray-600 text-white'
-                : 'bg-white border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-serpico-blue`}
+            className="synth-input py-2 text-sm"
           />
         </div>
 
-        {/* Case Categories */}
         {activeTab === 'cases' && (
-          <div className="mt-3 sm:mt-4 flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 -mx-3 sm:mx-0 px-3 sm:px-0 scrollbar-hide">
+          <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
             {categories.map((cat) => (
               <button
                 key={cat}
+                type="button"
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-sm font-medium whitespace-nowrap touch-manipulation flex-shrink-0 ${
+                className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-display font-semibold uppercase tracking-wide whitespace-nowrap flex-shrink-0 transition-all ${
                   selectedCategory === cat
-                    ? 'bg-serpico-red text-white'
-                    : theme === 'dark'
-                    ? 'bg-gray-700 active:bg-gray-600 text-gray-300'
-                    : 'bg-gray-200 active:bg-gray-300 text-gray-700'
+                    ? 'neon-tab-active-magenta'
+                    : 'text-synth-muted border border-neon-purple/30 bg-synth-deep/60'
                 }`}
-                title={getCategoryLabel(cat, false)}
               >
-                <span className="hidden sm:inline">{getCategoryLabel(cat, false)}</span>
-                <span className="sm:hidden">{getCategoryLabel(cat, true)}</span>
+                {getCategoryLabel(cat, true)}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
-        {activeTab === 'perps' ? (
-          mockPerps.map((perp) => (
-            <div
-              key={perp.id}
-              className={`p-3 sm:p-4 rounded-lg ${
-                theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-              } shadow-sm`}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base sm:text-lg dark:text-white break-words">{perp.alias}</h3>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 break-words">
-                    📍 {perp.location} • Last seen: {perp.lastSeen} • Cases: {perp.cases}
-                  </p>
+      <div className="scroll-area p-2 sm:p-4 space-y-2 sm:space-y-3">
+        {activeTab === 'perps'
+          ? mockPerps.map((perp) => (
+              <div key={perp.id} className="game-panel p-3 sm:p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-display font-semibold text-sm sm:text-base dark:text-white truncate">{perp.alias}</h3>
+                    <p className="text-[10px] sm:text-xs text-synth-muted mt-1 break-words">
+                      {perp.location} · {perp.lastSeen} · {perp.cases} cases
+                    </p>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-display font-semibold uppercase flex-shrink-0 ${
+                      perp.status === 'Active' || perp.status === 'Wanted'
+                        ? 'bg-neon-magenta/20 text-neon-magenta border border-neon-magenta/40'
+                        : 'bg-neon-green/15 text-neon-green border border-neon-green/30'
+                    }`}
+                  >
+                    {perp.status}
+                  </span>
                 </div>
-                <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 self-start sm:self-auto ${
-                  perp.status === 'Active' || perp.status === 'Wanted'
-                    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                }`}>
-                  {perp.status}
-                </span>
               </div>
-            </div>
-          ))
-        ) : (
-          mockCases.map((caseItem) => (
-            <div
-              key={caseItem.id}
-              className={`p-3 sm:p-4 rounded-lg ${
-                theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-              } shadow-sm`}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base sm:text-lg dark:text-white break-words">{caseItem.type}</h3>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 break-words">
-                    📅 {caseItem.date} • 📍 {caseItem.location}
-                  </p>
+            ))
+          : mockCases.map((caseItem) => (
+              <div key={caseItem.id} className="game-panel p-3 sm:p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-display font-semibold text-sm sm:text-base dark:text-white break-words">{caseItem.type}</h3>
+                    <p className="text-[10px] sm:text-xs text-synth-muted mt-1 break-words">
+                      {caseItem.date} · {caseItem.location}
+                    </p>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-display font-semibold uppercase flex-shrink-0 ${
+                      caseItem.status === 'Solved'
+                        ? 'bg-neon-green/15 text-neon-green border border-neon-green/30'
+                        : 'bg-neon-amber/15 text-neon-amber border border-neon-amber/40'
+                    }`}
+                  >
+                    {caseItem.status}
+                  </span>
                 </div>
-                <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 self-start sm:self-auto ${
-                  caseItem.status === 'Solved'
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                }`}>
-                  {caseItem.status}
-                </span>
               </div>
-            </div>
-          ))
-        )}
+            ))}
       </div>
-
-      <div className={`p-3 sm:p-4 border-t ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center">
-          💬 Click the AI Chat button above to query {activeTab === 'perps' ? 'serial killer' : 'case'} information
-        </p>
-      </div>
-
-      {/* AI Chat Drawer */}
-      <AIChatDrawer 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)}
-        context="perps-cases"
-      />
     </div>
   );
 };
 
 export default PerpsAndCases;
-
