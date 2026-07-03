@@ -171,6 +171,30 @@ code {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
   }
+
+  .neon-tab-bar {
+    @apply flex gap-1 p-1 rounded-xl border border-neon-purple/40 bg-synth-deep/80;
+    box-shadow: inset 0 0 20px rgba(123, 47, 247, 0.1);
+  }
+
+  .neon-tab {
+    @apply flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg font-display text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all touch-manipulation;
+    @apply text-synth-muted border border-transparent;
+  }
+
+  .neon-tab-active-cyan {
+    @apply text-synth-void border-neon-cyan/50;
+    background: linear-gradient(135deg, rgba(0, 245, 255, 0.9), rgba(123, 47, 247, 0.85));
+    box-shadow: 0 0 16px rgba(0, 245, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(0, 245, 255, 0.5);
+  }
+
+  .neon-tab-active-magenta {
+    @apply text-white border-neon-magenta/50;
+    background: linear-gradient(135deg, rgba(255, 43, 214, 0.9), rgba(123, 47, 247, 0.85));
+    box-shadow: 0 0 16px rgba(255, 43, 214, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(255, 43, 214, 0.5);
+  }
 }
 
 /* ─── Global class remaps under synth-world ─── */
@@ -188,6 +212,16 @@ code {
 .app-shell .scroll-area {
   min-height: 0;
   overflow-x: hidden;
+}
+
+/* AI Chat uses a horizontal split layout — override default column flex */
+.app-shell > .flex-1.min-h-0 > .ai-chat-layout {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 html.synth-world .bg-gray-900 { background-color: #07050f !important; }
