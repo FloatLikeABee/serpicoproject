@@ -37,9 +37,11 @@ type PursuitVehicle struct {
 	Evaluation     string   `json:"evaluation,omitempty"`
 	VehicleModel   string   `json:"vehicleModel,omitempty"`
 	PursuingPerpID string   `json:"pursuingPerpId,omitempty"`
-	Status         string   `json:"status"` // patrol | pursuing | caught | idle | escaped
+	Status         string   `json:"status"` // patrol | pursuing | caught | idle | escaped | down
 	BeingPursued   bool     `json:"beingPursued"`
 	Destination    *LatLng  `json:"destination,omitempty"`
+	DownAt         *time.Time `json:"downAt,omitempty"`
+	DownReason     string   `json:"downReason,omitempty"`
 }
 
 // PursuitRoundResult summarizes round outcome.
@@ -144,7 +146,7 @@ func (s *PursuitExamService) ArmPursuit(userID, policeID string) (*PursuitExamSe
 	found := false
 	for i := range session.Vehicles {
 		if session.Vehicles[i].ID == policeID && session.Vehicles[i].Role == "police" {
-			if session.Vehicles[i].Status == "caught" || session.Vehicles[i].Status == "idle" {
+			if session.Vehicles[i].Status == "down" || session.Vehicles[i].Status == "caught" {
 				return nil, fmt.Errorf("unit unavailable")
 			}
 			found = true
@@ -190,7 +192,10 @@ func (s *PursuitExamService) StartPursuit(userID, policeID, perpID string) (*Pur
 	police := &session.Vehicles[policeIdx]
 	perp := &session.Vehicles[perpIdx]
 
-	if police.Status != "patrol" && police.Status != "pursuing" {
+	if police.Status == "down" {
+		return nil, fmt.Errorf("unit is down")
+	}
+	if police.Status != "patrol" && police.Status != "pursuing" && police.Status != "idle" {
 		return nil, fmt.Errorf("police unit busy")
 	}
 	if perp.Status == "caught" {
@@ -222,7 +227,7 @@ func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSe
 func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamSession {
 	now := time.Now()
 	perpCount := 3 + rand.Intn(2)   // 3-4
-	policeCount := 5 + rand.Intn(4) // 5-8
+	policeCount := 4 + rand.Intn(4) // 4-7
 
 	policeSpawns := []LatLng{}
 	perpSpawns := []LatLng{}
@@ -242,6 +247,7 @@ func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamS
 	}
 
 	vehicles := append(police, perps...)
+	schedulePoliceDowns(vehicles, now)
 	now = time.Now()
 
 	return &PursuitExamSession{
@@ -279,6 +285,8 @@ func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 	}
 	session.LastSimAt = now
 
+	s.applyPoliceDowns(session, now)
+
 	perpPositions := map[string]LatLng{}
 	for i := range session.Vehicles {
 		v := &session.Vehicles[i]
@@ -290,7 +298,7 @@ func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 
 	for i := range session.Vehicles {
 		v := &session.Vehicles[i]
-		if v.Role != "police" || v.Status == "caught" {
+		if v.Role != "police" || v.Status == "caught" || v.Status == "down" {
 			continue
 		}
 		if v.Status == "idle" {
@@ -541,10 +549,68 @@ var (
 		"Subject Alpha", "Subject Bravo", "Subject Charlie", "Subject Delta",
 		"Subject Echo", "Subject Foxtrot", "Subject Ghost", "Subject Havoc",
 	}
+
+	policeDownReasons = []string{
+		"Engine overheated — unit offline",
+		"Tire blowout — awaiting backup",
+		"Radio distress — mechanical failure",
+		"Accident damage — out of pursuit",
+	}
 )
 
 func olathePoliceZone() (latMin, latMax, lngMin, lngMax float64) {
 	return 38.865, 38.895, -94.855, -94.835
+}
+
+func schedulePoliceDowns(vehicles []PursuitVehicle, roundStart time.Time) {
+	policeIDs := []string{}
+	for i := range vehicles {
+		if vehicles[i].Role == "police" {
+			policeIDs = append(policeIDs, vehicles[i].ID)
+		}
+	}
+	if len(policeIDs) < 3 {
+		return
+	}
+	downCount := 1 + rand.Intn(2)
+	rand.Shuffle(len(policeIDs), func(i, j int) { policeIDs[i], policeIDs[j] = policeIDs[j], policeIDs[i] })
+	if downCount > len(policeIDs)-2 {
+		downCount = len(policeIDs) - 2
+	}
+	for i := 0; i < downCount; i++ {
+		for j := range vehicles {
+			if vehicles[j].ID != policeIDs[i] {
+				continue
+			}
+			offset := 48 + rand.Intn(120)
+			t := roundStart.Add(time.Duration(offset) * time.Second)
+			vehicles[j].DownAt = &t
+			vehicles[j].DownReason = policeDownReasons[rand.Intn(len(policeDownReasons))]
+			break
+		}
+	}
+}
+
+func (s *PursuitExamService) applyPoliceDowns(session *PursuitExamSession, now time.Time) {
+	for i := range session.Vehicles {
+		v := &session.Vehicles[i]
+		if v.Role != "police" || v.DownAt == nil || now.Before(*v.DownAt) || v.Status == "down" {
+			continue
+		}
+		if v.Status == "pursuing" && v.PursuingPerpID != "" {
+			for j := range session.Vehicles {
+				if session.Vehicles[j].ID == v.PursuingPerpID {
+					session.Vehicles[j].BeingPursued = false
+					break
+				}
+			}
+		}
+		v.Status = "down"
+		v.PursuingPerpID = ""
+		if v.DownReason != "" {
+			v.Evaluation = v.DownReason
+		}
+	}
 }
 
 func olathePerpZone() (latMin, latMax, lngMin, lngMax float64) {

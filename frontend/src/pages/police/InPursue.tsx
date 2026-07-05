@@ -68,7 +68,7 @@ const InPursue: React.FC = () => {
         if (serverSession.vehicles.length >= 8) {
           const perpN = serverSession.vehicles.filter((v) => v.role === 'perp').length;
           const polN = serverSession.vehicles.filter((v) => v.role === 'police').length;
-          if (perpN >= 3 && perpN <= 4 && polN >= 5 && polN <= 8) {
+          if (perpN >= 3 && perpN <= 4 && polN >= 4 && polN <= 7) {
             setSession(serverSession);
             setUseServer(true);
             return;
@@ -133,6 +133,7 @@ const InPursue: React.FC = () => {
   }, [session, now]);
 
   const canPursue = selectedPolice &&
+    selectedPolice.status !== 'down' &&
     (selectedPolice.status === 'patrol' || selectedPolice.status === 'idle') &&
     session?.phase === 'active';
 
@@ -143,8 +144,10 @@ const InPursue: React.FC = () => {
 
     if (vehicle.role === 'police' && vehicle.status !== 'caught') {
       setSelectedPoliceId(vehicle.id);
-      setPursueModePoliceId(null);
-      pursueModeRef.current = null;
+      if (vehicle.status !== 'down') {
+        setPursueModePoliceId(null);
+        pursueModeRef.current = null;
+      }
       return;
     }
 
@@ -205,6 +208,7 @@ const InPursue: React.FC = () => {
 
   const caughtCount = perpUnits.filter((v) => v.status === 'caught').length;
   const activePursuits = policeUnits.filter((v) => v.status === 'pursuing').length;
+  const downCount = policeUnits.filter((v) => v.status === 'down').length;
 
   if (!session) {
     return (
@@ -303,6 +307,11 @@ const InPursue: React.FC = () => {
                 {Math.round(selectedPolice.maxSpeedMph)} mph
               </span>
             </div>
+            {selectedPolice.status === 'down' && (
+              <p className="mt-2 text-[10px] text-red-400 font-display uppercase tracking-wide text-center">
+                ✕ Unit down — unavailable
+              </p>
+            )}
             {selectedPolice.status === 'pursuing' && (
               <p className="mt-2 text-[10px] text-neon-green font-display uppercase tracking-wide text-center">
                 ● In active pursuit
@@ -340,7 +349,7 @@ const InPursue: React.FC = () => {
       </div>
 
       <div className="game-header border-t border-neon-purple/20 p-2 sm:p-3 flex-shrink-0">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] sm:text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px] sm:text-xs">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-serpico-blue flex-shrink-0" />
             <span className="text-synth-muted">Police</span>
@@ -361,9 +370,14 @@ const InPursue: React.FC = () => {
             <span className="text-synth-muted">Pursuing</span>
             <span className="font-bold text-neon-cyan ml-auto">{activePursuits}</span>
           </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0" />
+            <span className="text-synth-muted">Down</span>
+            <span className="font-bold text-gray-400 ml-auto">{downCount}</span>
+          </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap police → Pursue → tap suspect · Magenta dots = suspect destinations
+          Tap police → Pursue → tap suspect · Units may go down mid-round
         </p>
       </div>
     </div>

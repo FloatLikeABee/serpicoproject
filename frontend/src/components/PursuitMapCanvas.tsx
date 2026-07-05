@@ -34,6 +34,23 @@ const MapUpdater: React.FC<{ center: [number, number]; zoom: number }> = ({ cent
   return null;
 };
 
+const policeDownSvg = (heading: number) => `
+  <div style="
+    transform: rotate(${heading}deg);
+    transform-origin: center center;
+    width: 44px;
+    height: 44px;
+    filter: drop-shadow(0 0 6px rgba(100,100,100,0.5));
+    opacity: 0.65;
+    pointer-events: auto;
+  ">
+    <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+      <ellipse cx="22" cy="22" rx="20" ry="20" fill="rgba(80,80,80,0.2)" stroke="#666" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <path d="M10 24h24l-2.5-8H12.5l-2.5 8z" fill="#444" stroke="#888" stroke-width="1"/>
+      <text x="22" y="20" text-anchor="middle" fill="#ef4444" font-size="10" font-weight="bold">✕</text>
+    </svg>
+  </div>`;
+
 const policeVehicleSvg = (heading: number, glow: string, selected: boolean) => `
   <div style="
     transform: rotate(${heading}deg);
@@ -104,6 +121,14 @@ function buildIcon(
     return L.divIcon({
       className: 'custom-marker pursuit-vehicle-marker',
       html: caughtOverlay,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+    });
+  }
+  if (vehicle.role === 'police' && vehicle.status === 'down') {
+    return L.divIcon({
+      className: 'custom-marker pursuit-vehicle-marker',
+      html: policeDownSvg(vehicle.heading),
       iconSize: [44, 44],
       iconAnchor: [22, 22],
     });

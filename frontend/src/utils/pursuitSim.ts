@@ -20,9 +20,11 @@ export interface SimVehicle {
   evaluation: string;
   vehicleModel: string;
   pursuingPerpId?: string;
-  status: 'patrol' | 'pursuing' | 'caught' | 'idle' | 'escaped';
+  status: 'patrol' | 'pursuing' | 'caught' | 'idle' | 'escaped' | 'down';
   beingPursued: boolean;
   destination?: SimLatLng;
+  downAt?: number;
+  downReason?: string;
 }
 
 export interface SimRoundResult {
@@ -267,6 +269,39 @@ function advanceVehicle(v: SimVehicle, elapsedSec: number) {
   }
 }
 
+const downReasons = [
+  'Engine overheated — unit offline',
+  'Tire blowout — awaiting backup',
+  'Radio distress — mechanical failure',
+  'Accident damage — out of pursuit',
+];
+
+function schedulePoliceDowns(vehicles: SimVehicle[], roundStart: number) {
+  const police = vehicles.filter((v) => v.role === 'police');
+  const downCount = Math.min(police.length - 2, randInt(1, 2));
+  const shuffled = [...police].sort(() => Math.random() - 0.5);
+  for (let i = 0; i < downCount; i++) {
+    const unit = shuffled[i];
+    const vehicle = vehicles.find((v) => v.id === unit.id);
+    if (!vehicle) continue;
+    vehicle.downAt = roundStart + randInt(Math.floor(ROUND_MS * 0.2), Math.floor(ROUND_MS * 0.75));
+    vehicle.downReason = downReasons[randInt(0, downReasons.length - 1)];
+  }
+}
+
+function applyPoliceDowns(vehicles: SimVehicle[], now: number) {
+  for (const v of vehicles) {
+    if (v.role !== 'police' || !v.downAt || now < v.downAt || v.status === 'down') continue;
+    if (v.status === 'pursuing' && v.pursuingPerpId) {
+      const perp = vehicles.find((p) => p.id === v.pursuingPerpId);
+      if (perp) perp.beingPursued = false;
+    }
+    v.status = 'down';
+    v.pursuingPerpId = undefined;
+    if (v.downReason) v.evaluation = v.downReason;
+  }
+}
+
 function moveToward(v: SimVehicle, targetLat: number, targetLng: number, distM: number) {
   if (distM <= 0) return;
   const bear = bearingDeg(v.lat, v.lng, targetLat, targetLng);
@@ -278,7 +313,7 @@ function moveToward(v: SimVehicle, targetLat: number, targetLng: number, distM: 
 
 export function createSimSession(userId: string, round = 1): SimSession {
   const perpCount = randInt(3, 4);
-  const policeCount = randInt(5, 8);
+  const policeCount = randInt(4, 7);
   const policeSpawns: SimLatLng[] = [];
   const vehicles: SimVehicle[] = [];
 
@@ -332,6 +367,7 @@ export function createSimSession(userId: string, round = 1): SimSession {
   }
 
   const now = Date.now();
+  schedulePoliceDowns(vehicles, now);
   return {
     id: uid('session'),
     userId,
@@ -353,6 +389,8 @@ export function tickSimSession(session: SimSession, elapsedSec: number): SimSess
     return next;
   }
 
+  applyPoliceDowns(next.vehicles, now);
+
   const perpPositions: Record<string, SimLatLng> = {};
   for (const v of next.vehicles) {
     if (v.role === 'perp' && v.status !== 'caught' && v.status !== 'escaped') {
@@ -362,7 +400,7 @@ export function tickSimSession(session: SimSession, elapsedSec: number): SimSess
   }
 
   for (const v of next.vehicles) {
-    if (v.role !== 'police') continue;
+    if (v.role !== 'police' || v.status === 'down') continue;
     if (v.status === 'idle') {
       v.status = 'patrol';
     }
@@ -442,7 +480,7 @@ export function armPursuit(session: SimSession, policeId: string): SimSession {
 export function startPursuit(session: SimSession, policeId: string, perpId: string): SimSession {
   if (session.phase !== 'active') return session;
   const vehicles = session.vehicles.map((v) => {
-    if (v.id === policeId && v.role === 'police' && (v.status === 'patrol' || v.status === 'idle')) {
+    if (v.id === policeId && v.role === 'police' && v.status !== 'down' && (v.status === 'patrol' || v.status === 'idle')) {
       return { ...v, status: 'pursuing' as const, pursuingPerpId: perpId };
     }
     if (v.id === perpId && v.role === 'perp' && v.status !== 'caught') {
