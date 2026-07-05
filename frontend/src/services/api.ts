@@ -113,6 +113,47 @@ export interface PursuitRoundResult {
   score: number;
   message: string;
   grade: string;
+  stats?: RoundStats;
+}
+
+export interface PursuitDecision {
+  policeId: string;
+  policeName: string;
+  policeSpeed: number;
+  policeRank?: string;
+  vehicleModel: string;
+  perpId: string;
+  perpName: string;
+  perpSpeed: number;
+  perpModel: string;
+  timestampMs: number;
+  outcome?: string;
+}
+
+export interface RoundStats {
+  round: number;
+  roundDurationSec: number;
+  totalPolice: number;
+  totalPerps: number;
+  policeDown: number;
+  policeUsed: number;
+  pursuitsLaunched: number;
+  caught: number;
+  escaped: number;
+  outcome: string;
+  operationalScore: number;
+  decisions: PursuitDecision[];
+  policeStatus: Array<{ name: string; status: string; model: string; speed: number; rank?: string }>;
+}
+
+export interface PursuitAIEvaluation {
+  grade: string;
+  score: number;
+  summary: string;
+  strategyAnalysis: string;
+  resourceAnalysis: string;
+  strengths: string[];
+  improvements: string[];
 }
 
 export interface PursuitExamSession {
@@ -176,6 +217,10 @@ export const pursuitExamAPI = {
       { userId, policeId, perpId },
       { headers: { 'X-User-Id': userId } }
     );
+    return response.data;
+  },
+  evaluateRound: async (stats: RoundStats): Promise<{ evaluation: PursuitAIEvaluation }> => {
+    const response = await api.post<{ evaluation: PursuitAIEvaluation }>('/pursuit-exam/evaluate', { stats });
     return response.data;
   },
 };

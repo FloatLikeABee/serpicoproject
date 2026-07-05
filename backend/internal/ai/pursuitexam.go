@@ -226,8 +226,8 @@ func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSe
 
 func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamSession {
 	now := time.Now()
-	perpCount := 3 + rand.Intn(2)   // 3-4
-	policeCount := 4 + rand.Intn(4) // 4-7
+	perpCount := 5 + rand.Intn(5)   // 5-9
+	policeCount := 4 + rand.Intn(2) // 4-5
 
 	policeSpawns := []LatLng{}
 	perpSpawns := []LatLng{}
@@ -559,7 +559,11 @@ var (
 )
 
 func olathePoliceZone() (latMin, latMax, lngMin, lngMax float64) {
-	return 38.865, 38.895, -94.855, -94.835
+	return 38.858, 38.905, -94.872, -94.835
+}
+
+func olathePerpZone() (latMin, latMax, lngMin, lngMax float64) {
+	return 38.868, 38.912, -94.798, -94.762
 }
 
 func schedulePoliceDowns(vehicles []PursuitVehicle, roundStart time.Time) {
@@ -569,14 +573,17 @@ func schedulePoliceDowns(vehicles []PursuitVehicle, roundStart time.Time) {
 			policeIDs = append(policeIDs, vehicles[i].ID)
 		}
 	}
-	if len(policeIDs) < 3 {
+	if len(policeIDs) < 4 {
 		return
 	}
 	downCount := 1 + rand.Intn(2)
-	rand.Shuffle(len(policeIDs), func(i, j int) { policeIDs[i], policeIDs[j] = policeIDs[j], policeIDs[i] })
 	if downCount > len(policeIDs)-2 {
 		downCount = len(policeIDs) - 2
 	}
+	if downCount < 1 {
+		downCount = 1
+	}
+	rand.Shuffle(len(policeIDs), func(i, j int) { policeIDs[i], policeIDs[j] = policeIDs[j], policeIDs[i] })
 	for i := 0; i < downCount; i++ {
 		for j := range vehicles {
 			if vehicles[j].ID != policeIDs[i] {
@@ -613,17 +620,13 @@ func (s *PursuitExamService) applyPoliceDowns(session *PursuitExamSession, now t
 	}
 }
 
-func olathePerpZone() (latMin, latMax, lngMin, lngMax float64) {
-	return 38.875, 38.905, -94.805, -94.785
-}
-
 func randomPoliceSpawn(existing []LatLng) LatLng {
 	latMin, latMax, lngMin, lngMax := olathePoliceZone()
 	for attempt := 0; attempt < 50; attempt++ {
 		p := randomGridPoint(latMin, latMax, lngMin, lngMax)
 		ok := true
 		for _, e := range existing {
-			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 1200 {
+			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 1500 {
 				ok = false
 				break
 			}
@@ -636,17 +639,18 @@ func randomPoliceSpawn(existing []LatLng) LatLng {
 }
 
 func randomPerpSpawn(existing, police []LatLng) LatLng {
-	for attempt := 0; attempt < 60; attempt++ {
-		p := randomPerpDestination()
+	latMin, latMax, lngMin, lngMax := olathePerpZone()
+	for attempt := 0; attempt < 80; attempt++ {
+		p := randomGridPoint(latMin, latMax, lngMin, lngMax)
 		ok := true
 		for _, e := range police {
-			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 2800 {
+			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 5200 {
 				ok = false
 				break
 			}
 		}
 		for _, e := range existing {
-			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 1500 {
+			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 1800 {
 				ok = false
 				break
 			}
@@ -655,7 +659,7 @@ func randomPerpSpawn(existing, police []LatLng) LatLng {
 			return p
 		}
 	}
-	return randomPerpDestination()
+	return randomGridPoint(latMin, latMax, lngMin, lngMax)
 }
 
 func randomPerpDestination() LatLng {

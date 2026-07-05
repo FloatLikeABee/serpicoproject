@@ -27,6 +27,54 @@ export interface SimVehicle {
   downReason?: string;
 }
 
+export interface PursuitDecision {
+  policeId: string;
+  policeName: string;
+  policeSpeed: number;
+  policeRank?: string;
+  vehicleModel: string;
+  perpId: string;
+  perpName: string;
+  perpSpeed: number;
+  perpModel: string;
+  timestampMs: number;
+  outcome?: 'caught' | 'escaped' | 'interrupted';
+}
+
+export interface PoliceStatusRecord {
+  name: string;
+  status: string;
+  model: string;
+  speed: number;
+  rank?: string;
+}
+
+export interface RoundStats {
+  round: number;
+  roundDurationSec: number;
+  totalPolice: number;
+  totalPerps: number;
+  policeDown: number;
+  policeUsed: number;
+  pursuitsLaunched: number;
+  caught: number;
+  escaped: number;
+  outcome: string;
+  operationalScore: number;
+  decisions: PursuitDecision[];
+  policeStatus: PoliceStatusRecord[];
+}
+
+export interface PursuitAIEvaluation {
+  grade: 'A' | 'B' | 'C' | string;
+  score: number;
+  summary: string;
+  strategyAnalysis: string;
+  resourceAnalysis: string;
+  strengths: string[];
+  improvements: string[];
+}
+
 export interface SimRoundResult {
   outcome: 'total_failure' | 'partial_win' | 'total_win';
   caught: number;
@@ -35,6 +83,7 @@ export interface SimRoundResult {
   score: number;
   message: string;
   grade: string;
+  stats?: RoundStats;
 }
 
 export interface SimSession {
@@ -47,6 +96,8 @@ export interface SimSession {
   vehicles: SimVehicle[];
   result?: SimRoundResult;
   armedPoliceId?: string;
+  stats?: RoundStats;
+  roundStartMs?: number;
 }
 
 const ROUND_MS = 4 * 60 * 1000;
@@ -78,7 +129,12 @@ const perpFleet = [
   { model: 'Red Toyota Corolla', speed: 105 },
 ];
 
-const perpNames = ['Subject Alpha', 'Subject Bravo', 'Subject Charlie', 'Subject Delta'];
+const perpNames = [
+  'Subject Alpha', 'Subject Bravo', 'Subject Charlie', 'Subject Delta',
+  'Subject Echo', 'Subject Foxtrot', 'Subject Ghost', 'Subject Havoc', 'Subject Ion',
+];
+
+const MIN_FLEET_DISTANCE_M = 5200;
 
 const officerNames = ['Martinez', 'Chen', 'Johnson', 'Williams', 'Patel', 'Garcia', 'Thompson', 'Davis'];
 
@@ -188,27 +244,27 @@ function randomPatrolRoute(start: SimLatLng): SimLatLng[] {
 }
 
 function randomPerpDestination(): SimLatLng {
-  return randomPointInZone(38.872, 38.908, -94.82, -94.785);
+  return randomPointInZone(38.868, 38.912, -94.798, -94.762);
 }
 
 function randomPoliceSpawn(existing: SimLatLng[]): SimLatLng {
-  for (let i = 0; i < 40; i++) {
-    const p = randomPointInZone(38.862, 38.898, -94.855, -94.815);
-    if (existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 1200)) {
+  for (let i = 0; i < 50; i++) {
+    const p = randomPointInZone(38.858, 38.905, -94.872, -94.835);
+    if (existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 1500)) {
       return p;
     }
   }
-  return randomPointInZone(38.865, 38.895, -94.855, -94.82);
+  return randomPointInZone(38.858, 38.905, -94.872, -94.835);
 }
 
 function randomPerpSpawn(existing: SimLatLng[], police: SimLatLng[]): SimLatLng {
-  for (let i = 0; i < 50; i++) {
-    const p = randomPerpDestination();
-    const farFromPolice = police.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 2800);
-    const farFromPerps = existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 1500);
+  for (let i = 0; i < 80; i++) {
+    const p = randomPointInZone(38.868, 38.912, -94.798, -94.762);
+    const farFromPolice = police.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= MIN_FLEET_DISTANCE_M);
+    const farFromPerps = existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 1800);
     if (farFromPolice && farFromPerps) return p;
   }
-  return randomPerpDestination();
+  return randomPointInZone(38.868, 38.912, -94.798, -94.762);
 }
 
 function advanceVehicle(v: SimVehicle, elapsedSec: number) {
@@ -278,7 +334,8 @@ const downReasons = [
 
 function schedulePoliceDowns(vehicles: SimVehicle[], roundStart: number) {
   const police = vehicles.filter((v) => v.role === 'police');
-  const downCount = Math.min(police.length - 2, randInt(1, 2));
+  if (police.length < 4) return;
+  const downCount = Math.min(Math.max(police.length - 2, 1), randInt(1, 2));
   const shuffled = [...police].sort(() => Math.random() - 0.5);
   for (let i = 0; i < downCount; i++) {
     const unit = shuffled[i];
@@ -312,8 +369,8 @@ function moveToward(v: SimVehicle, targetLat: number, targetLng: number, distM: 
 }
 
 export function createSimSession(userId: string, round = 1): SimSession {
-  const perpCount = randInt(3, 4);
-  const policeCount = randInt(4, 7);
+  const perpCount = randInt(5, 9);
+  const policeCount = randInt(4, 5);
   const policeSpawns: SimLatLng[] = [];
   const vehicles: SimVehicle[] = [];
 
@@ -374,7 +431,60 @@ export function createSimSession(userId: string, round = 1): SimSession {
     phase: 'active',
     round,
     roundEndsAt: now + ROUND_MS,
+    roundStartMs: now,
     vehicles,
+    stats: {
+      round,
+      roundDurationSec: 0,
+      totalPolice: policeCount,
+      totalPerps: perpCount,
+      policeDown: 0,
+      policeUsed: 0,
+      pursuitsLaunched: 0,
+      caught: 0,
+      escaped: 0,
+      outcome: '',
+      operationalScore: 0,
+      decisions: [],
+      policeStatus: [],
+    },
+  };
+}
+
+export function buildRoundStats(session: SimSession, result: SimRoundResult): RoundStats {
+  const police = session.vehicles.filter((v) => v.role === 'police');
+  const perps = session.vehicles.filter((v) => v.role === 'perp');
+  const usedIds = new Set(session.stats?.decisions.map((d) => d.policeId) ?? []);
+
+  const decisions = (session.stats?.decisions ?? []).map((d) => {
+    const perp = perps.find((p) => p.id === d.perpId);
+    return {
+      ...d,
+      outcome: perp?.status === 'caught' ? 'caught' as const : 'escaped' as const,
+    };
+  });
+
+  const roundStart = session.roundStartMs ?? session.roundEndsAt - ROUND_MS;
+  return {
+    round: session.round,
+    roundDurationSec: Math.round((session.roundEndsAt - roundStart) / 1000),
+    totalPolice: police.length,
+    totalPerps: perps.length,
+    policeDown: police.filter((v) => v.status === 'down').length,
+    policeUsed: usedIds.size,
+    pursuitsLaunched: session.stats?.pursuitsLaunched ?? decisions.length,
+    caught: result.caught,
+    escaped: result.escaped,
+    outcome: result.outcome,
+    operationalScore: result.score,
+    decisions,
+    policeStatus: police.map((v) => ({
+      name: v.officerName,
+      status: v.status,
+      model: v.vehicleModel,
+      speed: v.maxSpeedMph,
+      rank: v.officerRank,
+    })),
   };
 }
 
@@ -468,7 +578,11 @@ function finishSimRound(session: SimSession): SimSession {
     ...session,
     phase: 'completed',
     cooldownEndsAt: Date.now() + 20 * 1000,
-    result: { outcome, caught, escaped, totalPerps: total, score, message, grade },
+    result: (() => {
+      const result = { outcome, caught, escaped, totalPerps: total, score, message, grade };
+      return { ...result, stats: buildRoundStats(session, result) };
+    })(),
+    stats: buildRoundStats(session, { outcome, caught, escaped, totalPerps: total, score, message, grade }),
   };
 }
 
@@ -479,6 +593,8 @@ export function armPursuit(session: SimSession, policeId: string): SimSession {
 
 export function startPursuit(session: SimSession, policeId: string, perpId: string): SimSession {
   if (session.phase !== 'active') return session;
+  const police = session.vehicles.find((v) => v.id === policeId);
+  const perp = session.vehicles.find((v) => v.id === perpId);
   const vehicles = session.vehicles.map((v) => {
     if (v.id === policeId && v.role === 'police' && v.status !== 'down' && (v.status === 'patrol' || v.status === 'idle')) {
       return { ...v, status: 'pursuing' as const, pursuingPerpId: perpId };
@@ -488,7 +604,45 @@ export function startPursuit(session: SimSession, policeId: string, perpId: stri
     }
     return { ...v };
   });
-  return { ...session, vehicles, armedPoliceId: undefined };
+
+  const stats = session.stats ?? {
+    round: session.round,
+    roundDurationSec: 0,
+    totalPolice: 0,
+    totalPerps: 0,
+    policeDown: 0,
+    policeUsed: 0,
+    pursuitsLaunched: 0,
+    caught: 0,
+    escaped: 0,
+    outcome: '',
+    operationalScore: 0,
+    decisions: [],
+    policeStatus: [],
+  };
+
+  if (police && perp) {
+    stats.decisions = [
+      ...stats.decisions,
+      {
+        policeId,
+        policeName: police.officerName,
+        policeSpeed: police.maxSpeedMph,
+        policeRank: police.officerRank,
+        vehicleModel: police.vehicleModel,
+        perpId,
+        perpName: perp.officerName,
+        perpSpeed: perp.maxSpeedMph,
+        perpModel: perp.vehicleModel,
+        timestampMs: Date.now(),
+      },
+    ];
+    stats.pursuitsLaunched = stats.decisions.length;
+    const usedIds = new Set(stats.decisions.map((d) => d.policeId));
+    stats.policeUsed = usedIds.size;
+  }
+
+  return { ...session, vehicles, armedPoliceId: undefined, stats };
 }
 
 /** Merge server snapshot into local session (keep sim running between polls). */

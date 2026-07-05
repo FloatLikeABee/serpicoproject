@@ -1,16 +1,43 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PursuitMapCanvas, { PursuitMapVehicle } from '../../components/PursuitMapCanvas';
 import { useAuth } from '../../contexts/AuthContext';
-import { pursuitExamAPI } from '../../services/api';
+import { pursuitExamAPI, PursuitAIEvaluation } from '../../services/api';
 import {
   SimSession,
   SimVehicle,
+  RoundStats,
   armPursuit,
   createSimSession,
   simSessionFromAPI,
   startPursuit,
   tickSimSession,
 } from '../../utils/pursuitSim';
+
+function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
+  const catchRate = stats.totalPerps > 0 ? stats.caught / stats.totalPerps : 0;
+  let grade = 'C';
+  let score = 55;
+  if (catchRate >= 0.75 && stats.pursuitsLaunched > 0) {
+    grade = 'A';
+    score = 92;
+  } else if (catchRate >= 0.4 || stats.caught >= 2) {
+    grade = 'B';
+    score = 76;
+  }
+  return {
+    grade,
+    score,
+    summary: catchRate >= 0.75
+      ? 'Strong operational efficiency under resource constraints.'
+      : catchRate >= 0.4
+      ? 'Partial success — strategy showed promise but needs refinement.'
+      : 'Low apprehension rate — reassess unit assignment and speed matching.',
+    strategyAnalysis: `You committed ${stats.pursuitsLaunched} pursuit(s) using ${stats.policeUsed} of ${stats.totalPolice} available units against ${stats.totalPerps} suspects, apprehending ${stats.caught}.`,
+    resourceAnalysis: `Police-to-suspect ratio was ${stats.totalPolice}:${stats.totalPerps}. ${stats.policeDown} unit(s) went down mid-round, reducing available capacity.`,
+    strengths: catchRate >= 0.5 ? ['Effective pressure on multiple suspect vehicles'] : ['Attempted pursuits under difficult odds'],
+    improvements: ['Deploy faster interceptors on high-speed suspects', 'Prioritize targets before units go offline'],
+  };
+}
 
 const OLATHE_CENTER: [number, number] = [38.8814, -94.8191];
 
@@ -44,6 +71,9 @@ const InPursue: React.FC = () => {
   const [pursueModePoliceId, setPursueModePoliceId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [useServer, setUseServer] = useState(false);
+  const [aiEvaluation, setAiEvaluation] = useState<PursuitAIEvaluation | null>(null);
+  const [evalLoading, setEvalLoading] = useState(false);
+  const evaluatedRoundRef = useRef<number | null>(null);
 
   const sessionRef = useRef<SimSession | null>(null);
   const lastTickRef = useRef<number>(performance.now());
@@ -65,10 +95,10 @@ const InPursue: React.FC = () => {
         const { session: raw } = await pursuitExamAPI.getState(userId);
         if (cancelled) return;
         const serverSession = simSessionFromAPI(raw as unknown as Record<string, unknown>);
-        if (serverSession.vehicles.length >= 8) {
+        if (serverSession.vehicles.length >= 9) {
           const perpN = serverSession.vehicles.filter((v) => v.role === 'perp').length;
           const polN = serverSession.vehicles.filter((v) => v.role === 'police').length;
-          if (perpN >= 3 && perpN <= 4 && polN >= 4 && polN <= 7) {
+          if (perpN >= 5 && perpN <= 9 && polN >= 4 && polN <= 5) {
             setSession(serverSession);
             setUseServer(true);
             return;
@@ -104,6 +134,8 @@ const InPursue: React.FC = () => {
           sessionRef.current = next;
           setSelectedPoliceId(null);
           setPursueModePoliceId(null);
+          setAiEvaluation(null);
+          evaluatedRoundRef.current = null;
         }
       }
       frame = requestAnimationFrame(loop);
@@ -111,6 +143,26 @@ const InPursue: React.FC = () => {
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  // AI evaluation when round completes
+  useEffect(() => {
+    if (session?.phase !== 'completed' || !session.result?.stats) return;
+    if (evaluatedRoundRef.current === session.round) return;
+    evaluatedRoundRef.current = session.round;
+
+    const runEval = async () => {
+      setEvalLoading(true);
+      try {
+        const { evaluation } = await pursuitExamAPI.evaluateRound(session.result!.stats!);
+        setAiEvaluation(evaluation);
+      } catch {
+        setAiEvaluation(localFallbackEvaluation(session.result!.stats!));
+      } finally {
+        setEvalLoading(false);
+      }
+    };
+    runEval();
+  }, [session?.phase, session?.round, session?.result]);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -321,23 +373,68 @@ const InPursue: React.FC = () => {
         )}
 
         {session.phase === 'completed' && session.result && (
-          <div className="absolute inset-0 z-[1200] flex items-center justify-center p-4 bg-synth-void/80 backdrop-blur-sm pointer-events-auto">
-            <div className="game-panel max-w-sm w-full p-4 sm:p-5 border border-neon-purple/50">
+          <div className="absolute inset-0 z-[1200] flex items-center justify-center p-4 bg-synth-void/80 backdrop-blur-sm pointer-events-auto overflow-y-auto">
+            <div className="game-panel max-w-md w-full p-4 sm:p-5 border border-neon-purple/50 max-h-[90vh] overflow-y-auto">
               <p className="text-[10px] font-display uppercase tracking-widest text-synth-muted">Round complete</p>
-              <h2 className={`text-2xl font-display font-bold mt-1 ${
+              <h2 className={`text-xl font-display font-bold mt-1 ${
                 session.result.outcome === 'total_win' ? 'neon-text-green' :
                 session.result.outcome === 'partial_win' ? 'neon-text-cyan' : 'text-neon-magenta'
               }`}>
                 {session.result.outcome === 'total_win' ? 'Total Win' :
                  session.result.outcome === 'partial_win' ? 'Partial Win' : 'Total Failure'}
               </h2>
-              <p className="text-4xl font-display font-bold mt-2 text-white">{session.result.grade}</p>
-              <p className="text-xs text-gray-300 mt-2">{session.result.message}</p>
-              <div className="mt-3 flex justify-between text-xs font-display">
+
+              {evalLoading ? (
+                <p className="text-xs text-neon-cyan mt-3 animate-pulse font-display">AI analyzing your operations…</p>
+              ) : aiEvaluation ? (
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <p className="text-4xl font-display font-bold text-white">{aiEvaluation.grade}</p>
+                    <div>
+                      <p className="text-xs text-gray-300">{aiEvaluation.summary}</p>
+                      <p className="text-[10px] text-synth-muted mt-0.5">Score: {aiEvaluation.score}</p>
+                    </div>
+                  </div>
+                  <div className="text-[11px] space-y-2">
+                    <div>
+                      <p className="text-neon-cyan font-display uppercase text-[10px] tracking-wider">Strategy</p>
+                      <p className="text-gray-300 mt-0.5 leading-snug">{aiEvaluation.strategyAnalysis}</p>
+                    </div>
+                    <div>
+                      <p className="text-neon-magenta font-display uppercase text-[10px] tracking-wider">Resources</p>
+                      <p className="text-gray-300 mt-0.5 leading-snug">{aiEvaluation.resourceAnalysis}</p>
+                    </div>
+                    {aiEvaluation.strengths?.length > 0 && (
+                      <div>
+                        <p className="text-neon-green font-display uppercase text-[10px] tracking-wider">Strengths</p>
+                        <ul className="text-gray-300 mt-0.5 list-disc list-inside">
+                          {aiEvaluation.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {aiEvaluation.improvements?.length > 0 && (
+                      <div>
+                        <p className="text-neon-amber font-display uppercase text-[10px] tracking-wider">Improve</p>
+                        <ul className="text-gray-300 mt-0.5 list-disc list-inside">
+                          {aiEvaluation.improvements.map((s, i) => <li key={i}>{s}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-4xl font-display font-bold mt-2 text-white">{session.result.grade}</p>
+              )}
+
+              <div className="mt-3 pt-3 border-t border-neon-purple/20 grid grid-cols-2 gap-2 text-[10px] font-display">
+                <span className="text-synth-muted">Police used: <span className="text-white">{session.result.stats?.policeUsed ?? '—'}/{session.result.stats?.totalPolice}</span></span>
+                <span className="text-synth-muted">Pursuits: <span className="text-white">{session.result.stats?.pursuitsLaunched ?? 0}</span></span>
                 <span className="text-neon-green">Caught: {session.result.caught}</span>
                 <span className="text-neon-magenta">Escaped: {session.result.escaped}</span>
-                <span className="text-neon-cyan">Score: {session.result.score}</span>
+                <span className="text-synth-muted">Units down: <span className="text-white">{session.result.stats?.policeDown ?? 0}</span></span>
+                <span className="text-neon-cyan">Suspects: {session.result.totalPerps}</span>
               </div>
+
               {cooldownSecondsLeft > 0 && (
                 <p className="mt-4 text-center text-[10px] text-synth-muted font-mono uppercase">
                   Next round in {formatTime(cooldownSecondsLeft)}
