@@ -395,7 +395,7 @@ func (s *PursuitExamService) finishRound(session *PursuitExamSession) {
 	session.Result = result
 	session.Phase = "completed"
 
-	cooldown := time.Now().Add(time.Duration(60+rand.Intn(61)) * time.Second)
+	cooldown := time.Now().Add(20 * time.Second)
 	session.CooldownEndsAt = &cooldown
 }
 
