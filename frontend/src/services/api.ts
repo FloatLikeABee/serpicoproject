@@ -86,6 +86,49 @@ export interface ChaseGameSession {
   updatedAt: string;
 }
 
+export interface PursuitVehicle {
+  id: string;
+  role: 'police' | 'perp';
+  lat: number;
+  lng: number;
+  heading: number;
+  route?: Array<{ lat: number; lng: number }>;
+  routeIndex?: number;
+  routeProgress?: number;
+  maxSpeedMph: number;
+  officerName?: string;
+  officerRank?: string;
+  evaluation?: string;
+  vehicleModel?: string;
+  pursuingPerpId?: string;
+  status: string;
+  beingPursued?: boolean;
+}
+
+export interface PursuitRoundResult {
+  outcome: 'total_failure' | 'partial_win' | 'total_win';
+  caught: number;
+  escaped: number;
+  totalPerps: number;
+  score: number;
+  message: string;
+  grade: string;
+}
+
+export interface PursuitExamSession {
+  id: string;
+  userId: string;
+  phase: 'active' | 'completed' | 'cooldown';
+  round: number;
+  roundEndsAt: string;
+  cooldownEndsAt?: string;
+  vehicles: PursuitVehicle[];
+  result?: PursuitRoundResult;
+  armedPoliceId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export const chatAPI = {
   sendMessage: async (message: string, context?: string): Promise<ChatResponse> => {
     const response = await api.post<ChatResponse>('/chat', {
@@ -107,6 +150,32 @@ export const chaseGameAPI = {
   },
   getSession: async (sessionId: string): Promise<{ session: ChaseGameSession }> => {
     const response = await api.get<{ session: ChaseGameSession }>(`/chase-game/${sessionId}`);
+    return response.data;
+  },
+};
+
+export const pursuitExamAPI = {
+  getState: async (userId: string): Promise<{ session: PursuitExamSession }> => {
+    const response = await api.get<{ session: PursuitExamSession }>('/pursuit-exam/state', {
+      params: { userId },
+      headers: { 'X-User-Id': userId },
+    });
+    return response.data;
+  },
+  armPursuit: async (userId: string, policeId: string): Promise<{ session: PursuitExamSession }> => {
+    const response = await api.post<{ session: PursuitExamSession }>(
+      '/pursuit-exam/arm',
+      { userId, policeId },
+      { headers: { 'X-User-Id': userId } }
+    );
+    return response.data;
+  },
+  startPursuit: async (userId: string, policeId: string, perpId: string): Promise<{ session: PursuitExamSession }> => {
+    const response = await api.post<{ session: PursuitExamSession }>(
+      '/pursuit-exam/pursue',
+      { userId, policeId, perpId },
+      { headers: { 'X-User-Id': userId } }
+    );
     return response.data;
   },
 };

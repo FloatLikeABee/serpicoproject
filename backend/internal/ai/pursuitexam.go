@@ -1,0 +1,652 @@
+package ai
+
+import (
+	"fmt"
+	"math"
+	"math/rand"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+const (
+	pursuitRoundDuration = 4 * time.Minute
+	pursuitCatchMeters   = 85.0
+)
+
+// LatLng is a geographic coordinate.
+type LatLng struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
+}
+
+// PursuitVehicle is a simulated unit on the Olathe road grid.
+type PursuitVehicle struct {
+	ID             string   `json:"id"`
+	Role           string   `json:"role"` // police | perp
+	Lat            float64  `json:"lat"`
+	Lng            float64  `json:"lng"`
+	Heading        float64  `json:"heading"`
+	Route          []LatLng `json:"route"`
+	RouteIndex     int      `json:"routeIndex"`
+	RouteProgress  float64  `json:"routeProgress"`
+	MaxSpeedMph    float64  `json:"maxSpeedMph"`
+	OfficerName    string   `json:"officerName,omitempty"`
+	OfficerRank    string   `json:"officerRank,omitempty"`
+	Evaluation     string   `json:"evaluation,omitempty"`
+	VehicleModel   string   `json:"vehicleModel,omitempty"`
+	PursuingPerpID string   `json:"pursuingPerpId,omitempty"`
+	Status         string   `json:"status"` // patrol | pursuing | caught | idle
+	BeingPursued   bool     `json:"beingPursued"`
+}
+
+// PursuitRoundResult summarizes round outcome.
+type PursuitRoundResult struct {
+	Outcome    string `json:"outcome"` // total_failure | partial_win | total_win
+	Caught     int    `json:"caught"`
+	Escaped    int    `json:"escaped"`
+	TotalPerps int    `json:"totalPerps"`
+	Score      int    `json:"score"`
+	Message    string `json:"message"`
+	Grade      string `json:"grade"`
+}
+
+// PursuitExamSession is a per-user pursuit strategy exam round.
+type PursuitExamSession struct {
+	ID             string              `json:"id"`
+	UserID         string              `json:"userId"`
+	Phase          string              `json:"phase"` // active | completed | cooldown
+	Round          int                 `json:"round"`
+	RoundEndsAt    time.Time           `json:"roundEndsAt"`
+	CooldownEndsAt *time.Time          `json:"cooldownEndsAt,omitempty"`
+	Vehicles       []PursuitVehicle    `json:"vehicles"`
+	Result         *PursuitRoundResult `json:"result,omitempty"`
+	ArmedPoliceID  string              `json:"armedPoliceId,omitempty"`
+	LastSimAt      time.Time           `json:"-"`
+	CreatedAt      time.Time           `json:"createdAt"`
+	UpdatedAt      time.Time           `json:"updatedAt"`
+}
+
+// PursuitExamService manages per-user pursuit exam sessions.
+type PursuitExamService struct {
+	sessions map[string]*PursuitExamSession
+	byUser   map[string]string
+	mu       sync.RWMutex
+}
+
+func NewPursuitExamService() *PursuitExamService {
+	return &PursuitExamService{
+		sessions: make(map[string]*PursuitExamSession),
+		byUser:   make(map[string]string),
+	}
+}
+
+func (s *PursuitExamService) GetOrStart(userID string) (*PursuitExamSession, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("user id required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if sid, ok := s.byUser[userID]; ok {
+		if session, exists := s.sessions[sid]; exists {
+			s.simulateLocked(session)
+			return s.copySession(session), nil
+		}
+		delete(s.byUser, userID)
+	}
+
+	session := s.newRound(userID, 1)
+	s.sessions[session.ID] = session
+	s.byUser[userID] = session.ID
+	return s.copySession(session), nil
+}
+
+func (s *PursuitExamService) GetState(userID string) (*PursuitExamSession, error) {
+	return s.GetOrStart(userID)
+}
+
+func (s *PursuitExamService) ArmPursuit(userID, policeID string) (*PursuitExamSession, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session, err := s.sessionForUserLocked(userID)
+	if err != nil {
+		return nil, err
+	}
+	if session.Phase != "active" {
+		return nil, fmt.Errorf("round is not active")
+	}
+
+	found := false
+	for i := range session.Vehicles {
+		if session.Vehicles[i].ID == policeID && session.Vehicles[i].Role == "police" {
+			if session.Vehicles[i].Status == "caught" || session.Vehicles[i].Status == "idle" {
+				return nil, fmt.Errorf("unit unavailable")
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("police unit not found")
+	}
+
+	session.ArmedPoliceID = policeID
+	session.UpdatedAt = time.Now()
+	s.simulateLocked(session)
+	return s.copySession(session), nil
+}
+
+func (s *PursuitExamService) StartPursuit(userID, policeID, perpID string) (*PursuitExamSession, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session, err := s.sessionForUserLocked(userID)
+	if err != nil {
+		return nil, err
+	}
+	if session.Phase != "active" {
+		return nil, fmt.Errorf("round is not active")
+	}
+
+	var policeIdx, perpIdx = -1, -1
+	for i := range session.Vehicles {
+		v := &session.Vehicles[i]
+		if v.ID == policeID && v.Role == "police" {
+			policeIdx = i
+		}
+		if v.ID == perpID && v.Role == "perp" {
+			perpIdx = i
+		}
+	}
+	if policeIdx < 0 || perpIdx < 0 {
+		return nil, fmt.Errorf("invalid unit selection")
+	}
+
+	police := &session.Vehicles[policeIdx]
+	perp := &session.Vehicles[perpIdx]
+
+	if police.Status != "patrol" && police.Status != "pursuing" {
+		return nil, fmt.Errorf("police unit busy")
+	}
+	if perp.Status == "caught" {
+		return nil, fmt.Errorf("suspect already apprehended")
+	}
+
+	police.Status = "pursuing"
+	police.PursuingPerpID = perpID
+	perp.BeingPursued = true
+	session.ArmedPoliceID = ""
+	session.UpdatedAt = time.Now()
+
+	s.simulateLocked(session)
+	return s.copySession(session), nil
+}
+
+func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSession, error) {
+	sid, ok := s.byUser[userID]
+	if !ok {
+		return nil, fmt.Errorf("no session for user")
+	}
+	session, exists := s.sessions[sid]
+	if !exists {
+		return nil, fmt.Errorf("session not found")
+	}
+	return session, nil
+}
+
+func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamSession {
+	now := time.Now()
+	perpCount := 2 + rand.Intn(3)   // 2-4
+	policeCount := 5 + rand.Intn(4) // 5-8
+
+	pLatMin, pLatMax, pLngMin, pLngMax := olathePerpZone()
+	oLatMin, oLatMax, oLngMin, oLngMax := olathePoliceZone()
+
+	perps := generateVehicles("perp", perpCount, pLatMin, pLatMax, pLngMin, pLngMax)
+	police := generateVehicles("police", policeCount, oLatMin, oLatMax, oLngMin, oLngMax)
+
+	// Ensure police spawn far from perps
+	for attempt := 0; attempt < 20; attempt++ {
+		minDist := minCrossFleetDistance(police, perps)
+		if minDist >= 3500 {
+			break
+		}
+		police = generateVehicles("police", policeCount, oLatMin, oLatMax, oLngMin, oLngMax)
+	}
+
+	vehicles := append(police, perps...)
+	now = time.Now()
+
+	return &PursuitExamSession{
+		ID:          uuid.New().String(),
+		UserID:      userID,
+		Phase:       "active",
+		Round:       roundNum,
+		RoundEndsAt: now.Add(pursuitRoundDuration),
+		Vehicles:    vehicles,
+		LastSimAt:   now,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+}
+
+func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
+	now := time.Now()
+
+	if session.Phase == "cooldown" || session.Phase == "completed" {
+		if session.CooldownEndsAt != nil && now.After(*session.CooldownEndsAt) {
+			next := s.newRound(session.UserID, session.Round+1)
+			next.ID = session.ID
+			*session = *next
+		}
+		return
+	}
+
+	if session.LastSimAt.IsZero() {
+		session.LastSimAt = now
+	}
+
+	elapsed := now.Sub(session.LastSimAt).Seconds()
+	if elapsed > 2 {
+		elapsed = 2
+	}
+	session.LastSimAt = now
+
+	perpPositions := map[string]LatLng{}
+	for i := range session.Vehicles {
+		v := &session.Vehicles[i]
+		if v.Role == "perp" && v.Status != "caught" {
+			s.advanceVehicle(v, elapsed)
+			perpPositions[v.ID] = LatLng{Lat: v.Lat, Lng: v.Lng}
+		}
+	}
+
+	for i := range session.Vehicles {
+		v := &session.Vehicles[i]
+		if v.Role != "police" || v.Status == "idle" {
+			continue
+		}
+
+		if v.Status == "pursuing" && v.PursuingPerpID != "" {
+			target, ok := perpPositions[v.PursuingPerpID]
+			if !ok {
+				v.Status = "patrol"
+				v.PursuingPerpID = ""
+				s.advanceVehicle(v, elapsed*0.6)
+				continue
+			}
+
+			speedMps := mphToMps(v.MaxSpeedMph) * 0.92
+			if elapsed > 0 {
+				moveToward(v, target.Lat, target.Lng, speedMps*elapsed)
+			}
+
+			for j := range session.Vehicles {
+				perp := &session.Vehicles[j]
+				if perp.ID == v.PursuingPerpID && perp.Status != "caught" {
+					dist := haversineMeters(v.Lat, v.Lng, perp.Lat, perp.Lng)
+					if dist <= pursuitCatchMeters {
+						perp.Status = "caught"
+						perp.BeingPursued = false
+						v.Status = "idle"
+						v.PursuingPerpID = ""
+					}
+					break
+				}
+			}
+		} else if v.Status == "patrol" {
+			s.advanceVehicle(v, elapsed*0.75)
+		}
+	}
+
+	if now.After(session.RoundEndsAt) {
+		s.finishRound(session)
+	}
+
+	session.UpdatedAt = now
+}
+
+func (s *PursuitExamService) finishRound(session *PursuitExamSession) {
+	caught, total := 0, 0
+	for i := range session.Vehicles {
+		if session.Vehicles[i].Role == "perp" {
+			total++
+			if session.Vehicles[i].Status == "caught" {
+				caught++
+			} else {
+				session.Vehicles[i].Status = "escaped"
+			}
+		}
+		if session.Vehicles[i].Role == "police" && session.Vehicles[i].Status == "pursuing" {
+			session.Vehicles[i].Status = "patrol"
+			session.Vehicles[i].PursuingPerpID = ""
+		}
+	}
+
+	escaped := total - caught
+	result := &PursuitRoundResult{
+		Caught:     caught,
+		Escaped:    escaped,
+		TotalPerps: total,
+	}
+
+	switch {
+	case caught == 0:
+		result.Outcome = "total_failure"
+		result.Score = 0
+		result.Grade = "F"
+		result.Message = "Total failure — all suspects evaded. Review unit placement and speed matching."
+	case caught == total:
+		result.Outcome = "total_win"
+		result.Score = 100
+		result.Grade = "A+"
+		result.Message = "Total win — every suspect apprehended. Excellent pursuit strategy."
+	default:
+		result.Outcome = "partial_win"
+		result.Score = int(math.Round(float64(caught) / float64(total) * 100))
+		if result.Score >= 75 {
+			result.Grade = "B"
+		} else if result.Score >= 50 {
+			result.Grade = "C"
+		} else {
+			result.Grade = "D"
+		}
+		result.Message = fmt.Sprintf("Partial win — %d of %d suspects caught. Assign faster units to remaining targets.", caught, total)
+	}
+
+	session.Result = result
+	session.Phase = "completed"
+
+	cooldown := time.Now().Add(time.Duration(60+rand.Intn(61)) * time.Second)
+	session.CooldownEndsAt = &cooldown
+}
+
+func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float64) {
+	if len(v.Route) < 2 || elapsedSec <= 0 {
+		return
+	}
+
+	speed := mphToMps(v.MaxSpeedMph)
+	if v.Role == "perp" && v.BeingPursued {
+		speed *= 1.15
+	}
+
+	remaining := speed * elapsedSec
+	for remaining > 0 && len(v.Route) >= 2 {
+		cur := v.Route[v.RouteIndex]
+		nextIdx := v.RouteIndex + 1
+		if nextIdx >= len(v.Route) {
+			nextIdx = 1
+		}
+		next := v.Route[nextIdx]
+
+		segLen := haversineMeters(cur.Lat, cur.Lng, next.Lat, next.Lng)
+		if segLen < 1 {
+			v.RouteIndex = nextIdx
+			if v.RouteIndex >= len(v.Route)-1 {
+				v.RouteIndex = 0
+			}
+			v.RouteProgress = 0
+			continue
+		}
+
+		distLeft := segLen * (1 - v.RouteProgress)
+		if remaining >= distLeft {
+			remaining -= distLeft
+			v.RouteIndex = nextIdx
+			if v.RouteIndex >= len(v.Route)-1 {
+				v.RouteIndex = 0
+			}
+			v.RouteProgress = 0
+			v.Lat = next.Lat
+			v.Lng = next.Lng
+			v.Heading = bearingDeg(cur.Lat, cur.Lng, next.Lat, next.Lng)
+		} else {
+			v.RouteProgress += remaining / segLen
+			v.Lat = cur.Lat + (next.Lat-cur.Lat)*v.RouteProgress
+			v.Lng = cur.Lng + (next.Lng-cur.Lng)*v.RouteProgress
+			v.Heading = bearingDeg(cur.Lat, cur.Lng, next.Lat, next.Lng)
+			remaining = 0
+		}
+	}
+}
+
+func (s *PursuitExamService) copySession(src *PursuitExamSession) *PursuitExamSession {
+	cp := *src
+	cp.Vehicles = make([]PursuitVehicle, len(src.Vehicles))
+	copy(cp.Vehicles, src.Vehicles)
+	if src.CooldownEndsAt != nil {
+		t := *src.CooldownEndsAt
+		cp.CooldownEndsAt = &t
+	}
+	if src.Result != nil {
+		r := *src.Result
+		cp.Result = &r
+	}
+	return &cp
+}
+
+// --- Olathe road grid simulation ---
+
+var (
+	policeProfiles = []struct {
+		Rank, Eval string
+	}{
+		{"Patrol Officer", "Steady responder — reliable on routine intercepts"},
+		{"Senior Officer", "Tactical ace — excels at high-speed coordination"},
+		{"Corporal", "Veteran tracker — reads suspect patterns quickly"},
+		{"Sergeant", "Command mindset — optimal unit deployment instincts"},
+		{"Field Training Officer", "Precision driver — tight gap closure specialist"},
+		{"Traffic Unit", "Speed specialist — fastest straight-line pursuit"},
+		{"Detective", "Analytical — picks the right suspect to prioritize"},
+		{"K-9 Handler", "Tenacious — never breaks off once committed"},
+	}
+
+	policeFleet = []struct {
+		Model string
+		Speed float64
+	}{
+		{"Dodge Charger Pursuit", 145},
+		{"Ford Police Interceptor Utility", 131},
+		{"Chevy Tahoe PPV", 124},
+		{"Ford F-150 Police Responder", 118},
+		{"Harley-Davidson Police Motorcycle", 112},
+		{"Ram 1500 Special Service", 115},
+	}
+
+	perpFleet = []struct {
+		Model string
+		Speed float64
+	}{
+		{"Stolen Honda Civic", 108},
+		{"Black Ford F-150", 115},
+		{"White Chevy Tahoe", 112},
+		{"Sport Motorcycle", 125},
+		{"Gray Panel Van", 98},
+		{"Red Toyota Corolla", 105},
+		{"Blue Work Truck", 102},
+		{"Green RAV4", 110},
+	}
+
+	perpAliases = []string{
+		"Subject Alpha", "Subject Bravo", "Subject Charlie", "Subject Delta",
+		"Subject Echo", "Subject Foxtrot", "Subject Ghost", "Subject Havoc",
+	}
+)
+
+func olathePoliceZone() (latMin, latMax, lngMin, lngMax float64) {
+	return 38.865, 38.895, -94.855, -94.835
+}
+
+func olathePerpZone() (latMin, latMax, lngMin, lngMax float64) {
+	return 38.875, 38.905, -94.805, -94.785
+}
+
+func generateVehicles(role string, count int, latMin, latMax, lngMin, lngMax float64) []PursuitVehicle {
+	vehicles := make([]PursuitVehicle, 0, count)
+	usedNames := map[string]bool{}
+
+	for i := 0; i < count; i++ {
+		start := randomGridPoint(latMin, latMax, lngMin, lngMax)
+		route := buildRoadRoute(start, 10+rand.Intn(8))
+
+		var v PursuitVehicle
+		v.ID = fmt.Sprintf("%s-%d-%s", role, i+1, uuid.New().String()[:6])
+		v.Role = role
+		v.Lat = start.Lat
+		v.Lng = start.Lng
+		v.Route = route
+		v.RouteIndex = 0
+		v.RouteProgress = 0
+		v.Status = "patrol"
+		if len(route) > 1 {
+			v.Heading = bearingDeg(route[0].Lat, route[0].Lng, route[1].Lat, route[1].Lng)
+		}
+
+		if role == "police" {
+			profile := policeProfiles[rand.Intn(len(policeProfiles))]
+			fleet := policeFleet[rand.Intn(len(policeFleet))]
+			name := fmt.Sprintf("Officer %s", randomOfficerName(usedNames))
+			v.OfficerName = name
+			v.OfficerRank = profile.Rank
+			v.Evaluation = profile.Eval
+			v.VehicleModel = fleet.Model
+			v.MaxSpeedMph = fleet.Speed + float64(rand.Intn(8)-4)
+		} else {
+			fleet := perpFleet[rand.Intn(len(perpFleet))]
+			alias := perpAliases[i%len(perpAliases)]
+			v.OfficerName = alias
+			v.VehicleModel = fleet.Model
+			v.MaxSpeedMph = fleet.Speed + float64(rand.Intn(10)-5)
+			v.Evaluation = "Suspect vehicle — fleeing or evasive pattern detected"
+		}
+
+		vehicles = append(vehicles, v)
+	}
+	return vehicles
+}
+
+func randomOfficerName(used map[string]bool) string {
+	first := []string{"Martinez", "Chen", "Johnson", "Williams", "Patel", "Garcia", "Thompson", "Davis", "Wilson", "Anderson"}
+	last := []string{"A", "B", "C", "D", "E", "F", "G", "H"}
+	for attempt := 0; attempt < 50; attempt++ {
+		name := fmt.Sprintf("%s %s", first[rand.Intn(len(first))], last[rand.Intn(len(last))])
+		if !used[name] {
+			used[name] = true
+			return name
+		}
+	}
+	return fmt.Sprintf("Unit %d", rand.Intn(99))
+}
+
+func randomGridPoint(latMin, latMax, lngMin, lngMax float64) LatLng {
+	step := 0.004
+	latSteps := int((latMax - latMin) / step)
+	lngSteps := int((lngMax - lngMin) / step)
+	return LatLng{
+		Lat: latMin + float64(rand.Intn(latSteps+1))*step,
+		Lng: lngMin + float64(rand.Intn(lngSteps+1))*step,
+	}
+}
+
+func buildRoadRoute(start LatLng, length int) []LatLng {
+	route := []LatLng{start}
+	cur := start
+	dir := rand.Intn(4)
+
+	for i := 1; i < length; i++ {
+		step := 0.004 + float64(rand.Intn(3))*0.002
+		if rand.Float64() < 0.35 {
+			dir = (dir + 1 + rand.Intn(3)) % 4
+		}
+		next := cur
+		switch dir {
+		case 0:
+			next.Lat += step
+		case 1:
+			next.Lng += step
+		case 2:
+			next.Lat -= step
+		case 3:
+			next.Lng -= step
+		}
+		next.Lat = clamp(next.Lat, 38.855, 38.915)
+		next.Lng = clamp(next.Lng, -94.865, -94.775)
+		route = append(route, next)
+		cur = next
+	}
+	return route
+}
+
+func minCrossFleetDistance(a, b []PursuitVehicle) float64 {
+	minD := math.MaxFloat64
+	for _, p := range a {
+		for _, q := range b {
+			d := haversineMeters(p.Lat, p.Lng, q.Lat, q.Lng)
+			if d < minD {
+				minD = d
+			}
+		}
+	}
+	return minD
+}
+
+func moveToward(v *PursuitVehicle, targetLat, targetLng float64, distMeters float64) {
+	if distMeters <= 0 {
+		return
+	}
+	bear := bearingDeg(v.Lat, v.Lng, targetLat, targetLng)
+	v.Lat, v.Lng = destinationPoint(v.Lat, v.Lng, bear, distMeters)
+	v.Heading = bear
+}
+
+func haversineMeters(lat1, lng1, lat2, lng2 float64) float64 {
+	const R = 6371000
+	rad := math.Pi / 180
+	dLat := (lat2 - lat1) * rad
+	dLng := (lng2 - lng1) * rad
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*rad)*math.Cos(lat2*rad)*math.Sin(dLng/2)*math.Sin(dLng/2)
+	return R * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+}
+
+func bearingDeg(lat1, lng1, lat2, lng2 float64) float64 {
+	rad := math.Pi / 180
+	dLng := (lng2 - lng1) * rad
+	y := math.Sin(dLng) * math.Cos(lat2*rad)
+	x := math.Cos(lat1*rad)*math.Sin(lat2*rad) - math.Sin(lat1*rad)*math.Cos(lat2*rad)*math.Cos(dLng)
+	return math.Mod(math.Atan2(y, x)*180/math.Pi+360, 360)
+}
+
+func destinationPoint(lat, lng, bearingDeg, distMeters float64) (float64, float64) {
+	const R = 6371000
+	rad := math.Pi / 180
+	bear := bearingDeg * rad
+	lat1 := lat * rad
+	lng1 := lng * rad
+	lat2 := math.Asin(math.Sin(lat1)*math.Cos(distMeters/R) +
+		math.Cos(lat1)*math.Sin(distMeters/R)*math.Cos(bear))
+	lng2 := lng1 + math.Atan2(
+		math.Sin(bear)*math.Sin(distMeters/R)*math.Cos(lat1),
+		math.Cos(distMeters/R)-math.Sin(lat1)*math.Sin(lat2),
+	)
+	return lat2 / rad, lng2 / rad
+}
+
+func mphToMps(mph float64) float64 {
+	return mph * 0.44704
+}
+
+func clamp(v, minV, maxV float64) float64 {
+	if v < minV {
+		return minV
+	}
+	if v > maxV {
+		return maxV
+	}
+	return v
+}

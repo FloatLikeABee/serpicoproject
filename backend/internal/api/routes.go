@@ -68,6 +68,15 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		chaseGame.POST("/:id/respond", func(c *gin.Context) { handleChaseGameRespond(c, aiService) })
 	}
 
+	// Pursuit Exam routes (per-user map strategy training)
+	pursuitExam := r.Group("/pursuit-exam")
+	{
+		pursuitExam.GET("/state", func(c *gin.Context) { handlePursuitExamState(c, aiService) })
+		pursuitExam.POST("/start", func(c *gin.Context) { handlePursuitExamStart(c, aiService) })
+		pursuitExam.POST("/arm", func(c *gin.Context) { handlePursuitExamArm(c, aiService) })
+		pursuitExam.POST("/pursue", func(c *gin.Context) { handlePursuitExamPursue(c, aiService) })
+	}
+
 	// Recommendations routes
 	recommendations := r.Group("/recommendations")
 	{

@@ -277,6 +277,11 @@ html.synth-world ::-webkit-scrollbar-thumb {
   border: none !important;
 }
 
+.pursuit-vehicle-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
 @media (max-width: 640px) {
   /* Touch targets for primary actions only — NOT HUD nav (causes horizontal overflow) */
   .btn-neon-primary,

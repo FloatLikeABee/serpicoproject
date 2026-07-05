@@ -15,6 +15,7 @@ type AIService struct {
 	webSearch   *WebSearchTool
 	screener    *PromptScreener
 	ChaseGame   *ChaseGameService
+	PursuitExam *PursuitExamService
 }
 
 func NewAIService(config *Config) (*AIService, error) {
@@ -40,6 +41,7 @@ func NewAIService(config *Config) (*AIService, error) {
 		screener:  screener,
 	}
 	service.ChaseGame = NewChaseGameService(service, imageGen, config.ChaseGameMaxRounds)
+	service.PursuitExam = NewPursuitExamService()
 
 	return service, nil
 }

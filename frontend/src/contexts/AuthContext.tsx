@@ -21,6 +21,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const createUserId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `user-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('user');
@@ -28,12 +33,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   const login = async (email: string, password: string) => {
-    // Mock login - just create a user
     const mockUser: User = {
-      id: '1',
+      id: createUserId(),
       email: email || 'demo@serpico.com',
       name: 'Demo User',
-      role: 'police', // Default to police, can be changed in settings
+      role: 'police',
       rank: 'Officer',
     };
     setUser(mockUser);
@@ -41,9 +45,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const loginWithGoogle = async () => {
-    // Mock Google login
     const mockUser: User = {
-      id: '1',
+      id: createUserId(),
       email: 'user@gmail.com',
       name: 'Google User',
       role: 'police',
@@ -54,9 +57,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const loginWithApple = async () => {
-    // Mock Apple login
     const mockUser: User = {
-      id: '1',
+      id: createUserId(),
       email: 'user@icloud.com',
       name: 'Apple User',
       role: 'police',
