@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Polyline, CircleMarker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -13,6 +13,7 @@ export interface PursuitMapVehicle {
   beingPursued?: boolean;
   pursuingPerpId?: string;
   route?: Array<{ lat: number; lng: number }>;
+  destination?: { lat: number; lng: number };
 }
 
 interface PursuitMapCanvasProps {
@@ -28,7 +29,7 @@ interface PursuitMapCanvasProps {
 const MapUpdater: React.FC<{ center: [number, number]; zoom: number }> = ({ center, zoom }) => {
   const map = useMap();
   React.useEffect(() => {
-    map.setView(center, zoom, { animate: true });
+    map.setView(center, zoom, { animate: false });
   }, [map, center, zoom]);
   return null;
 };
@@ -40,6 +41,7 @@ const policeVehicleSvg = (heading: number, glow: string, selected: boolean) => `
     width: 44px;
     height: 44px;
     filter: drop-shadow(0 0 ${selected ? '10px' : '6px'} ${glow});
+    pointer-events: auto;
   ">
     <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
       <defs>
@@ -66,6 +68,7 @@ const perpVehicleSvg = (heading: number, pursued: boolean, selected: boolean) =>
     width: 44px;
     height: 44px;
     filter: drop-shadow(0 0 ${pursued ? '12px #ff2bd6' : selected ? '10px #ff2bd6' : '6px rgba(255,43,214,0.6)'});
+    pointer-events: auto;
   ">
     <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
       <defs>
@@ -85,16 +88,16 @@ const perpVehicleSvg = (heading: number, pursued: boolean, selected: boolean) =>
 
 const caughtOverlay = `
   <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;
-    background:rgba(0,0,0,0.55);border-radius:50%;border:2px solid #39ff14;">
+    background:rgba(0,0,0,0.55);border-radius:50%;border:2px solid #39ff14;pointer-events:auto;">
     <span style="color:#39ff14;font-size:18px;font-weight:bold;">✓</span>
   </div>`;
 
-const getVehicleIcon = (
+function buildIcon(
   vehicle: PursuitMapVehicle,
   selected: boolean,
   armed: boolean,
   pursueTarget: boolean
-): L.DivIcon => {
+): L.DivIcon {
   if (vehicle.status === 'caught') {
     return L.divIcon({
       className: 'custom-marker pursuit-vehicle-marker',
@@ -103,7 +106,6 @@ const getVehicleIcon = (
       iconAnchor: [22, 22],
     });
   }
-
   const isPolice = vehicle.role === 'police';
   const html = isPolice
     ? policeVehicleSvg(vehicle.heading, armed ? '#00f5ff' : '#2563eb', selected || armed)
@@ -115,6 +117,35 @@ const getVehicleIcon = (
     iconSize: [44, 44],
     iconAnchor: [22, 22],
   });
+}
+
+/** Leaflet markers don't auto-update position — sync lat/lng via ref. */
+const MovingVehicleMarker: React.FC<{
+  vehicle: PursuitMapVehicle;
+  selected: boolean;
+  armed: boolean;
+  pursueTarget: boolean;
+  onClick: () => void;
+}> = ({ vehicle, selected, armed, pursueTarget, onClick }) => {
+  const markerRef = useRef<L.Marker | null>(null);
+
+  useEffect(() => {
+    const marker = markerRef.current;
+    if (!marker) return;
+    marker.setLatLng([vehicle.lat, vehicle.lng]);
+    marker.setIcon(buildIcon(vehicle, selected, armed, pursueTarget));
+    marker.setZIndexOffset(selected || armed ? 1000 : vehicle.role === 'police' ? 500 : 400);
+  }, [vehicle.lat, vehicle.lng, vehicle.heading, vehicle.status, vehicle.beingPursued, selected, armed, pursueTarget, vehicle]);
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={[vehicle.lat, vehicle.lng]}
+      icon={buildIcon(vehicle, selected, armed, pursueTarget)}
+      eventHandlers={{ click: onClick }}
+      zIndexOffset={selected ? 1000 : vehicle.role === 'police' ? 500 : 400}
+    />
+  );
 };
 
 const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
@@ -126,16 +157,31 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   pursueModePoliceId,
   onVehicleClick,
 }) => {
-  const policeRoutes = useMemo(
-    () =>
-      vehicles
-        .filter((v) => v.role === 'police' && v.route && v.route.length > 1 && v.id === selectedId)
-        .map((v) => ({
-          id: v.id,
-          positions: v.route!.map((p) => [p.lat, p.lng] as [number, number]),
-        })),
-    [vehicles, selectedId]
-  );
+  const selectedVehicle = vehicles.find((v) => v.id === selectedId);
+
+  const routeLines = useMemo(() => {
+    const lines: Array<{ id: string; positions: [number, number][]; color: string }> = [];
+    if (selectedVehicle?.route && selectedVehicle.route.length > 1) {
+      lines.push({
+        id: selectedVehicle.id,
+        positions: selectedVehicle.route.map((p) => [p.lat, p.lng]),
+        color: '#00f5ff',
+      });
+    }
+    vehicles
+      .filter((v) => v.role === 'perp' && v.destination && v.status !== 'caught')
+      .forEach((v) => {
+        lines.push({
+          id: `${v.id}-dest`,
+          positions: [
+            [v.lat, v.lng],
+            [v.destination!.lat, v.destination!.lng],
+          ],
+          color: '#ff2bd6',
+        });
+      });
+    return lines;
+  }, [vehicles, selectedVehicle]);
 
   return (
     <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
@@ -145,30 +191,40 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
       />
       <MapUpdater center={center} zoom={zoom} />
 
-      {policeRoutes.map((r) => (
+      {routeLines.map((r) => (
         <Polyline
           key={r.id}
           positions={r.positions}
-          pathOptions={{ color: '#00f5ff', weight: 2, opacity: 0.45, dashArray: '6 8' }}
+          pathOptions={{
+            color: r.color,
+            weight: 2,
+            opacity: 0.4,
+            dashArray: r.id.includes('dest') ? '4 10' : '6 8',
+          }}
         />
       ))}
 
-      {vehicles.map((vehicle) => {
-        const selected = selectedId === vehicle.id;
-        const armed = armedPoliceId === vehicle.id;
-        const pursueTarget = !!pursueModePoliceId && vehicle.role === 'perp' && vehicle.status !== 'caught';
-
-        return (
-          <Marker
-            key={vehicle.id}
-            position={[vehicle.lat, vehicle.lng]}
-            icon={getVehicleIcon(vehicle, selected, armed, pursueTarget)}
-            eventHandlers={{
-              click: () => onVehicleClick?.(vehicle),
-            }}
+      {vehicles
+        .filter((v) => v.role === 'perp' && v.destination && v.status !== 'caught')
+        .map((v) => (
+          <CircleMarker
+            key={`${v.id}-dest-dot`}
+            center={[v.destination!.lat, v.destination!.lng]}
+            radius={5}
+            pathOptions={{ color: '#ff2bd6', fillColor: '#ff2bd6', fillOpacity: 0.5, weight: 1 }}
           />
-        );
-      })}
+        ))}
+
+      {vehicles.map((vehicle) => (
+        <MovingVehicleMarker
+          key={vehicle.id}
+          vehicle={vehicle}
+          selected={selectedId === vehicle.id}
+          armed={armedPoliceId === vehicle.id}
+          pursueTarget={!!pursueModePoliceId && vehicle.role === 'perp' && vehicle.status !== 'caught'}
+          onClick={() => onVehicleClick?.(vehicle)}
+        />
+      ))}
     </MapContainer>
   );
 };

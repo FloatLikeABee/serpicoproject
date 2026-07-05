@@ -37,8 +37,9 @@ type PursuitVehicle struct {
 	Evaluation     string   `json:"evaluation,omitempty"`
 	VehicleModel   string   `json:"vehicleModel,omitempty"`
 	PursuingPerpID string   `json:"pursuingPerpId,omitempty"`
-	Status         string   `json:"status"` // patrol | pursuing | caught | idle
+	Status         string   `json:"status"` // patrol | pursuing | caught | idle | escaped
 	BeingPursued   bool     `json:"beingPursued"`
+	Destination    *LatLng  `json:"destination,omitempty"`
 }
 
 // PursuitRoundResult summarizes round outcome.
@@ -76,9 +77,29 @@ type PursuitExamService struct {
 }
 
 func NewPursuitExamService() *PursuitExamService {
-	return &PursuitExamService{
+	s := &PursuitExamService{
 		sessions: make(map[string]*PursuitExamSession),
 		byUser:   make(map[string]string),
+	}
+	go s.backgroundTick()
+	return s
+}
+
+func (s *PursuitExamService) backgroundTick() {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	for range ticker.C {
+		s.mu.Lock()
+		for _, session := range s.sessions {
+			if session.Phase == "active" {
+				s.simulateLocked(session)
+			} else if (session.Phase == "completed" || session.Phase == "cooldown") &&
+				session.CooldownEndsAt != nil && time.Now().After(*session.CooldownEndsAt) {
+				next := s.newRound(session.UserID, session.Round+1)
+				next.ID = session.ID
+				*session = *next
+			}
+		}
+		s.mu.Unlock()
 	}
 }
 
@@ -200,22 +221,24 @@ func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSe
 
 func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamSession {
 	now := time.Now()
-	perpCount := 2 + rand.Intn(3)   // 2-4
+	perpCount := 3 + rand.Intn(2)   // 3-4
 	policeCount := 5 + rand.Intn(4) // 5-8
 
-	pLatMin, pLatMax, pLngMin, pLngMax := olathePerpZone()
-	oLatMin, oLatMax, oLngMin, oLngMax := olathePoliceZone()
+	policeSpawns := []LatLng{}
+	perpSpawns := []LatLng{}
+	police := make([]PursuitVehicle, 0, policeCount)
+	perps := make([]PursuitVehicle, 0, perpCount)
 
-	perps := generateVehicles("perp", perpCount, pLatMin, pLatMax, pLngMin, pLngMax)
-	police := generateVehicles("police", policeCount, oLatMin, oLatMax, oLngMin, oLngMax)
+	for i := 0; i < policeCount; i++ {
+		start := randomPoliceSpawn(policeSpawns)
+		policeSpawns = append(policeSpawns, start)
+		police = append(police, buildPoliceVehicle(i, start))
+	}
 
-	// Ensure police spawn far from perps
-	for attempt := 0; attempt < 20; attempt++ {
-		minDist := minCrossFleetDistance(police, perps)
-		if minDist >= 3500 {
-			break
-		}
-		police = generateVehicles("police", policeCount, oLatMin, oLatMax, oLngMin, oLngMax)
+	for i := 0; i < perpCount; i++ {
+		start := randomPerpSpawn(perpSpawns, policeSpawns)
+		perpSpawns = append(perpSpawns, start)
+		perps = append(perps, buildPerpVehicle(i, start))
 	}
 
 	vehicles := append(police, perps...)
@@ -251,8 +274,8 @@ func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 	}
 
 	elapsed := now.Sub(session.LastSimAt).Seconds()
-	if elapsed > 2 {
-		elapsed = 2
+	if elapsed > 0.5 {
+		elapsed = 0.5
 	}
 	session.LastSimAt = now
 
@@ -267,8 +290,11 @@ func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 
 	for i := range session.Vehicles {
 		v := &session.Vehicles[i]
-		if v.Role != "police" || v.Status == "idle" {
+		if v.Role != "police" || v.Status == "caught" {
 			continue
+		}
+		if v.Status == "idle" {
+			v.Status = "patrol"
 		}
 
 		if v.Status == "pursuing" && v.PursuingPerpID != "" {
@@ -299,7 +325,7 @@ func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 				}
 			}
 		} else if v.Status == "patrol" {
-			s.advanceVehicle(v, elapsed*0.75)
+			s.advanceVehicle(v, elapsed*0.55)
 		}
 	}
 
@@ -374,13 +400,24 @@ func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float6
 	if v.Role == "perp" && v.BeingPursued {
 		speed *= 1.15
 	}
+	if v.Role == "police" && v.Status == "patrol" {
+		speed *= 0.55
+	}
 
 	remaining := speed * elapsedSec
 	for remaining > 0 && len(v.Route) >= 2 {
 		cur := v.Route[v.RouteIndex]
 		nextIdx := v.RouteIndex + 1
 		if nextIdx >= len(v.Route) {
-			nextIdx = 1
+			if v.Role == "perp" {
+				s.maybeAssignPerpDestination(v)
+				break
+			}
+			dest := randomGridPoint(38.86, 38.91, -94.85, -94.78)
+			v.Route = buildRoadRouteToDestination(LatLng{Lat: v.Lat, Lng: v.Lng}, dest)
+			v.RouteIndex = 0
+			v.RouteProgress = 0
+			break
 		}
 		next := v.Route[nextIdx]
 
@@ -388,7 +425,13 @@ func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float6
 		if segLen < 1 {
 			v.RouteIndex = nextIdx
 			if v.RouteIndex >= len(v.Route)-1 {
-				v.RouteIndex = 0
+				if v.Role == "police" {
+					dest := randomGridPoint(38.86, 38.91, -94.85, -94.78)
+					v.Route = buildRoadRouteToDestination(LatLng{Lat: v.Lat, Lng: v.Lng}, dest)
+					v.RouteIndex = 0
+				} else {
+					v.RouteIndex = 0
+				}
 			}
 			v.RouteProgress = 0
 			continue
@@ -399,7 +442,13 @@ func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float6
 			remaining -= distLeft
 			v.RouteIndex = nextIdx
 			if v.RouteIndex >= len(v.Route)-1 {
-				v.RouteIndex = 0
+				if v.Role == "police" {
+					dest := randomGridPoint(38.86, 38.91, -94.85, -94.78)
+					v.Route = buildRoadRouteToDestination(LatLng{Lat: v.Lat, Lng: v.Lng}, dest)
+					v.RouteIndex = 0
+				} else {
+					v.RouteIndex = 0
+				}
 			}
 			v.RouteProgress = 0
 			v.Lat = next.Lat
@@ -410,8 +459,24 @@ func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float6
 			v.Lat = cur.Lat + (next.Lat-cur.Lat)*v.RouteProgress
 			v.Lng = cur.Lng + (next.Lng-cur.Lng)*v.RouteProgress
 			v.Heading = bearingDeg(cur.Lat, cur.Lng, next.Lat, next.Lng)
+			if v.Role == "perp" {
+				s.maybeAssignPerpDestination(v)
+			}
 			remaining = 0
 		}
+	}
+	if v.Role == "perp" && v.Status != "caught" {
+		s.maybeAssignPerpDestination(v)
+	}
+}
+
+func (s *PursuitExamService) maybeAssignPerpDestination(v *PursuitVehicle) {
+	if v.Destination == nil || haversineMeters(v.Lat, v.Lng, v.Destination.Lat, v.Destination.Lng) < 250 {
+		dest := randomPerpDestination()
+		v.Destination = &dest
+		v.Route = buildRoadRouteToDestination(LatLng{Lat: v.Lat, Lng: v.Lng}, dest)
+		v.RouteIndex = 0
+		v.RouteProgress = 0
 	}
 }
 
@@ -486,48 +551,126 @@ func olathePerpZone() (latMin, latMax, lngMin, lngMax float64) {
 	return 38.875, 38.905, -94.805, -94.785
 }
 
-func generateVehicles(role string, count int, latMin, latMax, lngMin, lngMax float64) []PursuitVehicle {
-	vehicles := make([]PursuitVehicle, 0, count)
-	usedNames := map[string]bool{}
-
-	for i := 0; i < count; i++ {
-		start := randomGridPoint(latMin, latMax, lngMin, lngMax)
-		route := buildRoadRoute(start, 10+rand.Intn(8))
-
-		var v PursuitVehicle
-		v.ID = fmt.Sprintf("%s-%d-%s", role, i+1, uuid.New().String()[:6])
-		v.Role = role
-		v.Lat = start.Lat
-		v.Lng = start.Lng
-		v.Route = route
-		v.RouteIndex = 0
-		v.RouteProgress = 0
-		v.Status = "patrol"
-		if len(route) > 1 {
-			v.Heading = bearingDeg(route[0].Lat, route[0].Lng, route[1].Lat, route[1].Lng)
+func randomPoliceSpawn(existing []LatLng) LatLng {
+	latMin, latMax, lngMin, lngMax := olathePoliceZone()
+	for attempt := 0; attempt < 50; attempt++ {
+		p := randomGridPoint(latMin, latMax, lngMin, lngMax)
+		ok := true
+		for _, e := range existing {
+			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 1200 {
+				ok = false
+				break
+			}
 		}
-
-		if role == "police" {
-			profile := policeProfiles[rand.Intn(len(policeProfiles))]
-			fleet := policeFleet[rand.Intn(len(policeFleet))]
-			name := fmt.Sprintf("Officer %s", randomOfficerName(usedNames))
-			v.OfficerName = name
-			v.OfficerRank = profile.Rank
-			v.Evaluation = profile.Eval
-			v.VehicleModel = fleet.Model
-			v.MaxSpeedMph = fleet.Speed + float64(rand.Intn(8)-4)
-		} else {
-			fleet := perpFleet[rand.Intn(len(perpFleet))]
-			alias := perpAliases[i%len(perpAliases)]
-			v.OfficerName = alias
-			v.VehicleModel = fleet.Model
-			v.MaxSpeedMph = fleet.Speed + float64(rand.Intn(10)-5)
-			v.Evaluation = "Suspect vehicle — fleeing or evasive pattern detected"
+		if ok {
+			return p
 		}
-
-		vehicles = append(vehicles, v)
 	}
-	return vehicles
+	return randomGridPoint(latMin, latMax, lngMin, lngMax)
+}
+
+func randomPerpSpawn(existing, police []LatLng) LatLng {
+	for attempt := 0; attempt < 60; attempt++ {
+		p := randomPerpDestination()
+		ok := true
+		for _, e := range police {
+			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 2800 {
+				ok = false
+				break
+			}
+		}
+		for _, e := range existing {
+			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 1500 {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return p
+		}
+	}
+	return randomPerpDestination()
+}
+
+func randomPerpDestination() LatLng {
+	return randomGridPoint(38.872, 38.908, -94.82, -94.785)
+}
+
+func buildPoliceVehicle(index int, start LatLng) PursuitVehicle {
+	route := buildRandomPatrolRoute(start)
+	profile := policeProfiles[index%len(policeProfiles)]
+	fleet := policeFleet[index%len(policeFleet)]
+	v := PursuitVehicle{
+		ID:           fmt.Sprintf("police-%d-%s", index+1, uuid.New().String()[:6]),
+		Role:         "police",
+		Lat:          start.Lat,
+		Lng:          start.Lng,
+		Route:        route,
+		RouteIndex:   0,
+		RouteProgress: 0,
+		Status:       "patrol",
+		OfficerName:  fmt.Sprintf("Officer %s", randomOfficerName(map[string]bool{})),
+		OfficerRank:  profile.Rank,
+		Evaluation:   profile.Eval,
+		VehicleModel: fleet.Model,
+		MaxSpeedMph:  fleet.Speed + float64(rand.Intn(8)-4),
+	}
+	if len(route) > 1 {
+		v.Heading = bearingDeg(route[0].Lat, route[0].Lng, route[1].Lat, route[1].Lng)
+	}
+	return v
+}
+
+func buildPerpVehicle(index int, start LatLng) PursuitVehicle {
+	dest := randomPerpDestination()
+	route := buildRoadRouteToDestination(start, dest)
+	fleet := perpFleet[index%len(perpFleet)]
+	v := PursuitVehicle{
+		ID:           fmt.Sprintf("perp-%d-%s", index+1, uuid.New().String()[:6]),
+		Role:         "perp",
+		Lat:          start.Lat,
+		Lng:          start.Lng,
+		Route:        route,
+		RouteIndex:   0,
+		RouteProgress: 0,
+		Status:       "patrol",
+		OfficerName:  perpAliases[index%len(perpAliases)],
+		VehicleModel: fleet.Model,
+		MaxSpeedMph:  fleet.Speed + float64(rand.Intn(10)-5),
+		Evaluation:   "Suspect vehicle — evasive driving toward destination",
+		Destination:  &dest,
+	}
+	if len(route) > 1 {
+		v.Heading = bearingDeg(route[0].Lat, route[0].Lng, route[1].Lat, route[1].Lng)
+	}
+	return v
+}
+
+func buildRandomPatrolRoute(start LatLng) []LatLng {
+	dest := randomGridPoint(38.86, 38.91, -94.85, -94.78)
+	return buildRoadRouteToDestination(start, dest)
+}
+
+func buildRoadRouteToDestination(start, dest LatLng) []LatLng {
+	route := []LatLng{start}
+	cur := start
+	for safety := 0; safety < 24 && haversineMeters(cur.Lat, cur.Lng, dest.Lat, dest.Lng) > 400; safety++ {
+		dLat := dest.Lat - cur.Lat
+		dLng := dest.Lng - cur.Lng
+		step := 0.004 + float64(rand.Intn(3))*0.002
+		next := cur
+		if math.Abs(dLat) >= math.Abs(dLng) {
+			next.Lat += math.Copysign(step, dLat)
+		} else {
+			next.Lng += math.Copysign(step, dLng)
+		}
+		next.Lat = clamp(next.Lat, 38.855, 38.915)
+		next.Lng = clamp(next.Lng, -94.865, -94.775)
+		route = append(route, next)
+		cur = next
+	}
+	route = append(route, dest)
+	return route
 }
 
 func randomOfficerName(used map[string]bool) string {

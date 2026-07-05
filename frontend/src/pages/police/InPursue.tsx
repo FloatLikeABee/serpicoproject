@@ -1,11 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PursuitMapCanvas, { PursuitMapVehicle } from '../../components/PursuitMapCanvas';
 import { useAuth } from '../../contexts/AuthContext';
+import { pursuitExamAPI } from '../../services/api';
 import {
-  pursuitExamAPI,
-  PursuitExamSession,
-  PursuitVehicle,
-} from '../../services/api';
+  SimSession,
+  SimVehicle,
+  armPursuit,
+  createSimSession,
+  simSessionFromAPI,
+  startPursuit,
+  tickSimSession,
+} from '../../utils/pursuitSim';
 
 const OLATHE_CENTER: [number, number] = [38.8814, -94.8191];
 
@@ -15,7 +20,7 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function toMapVehicle(v: PursuitVehicle): PursuitMapVehicle {
+function toMapVehicle(v: SimVehicle): PursuitMapVehicle {
   return {
     id: v.id,
     role: v.role,
@@ -26,38 +31,81 @@ function toMapVehicle(v: PursuitVehicle): PursuitMapVehicle {
     beingPursued: v.beingPursued,
     pursuingPerpId: v.pursuingPerpId,
     route: v.route,
+    destination: v.destination,
   };
 }
 
 const InPursue: React.FC = () => {
   const { user } = useAuth();
-  const [session, setSession] = useState<PursuitExamSession | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const userId = user?.id || 'guest';
+
+  const [session, setSession] = useState<SimSession | null>(null);
   const [selectedPoliceId, setSelectedPoliceId] = useState<string | null>(null);
   const [pursueModePoliceId, setPursueModePoliceId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [useServer, setUseServer] = useState(false);
 
-  const userId = user?.id || 'guest';
-
-  const refresh = useCallback(async () => {
-    try {
-      const { session: s } = await pursuitExamAPI.getState(userId);
-      setSession(s);
-      setError(null);
-    } catch (e) {
-      console.error('Pursuit exam sync failed:', e);
-      setError('Could not sync pursuit exam. Retrying…');
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
+  const sessionRef = useRef<SimSession | null>(null);
+  const lastTickRef = useRef<number>(performance.now());
 
   useEffect(() => {
-    refresh();
-    const poll = setInterval(refresh, 1500);
-    return () => clearInterval(poll);
-  }, [refresh]);
+    sessionRef.current = session;
+  }, [session]);
+
+  // Server sync on init only; local sim drives movement
+  useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      try {
+        const { session: raw } = await pursuitExamAPI.getState(userId);
+        if (cancelled) return;
+        const serverSession = simSessionFromAPI(raw as unknown as Record<string, unknown>);
+        if (serverSession.vehicles.length >= 8) {
+          const perpN = serverSession.vehicles.filter((v) => v.role === 'perp').length;
+          const polN = serverSession.vehicles.filter((v) => v.role === 'police').length;
+          if (perpN >= 3 && perpN <= 4 && polN >= 5 && polN <= 8) {
+            setSession(serverSession);
+            setUseServer(true);
+            return;
+          }
+        }
+      } catch {
+        /* local sim fallback */
+      }
+      if (!cancelled) {
+        setSession(createSimSession(userId));
+        setUseServer(false);
+      }
+    };
+    init();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  // Local simulation tick (~30fps)
+  useEffect(() => {
+    let frame: number;
+    const loop = (ts: number) => {
+      const elapsed = Math.min((ts - lastTickRef.current) / 1000, 0.1);
+      lastTickRef.current = ts;
+      const cur = sessionRef.current;
+      if (cur) {
+        if (cur.phase === 'active') {
+          const next = tickSimSession(cur, elapsed);
+          setSession(next);
+          sessionRef.current = next;
+        } else if (cur.cooldownEndsAt && Date.now() >= cur.cooldownEndsAt) {
+          const next = createSimSession(cur.userId, cur.round + 1);
+          setSession(next);
+          sessionRef.current = next;
+          setSelectedPoliceId(null);
+          setPursueModePoliceId(null);
+        }
+      }
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -71,50 +119,71 @@ const InPursue: React.FC = () => {
 
   const roundSecondsLeft = useMemo(() => {
     if (!session?.roundEndsAt || session.phase !== 'active') return 0;
-    return Math.max(0, Math.floor((new Date(session.roundEndsAt).getTime() - now) / 1000));
+    return Math.max(0, Math.floor((session.roundEndsAt - now) / 1000));
   }, [session, now]);
 
   const cooldownSecondsLeft = useMemo(() => {
     if (!session?.cooldownEndsAt) return 0;
-    return Math.max(0, Math.floor((new Date(session.cooldownEndsAt).getTime() - now) / 1000));
+    return Math.max(0, Math.floor((session.cooldownEndsAt - now) / 1000));
   }, [session, now]);
 
-  const handleVehicleClick = async (vehicle: PursuitMapVehicle) => {
-    if (!session || session.phase !== 'active') return;
+  const canPursue = selectedPolice &&
+    (selectedPolice.status === 'patrol' || selectedPolice.status === 'idle') &&
+    session?.phase === 'active';
 
-    if (vehicle.role === 'police' && vehicle.status !== 'caught' && vehicle.status !== 'idle') {
+  const handleVehicleClick = useCallback(async (vehicle: PursuitMapVehicle) => {
+    const cur = sessionRef.current;
+    if (!cur || cur.phase !== 'active') return;
+
+    if (vehicle.role === 'police' && vehicle.status !== 'caught') {
       setSelectedPoliceId(vehicle.id);
       setPursueModePoliceId(null);
       return;
     }
 
     if (vehicle.role === 'perp' && pursueModePoliceId && vehicle.status !== 'caught') {
-      try {
-        const { session: s } = await pursuitExamAPI.startPursuit(userId, pursueModePoliceId, vehicle.id);
-        setSession(s);
-        setPursueModePoliceId(null);
-        setSelectedPoliceId(null);
-      } catch (e) {
-        console.error('Pursue failed:', e);
+      let next = startPursuit(cur, pursueModePoliceId, vehicle.id);
+      setSession(next);
+      sessionRef.current = next;
+      setPursueModePoliceId(null);
+      setSelectedPoliceId(null);
+
+      if (useServer) {
+        try {
+          const { session: raw } = await pursuitExamAPI.startPursuit(userId, pursueModePoliceId, vehicle.id);
+          next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
+          setSession(next);
+          sessionRef.current = next;
+        } catch {
+          setUseServer(false);
+        }
       }
     }
-  };
+  }, [pursueModePoliceId, useServer, userId]);
 
-  const handleArmPursue = async () => {
-    if (!selectedPoliceId || !session) return;
-    try {
-      const { session: s } = await pursuitExamAPI.armPursuit(userId, selectedPoliceId);
-      setSession(s);
-      setPursueModePoliceId(selectedPoliceId);
-    } catch (e) {
-      console.error('Arm pursue failed:', e);
+  const handleArmPursue = useCallback(async () => {
+    if (!selectedPoliceId || !sessionRef.current) return;
+    let next = armPursuit(sessionRef.current, selectedPoliceId);
+    setSession(next);
+    sessionRef.current = next;
+    setPursueModePoliceId(selectedPoliceId);
+
+    if (useServer) {
+      try {
+        const { session: raw } = await pursuitExamAPI.armPursuit(userId, selectedPoliceId);
+        next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
+        setSession(next);
+        sessionRef.current = next;
+      } catch {
+        setUseServer(false);
+      }
     }
-  };
+  }, [selectedPoliceId, useServer, userId]);
 
   const caughtCount = perpUnits.filter((v) => v.status === 'caught').length;
   const activePursuits = policeUnits.filter((v) => v.status === 'pursuing').length;
 
-  if (loading && !session) {
+  if (!session) {
     return (
       <div className="page-fill items-center justify-center">
         <p className="text-neon-cyan font-display text-sm animate-pulse">Initializing pursuit exam…</p>
@@ -131,10 +200,10 @@ const InPursue: React.FC = () => {
               Pursue Exam
             </h1>
             <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate">
-              Round {session?.round ?? 1} · Strategy training sim
+              Round {session.round} · {useServer ? 'Live sim' : 'Local sim'}
             </p>
           </div>
-          {session?.phase === 'active' && (
+          {session.phase === 'active' && (
             <div className="text-right flex-shrink-0">
               <div className="font-display text-lg sm:text-xl font-bold neon-text-cyan tabular-nums">
                 {formatTime(roundSecondsLeft)}
@@ -143,10 +212,6 @@ const InPursue: React.FC = () => {
             </div>
           )}
         </div>
-
-        {error && (
-          <p className="text-[10px] text-neon-amber mt-1">{error}</p>
-        )}
 
         {pursueModePoliceId && (
           <div className="mt-2 px-2 py-1.5 rounded-lg border border-neon-magenta/50 bg-neon-magenta/10 text-[10px] sm:text-xs text-neon-magenta font-display uppercase tracking-wide animate-pulse">
@@ -161,13 +226,13 @@ const InPursue: React.FC = () => {
           zoom={13}
           vehicles={vehicles.map(toMapVehicle)}
           selectedId={selectedPoliceId}
-          armedPoliceId={session?.armedPoliceId}
+          armedPoliceId={session.armedPoliceId}
           pursueModePoliceId={pursueModePoliceId}
           onVehicleClick={handleVehicleClick}
         />
 
-        {selectedPolice && session?.phase === 'active' && (
-          <div className="absolute bottom-2 left-2 right-2 sm:left-auto sm:right-3 sm:bottom-3 sm:w-72 z-[1000] game-panel p-3 border border-neon-cyan/40 shadow-lg">
+        {selectedPolice && session.phase === 'active' && (
+          <div className="absolute top-2 left-2 right-2 sm:top-auto sm:bottom-16 sm:left-auto sm:right-3 sm:w-72 z-[1100] game-panel p-3 border border-neon-cyan/40 shadow-lg pointer-events-auto">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[10px] text-neon-cyan font-display uppercase tracking-wider">Patrol Unit</p>
@@ -177,24 +242,24 @@ const InPursue: React.FC = () => {
               <button
                 type="button"
                 onClick={() => { setSelectedPoliceId(null); setPursueModePoliceId(null); }}
-                className="text-synth-muted hover:text-white text-xs px-1"
+                className="text-synth-muted hover:text-white text-xs px-2 py-1 min-h-0 min-w-0"
                 aria-label="Close panel"
               >
                 ✕
               </button>
             </div>
             <p className="text-xs text-gray-300 mt-2 leading-snug">{selectedPolice.evaluation}</p>
-            <div className="mt-2 flex items-center justify-between text-[10px] sm:text-xs">
-              <span className="text-synth-muted truncate mr-2">{selectedPolice.vehicleModel}</span>
-              <span className="font-display font-bold text-neon-cyan flex-shrink-0">
-                {Math.round(selectedPolice.maxSpeedMph)} mph
+            <div className="mt-2 flex items-center justify-between text-[10px] sm:text-xs gap-2">
+              <span className="text-synth-muted truncate">{selectedPolice.vehicleModel}</span>
+              <span className="font-display font-bold text-neon-cyan flex-shrink-0 whitespace-nowrap">
+                {Math.round(selectedPolice.maxSpeedMph)} mph max
               </span>
             </div>
-            {selectedPolice.status === 'patrol' && (
+            {canPursue && (
               <button
                 type="button"
                 onClick={handleArmPursue}
-                className="mt-3 w-full btn-neon-primary py-2 rounded-lg text-xs font-display uppercase tracking-wider"
+                className="mt-3 w-full btn-neon-primary py-2.5 rounded-lg text-xs font-display uppercase tracking-wider touch-manipulation"
               >
                 Pursue
               </button>
@@ -207,8 +272,8 @@ const InPursue: React.FC = () => {
           </div>
         )}
 
-        {session?.phase === 'completed' && session.result && (
-          <div className="absolute inset-0 z-[1001] flex items-center justify-center p-4 bg-synth-void/80 backdrop-blur-sm">
+        {session.phase === 'completed' && session.result && (
+          <div className="absolute inset-0 z-[1200] flex items-center justify-center p-4 bg-synth-void/80 backdrop-blur-sm pointer-events-auto">
             <div className="game-panel max-w-sm w-full p-4 sm:p-5 border border-neon-purple/50">
               <p className="text-[10px] font-display uppercase tracking-widest text-synth-muted">Round complete</p>
               <h2 className={`text-2xl font-display font-bold mt-1 ${
@@ -259,7 +324,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap police unit → review stats → Pursue → tap suspect
+          Tap police → Pursue → tap suspect · Magenta dots = suspect destinations
         </p>
       </div>
     </div>
