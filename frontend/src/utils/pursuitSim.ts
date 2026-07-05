@@ -467,7 +467,7 @@ function finishSimRound(session: SimSession): SimSession {
   return {
     ...session,
     phase: 'completed',
-    cooldownEndsAt: Date.now() + randInt(60, 120) * 1000,
+    cooldownEndsAt: Date.now() + 20 * 1000,
     result: { outcome, caught, escaped, totalPerps: total, score, message, grade },
   };
 }
