@@ -47,10 +47,15 @@ const InPursue: React.FC = () => {
 
   const sessionRef = useRef<SimSession | null>(null);
   const lastTickRef = useRef<number>(performance.now());
+  const pursueModeRef = useRef<string | null>(null);
 
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => {
+    pursueModeRef.current = pursueModePoliceId;
+  }, [pursueModePoliceId]);
 
   // Server sync on init only; local sim drives movement
   useEffect(() => {
@@ -133,24 +138,33 @@ const InPursue: React.FC = () => {
 
   const handleVehicleClick = useCallback(async (vehicle: PursuitMapVehicle) => {
     const cur = sessionRef.current;
+    const armedPolice = pursueModeRef.current;
     if (!cur || cur.phase !== 'active') return;
 
     if (vehicle.role === 'police' && vehicle.status !== 'caught') {
       setSelectedPoliceId(vehicle.id);
       setPursueModePoliceId(null);
+      pursueModeRef.current = null;
       return;
     }
 
-    if (vehicle.role === 'perp' && pursueModePoliceId && vehicle.status !== 'caught') {
-      let next = startPursuit(cur, pursueModePoliceId, vehicle.id);
+    if (
+      vehicle.role === 'perp' &&
+      armedPolice &&
+      vehicle.status !== 'caught' &&
+      vehicle.status !== 'escaped'
+    ) {
+      const policeId = armedPolice;
+      let next = startPursuit(cur, policeId, vehicle.id);
       setSession(next);
       sessionRef.current = next;
       setPursueModePoliceId(null);
+      pursueModeRef.current = null;
       setSelectedPoliceId(null);
 
       if (useServer) {
         try {
-          const { session: raw } = await pursuitExamAPI.startPursuit(userId, pursueModePoliceId, vehicle.id);
+          const { session: raw } = await pursuitExamAPI.startPursuit(userId, policeId, vehicle.id);
           next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
           setSession(next);
           sessionRef.current = next;
@@ -159,18 +173,21 @@ const InPursue: React.FC = () => {
         }
       }
     }
-  }, [pursueModePoliceId, useServer, userId]);
+  }, [useServer, userId]);
 
   const handleArmPursue = useCallback(async () => {
     if (!selectedPoliceId || !sessionRef.current) return;
-    let next = armPursuit(sessionRef.current, selectedPoliceId);
+    const policeId = selectedPoliceId;
+    pursueModeRef.current = policeId;
+    setPursueModePoliceId(policeId);
+
+    let next = armPursuit(sessionRef.current, policeId);
     setSession(next);
     sessionRef.current = next;
-    setPursueModePoliceId(selectedPoliceId);
 
     if (useServer) {
       try {
-        const { session: raw } = await pursuitExamAPI.armPursuit(userId, selectedPoliceId);
+        const { session: raw } = await pursuitExamAPI.armPursuit(userId, policeId);
         next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
         setSession(next);
         sessionRef.current = next;
@@ -179,6 +196,12 @@ const InPursue: React.FC = () => {
       }
     }
   }, [selectedPoliceId, useServer, userId]);
+
+  const cancelTargeting = useCallback(() => {
+    setPursueModePoliceId(null);
+    pursueModeRef.current = null;
+    setSession((s) => (s ? { ...s, armedPoliceId: undefined } : s));
+  }, []);
 
   const caughtCount = perpUnits.filter((v) => v.status === 'caught').length;
   const activePursuits = policeUnits.filter((v) => v.status === 'pursuing').length;
@@ -214,8 +237,17 @@ const InPursue: React.FC = () => {
         </div>
 
         {pursueModePoliceId && (
-          <div className="mt-2 px-2 py-1.5 rounded-lg border border-neon-magenta/50 bg-neon-magenta/10 text-[10px] sm:text-xs text-neon-magenta font-display uppercase tracking-wide animate-pulse">
-            Tap a suspect vehicle to assign pursuit
+          <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-neon-magenta/50 bg-neon-magenta/10">
+            <p className="text-[10px] sm:text-xs text-neon-magenta font-display uppercase tracking-wide animate-pulse">
+              Lock on — tap a suspect vehicle
+            </p>
+            <button
+              type="button"
+              onClick={cancelTargeting}
+              className="text-[10px] text-synth-muted hover:text-white px-2 py-0.5 min-h-0 min-w-0"
+            >
+              Cancel
+            </button>
           </div>
         )}
       </div>
@@ -226,46 +258,53 @@ const InPursue: React.FC = () => {
           zoom={13}
           vehicles={vehicles.map(toMapVehicle)}
           selectedId={selectedPoliceId}
-          armedPoliceId={session.armedPoliceId}
+          armedPoliceId={pursueModePoliceId || session.armedPoliceId}
           pursueModePoliceId={pursueModePoliceId}
           onVehicleClick={handleVehicleClick}
         />
 
         {selectedPolice && session.phase === 'active' && (
-          <div className="absolute top-2 left-2 right-2 sm:top-auto sm:bottom-16 sm:left-auto sm:right-3 sm:w-72 z-[1100] game-panel p-3 border border-neon-cyan/40 shadow-lg pointer-events-auto">
+          <div className="absolute top-2 left-2 right-2 sm:top-auto sm:bottom-16 sm:left-auto sm:right-3 sm:w-64 z-[1100] game-panel p-2.5 sm:p-3 border border-neon-cyan/40 shadow-lg pointer-events-auto">
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[10px] text-neon-cyan font-display uppercase tracking-wider">Patrol Unit</p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] text-neon-cyan font-display uppercase tracking-wider">Patrol Unit</p>
+                  {canPursue && !pursueModePoliceId && (
+                    <button
+                      type="button"
+                      onClick={handleArmPursue}
+                      className="px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-cyan/50 bg-neon-cyan/15 text-neon-cyan hover:bg-neon-cyan/25 transition-colors touch-manipulation min-h-0 min-w-0"
+                    >
+                      Pursue
+                    </button>
+                  )}
+                  {pursueModePoliceId === selectedPolice.id && (
+                    <span className="px-2 py-0.5 rounded text-[9px] font-display uppercase text-neon-magenta border border-neon-magenta/40 animate-pulse">
+                      Targeting
+                    </span>
+                  )}
+                </div>
                 <h3 className="font-display font-bold text-sm truncate">{selectedPolice.officerName}</h3>
                 <p className="text-[10px] text-synth-muted mt-0.5">{selectedPolice.officerRank}</p>
               </div>
               <button
                 type="button"
-                onClick={() => { setSelectedPoliceId(null); setPursueModePoliceId(null); }}
-                className="text-synth-muted hover:text-white text-xs px-2 py-1 min-h-0 min-w-0"
+                onClick={() => { setSelectedPoliceId(null); cancelTargeting(); }}
+                className="text-synth-muted hover:text-white text-xs px-1 min-h-0 min-w-0"
                 aria-label="Close panel"
               >
                 ✕
               </button>
             </div>
-            <p className="text-xs text-gray-300 mt-2 leading-snug">{selectedPolice.evaluation}</p>
-            <div className="mt-2 flex items-center justify-between text-[10px] sm:text-xs gap-2">
+            <p className="text-[11px] text-gray-300 mt-1.5 leading-snug line-clamp-2">{selectedPolice.evaluation}</p>
+            <div className="mt-1.5 flex items-center justify-between text-[10px] gap-2">
               <span className="text-synth-muted truncate">{selectedPolice.vehicleModel}</span>
               <span className="font-display font-bold text-neon-cyan flex-shrink-0 whitespace-nowrap">
-                {Math.round(selectedPolice.maxSpeedMph)} mph max
+                {Math.round(selectedPolice.maxSpeedMph)} mph
               </span>
             </div>
-            {canPursue && (
-              <button
-                type="button"
-                onClick={handleArmPursue}
-                className="mt-3 w-full btn-neon-primary py-2.5 rounded-lg text-xs font-display uppercase tracking-wider touch-manipulation"
-              >
-                Pursue
-              </button>
-            )}
             {selectedPolice.status === 'pursuing' && (
-              <p className="mt-3 text-[10px] text-neon-green font-display uppercase tracking-wide text-center">
+              <p className="mt-2 text-[10px] text-neon-green font-display uppercase tracking-wide text-center">
                 ● In active pursuit
               </p>
             )}

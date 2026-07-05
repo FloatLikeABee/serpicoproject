@@ -61,23 +61,25 @@ const policeVehicleSvg = (heading: number, glow: string, selected: boolean) => `
     </svg>
   </div>`;
 
-const perpVehicleSvg = (heading: number, pursued: boolean, selected: boolean) => `
+const perpVehicleSvg = (heading: number, pursued: boolean, lockOn: boolean) => `
   <div style="
     transform: rotate(${heading}deg);
     transform-origin: center center;
-    width: 44px;
-    height: 44px;
-    filter: drop-shadow(0 0 ${pursued ? '12px #ff2bd6' : selected ? '10px #ff2bd6' : '6px rgba(255,43,214,0.6)'});
+    width: ${lockOn ? '52px' : '44px'};
+    height: ${lockOn ? '52px' : '44px'};
+    filter: drop-shadow(0 0 ${lockOn ? '14px #ff2bd6' : pursued ? '12px #ff2bd6' : '6px rgba(255,43,214,0.6)'});
     pointer-events: auto;
+    cursor: ${lockOn ? 'crosshair' : 'pointer'};
   ">
-    <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+    ${lockOn ? '<div style="position:absolute;inset:-4px;border:2px dashed #ff2bd6;border-radius:50%;animation:pulse 1s infinite;"></div>' : ''}
+    <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44" style="margin:${lockOn ? '4px' : '0'}">
       <defs>
         <linearGradient id="perpBody" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" style="stop-color:#ff2bd6"/>
           <stop offset="100%" style="stop-color:#991b1b"/>
         </linearGradient>
       </defs>
-      <ellipse cx="22" cy="22" rx="20" ry="20" fill="rgba(255,43,214,0.12)" stroke="#ff2bd6" stroke-width="${selected || pursued ? 2.5 : 1.5}"/>
+      <ellipse cx="22" cy="22" rx="20" ry="20" fill="rgba(255,43,214,0.12)" stroke="#ff2bd6" stroke-width="${lockOn || pursued ? 2.5 : 1.5}"/>
       <path d="M10 24h24l-2.5-8H12.5l-2.5 8z" fill="url(#perpBody)" stroke="#fff" stroke-width="1"/>
       <rect x="13" y="14" width="18" height="6" rx="2" fill="#450a0a" stroke="#ff2bd6" stroke-width="0.8"/>
       <circle cx="14" cy="26" r="3" fill="#111" stroke="#ff2bd6" stroke-width="1"/>
@@ -111,11 +113,12 @@ function buildIcon(
     ? policeVehicleSvg(vehicle.heading, armed ? '#00f5ff' : '#2563eb', selected || armed)
     : perpVehicleSvg(vehicle.heading, vehicle.beingPursued || false, pursueTarget);
 
+  const size = !isPolice && pursueTarget ? 52 : 44;
   return L.divIcon({
     className: 'custom-marker pursuit-vehicle-marker',
     html,
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
@@ -134,7 +137,7 @@ const MovingVehicleMarker: React.FC<{
     if (!marker) return;
     marker.setLatLng([vehicle.lat, vehicle.lng]);
     marker.setIcon(buildIcon(vehicle, selected, armed, pursueTarget));
-    marker.setZIndexOffset(selected || armed ? 1000 : vehicle.role === 'police' ? 500 : 400);
+    marker.setZIndexOffset(pursueTarget ? 2000 : selected || armed ? 1000 : vehicle.role === 'police' ? 500 : 400);
   }, [vehicle.lat, vehicle.lng, vehicle.heading, vehicle.status, vehicle.beingPursued, selected, armed, pursueTarget, vehicle]);
 
   return (
@@ -142,8 +145,13 @@ const MovingVehicleMarker: React.FC<{
       ref={markerRef}
       position={[vehicle.lat, vehicle.lng]}
       icon={buildIcon(vehicle, selected, armed, pursueTarget)}
-      eventHandlers={{ click: onClick }}
-      zIndexOffset={selected ? 1000 : vehicle.role === 'police' ? 500 : 400}
+      eventHandlers={{
+        click: (e) => {
+          L.DomEvent.stopPropagation(e);
+          onClick();
+        },
+      }}
+      zIndexOffset={pursueTarget ? 2000 : selected ? 1000 : vehicle.role === 'police' ? 500 : 400}
     />
   );
 };
