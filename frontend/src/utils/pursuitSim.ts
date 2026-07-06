@@ -105,18 +105,18 @@ export const POLICE_COUNT_MAX = 5;
 export const PERP_COUNT_MIN = 3;
 export const PERP_COUNT_MAX = 5;
 /** Boosts sim travel speed so units feel responsive on the map grid. */
-export const SIM_MOVEMENT_SCALE = 3.0;
+export const SIM_MOVEMENT_SCALE = 6.0;
 
-const ROUND_MS = 8 * 60 * 1000;
+const ROUND_MS = 2 * 60 * 1000;
 const CATCH_METERS = 85;
 const DEST_ARRIVAL_M = 150;
 const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
 /** ~45 m city blocks — vehicles move only on N/S/E/W grid lines. */
 const ROAD_GRID_STEP = 0.0004;
 const PURSUIT_ROUTE_REBUILD_M = 320;
-const MIN_PERP_POLICE_SPAWN_M = 900;
-const MIN_PERP_DEST_DISTANCE_M = 6800;
-const MIN_VEHICLE_SPAWN_SEP_M = 1800;
+const MIN_PERP_POLICE_SPAWN_M = 600;
+const MIN_PERP_DEST_DISTANCE_M = 7200;
+const MIN_VEHICLE_SPAWN_SEP_M = 1200;
 
 const PATROL_CRUISE_MPH = 52;
 const PERP_CRUISE_MPH = 62;
@@ -325,61 +325,23 @@ function shuffleInPlace<T>(items: T[]): T[] {
   return items;
 }
 
-/** Fixed map anchors — corners, edges, and diagonals for maximum spread. */
-function allMapAnchors(): SimLatLng[] {
+/** Random scatter spawns across the full map — police and suspects share the same pool. */
+function pickMixedRandomSpawns(count: number): SimLatLng[] {
   const { latMin, latMax, lngMin, lngMax } = OlatheBounds;
-  const latMid = (latMin + latMax) / 2;
-  const lngMid = (lngMin + lngMax) / 2;
-  const latQ = latMin + (latMax - latMin) * 0.25;
-  const lat3Q = latMin + (latMax - latMin) * 0.75;
-  const lngQ = lngMin + (lngMax - lngMin) * 0.25;
-  const lng3Q = lngMin + (lngMax - lngMin) * 0.75;
-  return [
-    { lat: latMin, lng: lngMin },
-    { lat: latMin, lng: lngMax },
-    { lat: latMax, lng: lngMin },
-    { lat: latMax, lng: lngMax },
-    { lat: latMid, lng: lngMin },
-    { lat: latMid, lng: lngMax },
-    { lat: latMin, lng: lngMid },
-    { lat: latMax, lng: lngMid },
-    { lat: latQ, lng: lng3Q },
-    { lat: lat3Q, lng: lngQ },
-  ].map(snapToRoadGrid);
-}
-
-function pickMapSpawnAnchors(count: number, avoid: SimLatLng[] = [], minFromAvoid = MIN_VEHICLE_SPAWN_SEP_M): SimLatLng[] {
-  const anchors = shuffleInPlace([...allMapAnchors()]);
   const picked: SimLatLng[] = [];
-  for (const anchor of anchors) {
-    if (picked.length >= count) break;
-    const farFromAvoid = avoid.every(
-      (p) => haversineMeters(anchor.lat, anchor.lng, p.lat, p.lng) >= minFromAvoid
-    );
-    const farFromPicked = picked.every(
-      (p) => haversineMeters(anchor.lat, anchor.lng, p.lat, p.lng) >= MIN_VEHICLE_SPAWN_SEP_M
-    );
-    if (farFromAvoid && farFromPicked) picked.push(anchor);
-  }
-  for (const anchor of anchors) {
-    if (picked.length >= count) break;
-    if (picked.some((p) => p.lat === anchor.lat && p.lng === anchor.lng)) continue;
-    picked.push(anchor);
+  for (let attempt = 0; picked.length < count && attempt < count * 150; attempt++) {
+    const p = randomPointInZone(latMin, latMax, lngMin, lngMax);
+    if (picked.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= MIN_VEHICLE_SPAWN_SEP_M)) {
+      picked.push(p);
+    }
   }
   while (picked.length < count) {
-    picked.push(anchors[picked.length % anchors.length]);
+    picked.push(randomPointInZone(latMin, latMax, lngMin, lngMax));
   }
-  return picked.slice(0, count);
+  return shuffleInPlace(picked);
 }
 
 function pickPerpDestination(from: SimLatLng): SimLatLng {
-  const ranked = allMapAnchors()
-    .map((anchor) => ({ anchor, dist: haversineMeters(from.lat, from.lng, anchor.lat, anchor.lng) }))
-    .sort((a, b) => b.dist - a.dist);
-  const farEnough = ranked.filter(({ dist }) => dist >= MIN_PERP_DEST_DISTANCE_M);
-  if (farEnough.length > 0) {
-    return farEnough[0].anchor;
-  }
   return farthestMapCorner(from);
 }
 
@@ -432,8 +394,8 @@ function ensurePerpReady(v: SimVehicle) {
 }
 
 function randomPoliceSpawn(existing: SimLatLng[]): SimLatLng {
-  const anchors = pickMapSpawnAnchors(1, existing);
-  return anchors[0];
+  const spawns = pickMixedRandomSpawns(1);
+  return spawns[0];
 }
 
 function advanceVehicle(v: SimVehicle, elapsedSec: number) {
@@ -533,58 +495,66 @@ function applyPoliceDowns(vehicles: SimVehicle[], now: number) {
 export function createSimSession(userId: string, round = 1): SimSession {
   const perpCount = randInt(PERP_COUNT_MIN, PERP_COUNT_MAX);
   const policeCount = randInt(POLICE_COUNT_MIN, POLICE_COUNT_MAX);
-  const policeSpawns = pickMapSpawnAnchors(policeCount);
+  const mixedSpawns = pickMixedRandomSpawns(policeCount + perpCount);
+  const roles: Array<'police' | 'perp'> = [
+    ...Array(policeCount).fill('police' as const),
+    ...Array(perpCount).fill('perp' as const),
+  ];
+  shuffleInPlace(roles);
+
   const vehicles: SimVehicle[] = [];
+  let policeIdx = 0;
+  let perpIdx = 0;
 
-  for (let i = 0; i < policeCount; i++) {
-    const start = policeSpawns[i];
-    const fleet = policeFleet[i % policeFleet.length];
-    const profile = policeProfiles[i % policeProfiles.length];
-    const route = randomPatrolRoute(start);
-    vehicles.push({
-      id: uid('police'),
-      role: 'police',
-      lat: start.lat,
-      lng: start.lng,
-      heading: route.length > 1 ? gridHeading(route[0], route[1]) : rand(0, 360),
-      route,
-      routeIndex: 0,
-      routeProgress: 0,
-      maxSpeedMph: fleet.ratedMaxMph + randInt(-2, 2),
-      officerName: `Officer ${officerNames[i % officerNames.length]}`,
-      officerRank: profile.rank,
-      evaluation: profile.eval,
-      vehicleModel: fleet.model,
-      status: 'patrol',
-      beingPursued: false,
-    });
-  }
-
-  const perpSpawns = pickMapSpawnAnchors(perpCount, policeSpawns, MIN_PERP_POLICE_SPAWN_M);
-  for (let i = 0; i < perpCount; i++) {
-    const start = perpSpawns[i];
-    const dest = pickPerpDestination(start);
-    const fleet = perpFleet[i % perpFleet.length];
-    const route = buildRoadRouteToDestination(start, dest);
-    const perp: SimVehicle = {
-      id: uid('perp'),
-      role: 'perp',
-      lat: start.lat,
-      lng: start.lng,
-      heading: route.length > 1 ? gridHeading(route[0], route[1]) : rand(0, 360),
-      route,
-      routeIndex: 0,
-      routeProgress: 0,
-      maxSpeedMph: fleet.ratedMaxMph + randInt(-3, 3),
-      officerName: perpNames[i % perpNames.length],
-      evaluation: 'Suspect vehicle — evasive driving toward destination',
-      vehicleModel: fleet.model,
-      destination: dest,
-      status: 'patrol',
-      beingPursued: false,
-    };
-    ensurePerpReady(perp);
-    vehicles.push(perp);
+  for (let i = 0; i < mixedSpawns.length; i++) {
+    const start = mixedSpawns[i];
+    if (roles[i] === 'police') {
+      const fleet = policeFleet[policeIdx % policeFleet.length];
+      const profile = policeProfiles[policeIdx % policeProfiles.length];
+      const route = randomPatrolRoute(start);
+      vehicles.push({
+        id: uid('police'),
+        role: 'police',
+        lat: start.lat,
+        lng: start.lng,
+        heading: route.length > 1 ? gridHeading(route[0], route[1]) : rand(0, 360),
+        route,
+        routeIndex: 0,
+        routeProgress: 0,
+        maxSpeedMph: fleet.ratedMaxMph + randInt(-2, 2),
+        officerName: `Officer ${officerNames[policeIdx % officerNames.length]}`,
+        officerRank: profile.rank,
+        evaluation: profile.eval,
+        vehicleModel: fleet.model,
+        status: 'patrol',
+        beingPursued: false,
+      });
+      policeIdx++;
+    } else {
+      const dest = pickPerpDestination(start);
+      const fleet = perpFleet[perpIdx % perpFleet.length];
+      const route = buildRoadRouteToDestination(start, dest);
+      const perp: SimVehicle = {
+        id: uid('perp'),
+        role: 'perp',
+        lat: start.lat,
+        lng: start.lng,
+        heading: route.length > 1 ? gridHeading(route[0], route[1]) : rand(0, 360),
+        route,
+        routeIndex: 0,
+        routeProgress: 0,
+        maxSpeedMph: fleet.ratedMaxMph + randInt(-3, 3),
+        officerName: perpNames[perpIdx % perpNames.length],
+        evaluation: 'Suspect vehicle — evasive driving toward destination',
+        vehicleModel: fleet.model,
+        destination: dest,
+        status: 'patrol',
+        beingPursued: false,
+      };
+      ensurePerpReady(perp);
+      vehicles.push(perp);
+      perpIdx++;
+    }
   }
 
   const now = Date.now();
