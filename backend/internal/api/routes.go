@@ -75,6 +75,7 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		pursuitExam.POST("/start", func(c *gin.Context) { handlePursuitExamStart(c, aiService) })
 		pursuitExam.POST("/arm", func(c *gin.Context) { handlePursuitExamArm(c, aiService) })
 		pursuitExam.POST("/pursue", func(c *gin.Context) { handlePursuitExamPursue(c, aiService) })
+		pursuitExam.POST("/next-round", func(c *gin.Context) { handlePursuitExamNextRound(c, aiService) })
 		pursuitExam.POST("/evaluate", func(c *gin.Context) { handlePursuitExamEvaluate(c, aiService) })
 	}
 

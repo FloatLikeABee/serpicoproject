@@ -223,6 +223,14 @@ export const pursuitExamAPI = {
     const response = await api.post<{ evaluation: PursuitAIEvaluation }>('/pursuit-exam/evaluate', { stats });
     return response.data;
   },
+  startNextRound: async (userId: string): Promise<{ session: PursuitExamSession }> => {
+    const response = await api.post<{ session: PursuitExamSession }>(
+      '/pursuit-exam/next-round',
+      { userId },
+      { headers: { 'X-User-Id': userId } }
+    );
+    return response.data;
+  },
 };
 
 export default api;
