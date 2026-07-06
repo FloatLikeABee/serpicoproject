@@ -63,7 +63,6 @@ function toMapVehicle(v: SimVehicle): PursuitMapVehicle {
 const InPursue: React.FC = () => {
   const {
     session,
-    useServer,
     selectedPoliceId,
     pursueModePoliceId,
     aiEvaluation,
@@ -138,6 +137,7 @@ const InPursue: React.FC = () => {
   }, [armPursue, selectedPoliceId]);
 
   const caughtCount = perpUnits.filter((v) => v.status === 'caught').length;
+  const hiddenCount = perpUnits.filter((v) => v.status === 'hiding').length;
   const activePursuits = policeUnits.filter((v) => v.status === 'pursuing').length;
   const availablePolice = policeUnits.filter((v) => isPoliceAvailableForPursuit(v)).length;
 
@@ -151,39 +151,32 @@ const InPursue: React.FC = () => {
 
   return (
     <div className="page-fill">
-      <div className="game-header p-2 sm:p-3 flex-shrink-0">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          <div className="min-w-0 justify-self-start">
+      <div className="game-header p-2 sm:p-3 flex-shrink-0 relative min-h-[52px] sm:min-h-[56px]">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-shrink-0">
             <h1 className="text-lg sm:text-xl font-display font-bold text-serpico-red tracking-wide">
               Pursue Exam
             </h1>
-            <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate">
-              Round {session.round} · {useServer ? 'Live sim' : 'Local sim'}
+            <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate max-w-[140px] sm:max-w-none">
+              Round {session.round}
             </p>
           </div>
-
-          {session.phase === 'active' ? (
-            <div className="justify-self-center text-center px-2">
-              <div className="font-display text-2xl sm:text-3xl font-bold neon-text-cyan tabular-nums leading-none">
-                {formatTime(roundSecondsLeft)}
-              </div>
-              <div className="text-[9px] sm:text-[10px] text-synth-muted uppercase tracking-widest mt-0.5">
-                Time left · {ROUND_DURATION_MIN} min op
-              </div>
-            </div>
-          ) : (
-            <div className="justify-self-center" aria-hidden="true" />
-          )}
-
-          <div className="justify-self-end text-right min-w-0">
-            <p className="text-[9px] sm:text-[10px] text-synth-muted font-mono uppercase tracking-wider hidden sm:block">
-              Real-world speeds
-            </p>
-            <p className="text-[9px] text-synth-muted/80 font-mono hidden sm:block">
-              Pursuit 82–120 mph
-            </p>
+          <div className="min-w-0 flex-shrink-0 text-right invisible sm:visible" aria-hidden="true">
+            <p className="text-[10px] text-synth-muted font-mono uppercase tracking-wider">Op clock</p>
+            <p className="text-[10px] text-synth-muted/80 font-mono">{ROUND_DURATION_MIN} min</p>
           </div>
         </div>
+
+        {session.phase === 'active' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+            <div className="font-display text-3xl sm:text-4xl font-bold neon-text-cyan tabular-nums leading-none tracking-tight">
+              {formatTime(roundSecondsLeft)}
+            </div>
+            <div className="text-[9px] sm:text-[10px] text-synth-muted uppercase tracking-widest mt-1">
+              Time left
+            </div>
+          </div>
+        )}
 
         {pursueModePoliceId && (
           <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-neon-magenta/50 bg-neon-magenta/10">
@@ -349,7 +342,7 @@ const InPursue: React.FC = () => {
       </div>
 
       <div className="game-header border-t border-neon-purple/20 p-2 sm:p-3 flex-shrink-0">
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px] sm:text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[10px] sm:text-xs">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-serpico-blue flex-shrink-0" />
             <span className="text-synth-muted">Police</span>
@@ -358,7 +351,7 @@ const InPursue: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-serpico-red flex-shrink-0" />
             <span className="text-synth-muted">Suspects</span>
-            <span className="font-bold text-serpico-red ml-auto">{perpUnits.length}</span>
+            <span className="font-bold text-serpico-red ml-auto">{perpUnits.filter((v) => v.status !== 'hiding').length}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-neon-green flex-shrink-0" />
@@ -366,18 +359,23 @@ const InPursue: React.FC = () => {
             <span className="font-bold text-neon-green ml-auto">{caughtCount}</span>
           </div>
           <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0" />
+            <span className="text-synth-muted">Hidden</span>
+            <span className="font-bold text-gray-400 ml-auto">{hiddenCount}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-neon-cyan flex-shrink-0" />
             <span className="text-synth-muted">Pursuing</span>
             <span className="font-bold text-neon-cyan ml-auto">{activePursuits}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0" />
+            <span className="w-2 h-2 rounded-full bg-neon-amber flex-shrink-0" />
             <span className="text-synth-muted">Available</span>
-            <span className="font-bold text-gray-400 ml-auto">{availablePolice}</span>
+            <span className="font-bold text-neon-amber ml-auto">{availablePolice}</span>
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Rated max = manufacturer spec · Pursuit 82–120 mph · {ROUND_DURATION_MIN}-min round (extended multi-unit op)
+          Suspects head to hideouts 6–11 km away · Reach hideout = in hiding (pursuit failed) · Follow road routes
         </p>
       </div>
     </div>
