@@ -17,6 +17,8 @@ const (
 	patrolCruiseMph      = 52.0
 	perpCruiseMph        = 62.0
 	pursuitRouteRebuildM = 320.0
+	minPerpPerpSpawnM    = 1500.0
+	minPerpPoliceSpawnM  = 900.0
 )
 
 // LatLng is a geographic coordinate.
@@ -237,6 +239,7 @@ func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamS
 	perpSpawns := []LatLng{}
 	police := make([]PursuitVehicle, 0, policeCount)
 	perps := make([]PursuitVehicle, 0, perpCount)
+	perpSectors := buildPerpSpawnSectors(perpCount)
 
 	for i := 0; i < policeCount; i++ {
 		start := randomPoliceSpawn(policeSpawns)
@@ -245,7 +248,7 @@ func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamS
 	}
 
 	for i := 0; i < perpCount; i++ {
-		start := randomPerpSpawn(perpSpawns, policeSpawns)
+		start := randomPerpSpawnInSector(perpSectors[i], perpSpawns, policeSpawns)
 		perpSpawns = append(perpSpawns, start)
 		perps = append(perps, buildPerpVehicle(i, start))
 	}
@@ -561,8 +564,35 @@ func olathePoliceZone() (latMin, latMax, lngMin, lngMax float64) {
 	return 38.858, 38.905, -94.872, -94.835
 }
 
-func olathePerpZone() (latMin, latMax, lngMin, lngMax float64) {
-	return 38.868, 38.912, -94.798, -94.762
+func olatheMapBounds() (latMin, latMax, lngMin, lngMax float64) {
+	return 38.86, 38.91, -94.85, -94.78
+}
+
+type spawnSector struct {
+	latMin, latMax, lngMin, lngMax float64
+}
+
+func buildPerpSpawnSectors(count int) []spawnSector {
+	latMin, latMax, lngMin, lngMax := olatheMapBounds()
+	const rows, cols = 3, 3
+	sectors := make([]spawnSector, 0, rows*cols)
+	latStep := (latMax - latMin) / float64(rows)
+	lngStep := (lngMax - lngMin) / float64(cols)
+	for r := 0; r < rows; r++ {
+		for c := 0; c < cols; c++ {
+			sectors = append(sectors, spawnSector{
+				latMin: latMin + float64(r)*latStep,
+				latMax: latMin + float64(r+1)*latStep,
+				lngMin: lngMin + float64(c)*lngStep,
+				lngMax: lngMin + float64(c+1)*lngStep,
+			})
+		}
+	}
+	rand.Shuffle(len(sectors), func(i, j int) { sectors[i], sectors[j] = sectors[j], sectors[i] })
+	if count > len(sectors) {
+		count = len(sectors)
+	}
+	return sectors[:count]
 }
 
 func schedulePoliceDowns(vehicles []PursuitVehicle, roundStart time.Time) {
@@ -637,19 +667,21 @@ func randomPoliceSpawn(existing []LatLng) LatLng {
 	return randomGridPoint(latMin, latMax, lngMin, lngMax)
 }
 
-func randomPerpSpawn(existing, police []LatLng) LatLng {
-	latMin, latMax, lngMin, lngMax := olathePerpZone()
+func randomPerpSpawnInSector(sector spawnSector, existing, police []LatLng) LatLng {
 	for attempt := 0; attempt < 80; attempt++ {
-		p := randomGridPoint(latMin, latMax, lngMin, lngMax)
+		p := randomGridPoint(sector.latMin, sector.latMax, sector.lngMin, sector.lngMax)
 		ok := true
 		for _, e := range police {
-			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 5200 {
+			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < minPerpPoliceSpawnM {
 				ok = false
 				break
 			}
 		}
+		if !ok {
+			continue
+		}
 		for _, e := range existing {
-			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < 1800 {
+			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < minPerpPerpSpawnM {
 				ok = false
 				break
 			}
@@ -658,11 +690,12 @@ func randomPerpSpawn(existing, police []LatLng) LatLng {
 			return p
 		}
 	}
-	return randomGridPoint(latMin, latMax, lngMin, lngMax)
+	return randomGridPoint(sector.latMin, sector.latMax, sector.lngMin, sector.lngMax)
 }
 
 func randomPerpDestination() LatLng {
-	return randomGridPoint(38.872, 38.908, -94.82, -94.785)
+	latMin, latMax, lngMin, lngMax := olatheMapBounds()
+	return randomGridPoint(latMin, latMax, lngMin, lngMax)
 }
 
 func buildPoliceVehicle(index int, start LatLng) PursuitVehicle {

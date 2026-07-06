@@ -112,7 +112,8 @@ const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94
 /** ~45 m city blocks — vehicles move only on N/S/E/W grid lines. */
 const ROAD_GRID_STEP = 0.0004;
 const PURSUIT_ROUTE_REBUILD_M = 320;
-const MIN_FLEET_DISTANCE_M = 5200;
+const MIN_PERP_POLICE_SPAWN_M = 900;
+const MIN_PERP_PERP_SPAWN_M = 1500;
 
 const PATROL_CRUISE_MPH = 52;
 const PERP_CRUISE_MPH = 62;
@@ -314,7 +315,60 @@ function randomPatrolRoute(start: SimLatLng): SimLatLng[] {
 }
 
 function randomPerpDestination(): SimLatLng {
-  return randomPointInZone(38.868, 38.912, -94.798, -94.762);
+  return randomPointInZone(
+    OlatheBounds.latMin,
+    OlatheBounds.latMax,
+    OlatheBounds.lngMin,
+    OlatheBounds.lngMax
+  );
+}
+
+interface SpawnSector {
+  latMin: number;
+  latMax: number;
+  lngMin: number;
+  lngMax: number;
+}
+
+function buildPerpSpawnSectors(count: number): SpawnSector[] {
+  const rows = 3;
+  const cols = 3;
+  const sectors: SpawnSector[] = [];
+  const latStep = (OlatheBounds.latMax - OlatheBounds.latMin) / rows;
+  const lngStep = (OlatheBounds.lngMax - OlatheBounds.lngMin) / cols;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      sectors.push({
+        latMin: OlatheBounds.latMin + r * latStep,
+        latMax: OlatheBounds.latMin + (r + 1) * latStep,
+        lngMin: OlatheBounds.lngMin + c * lngStep,
+        lngMax: OlatheBounds.lngMin + (c + 1) * lngStep,
+      });
+    }
+  }
+  for (let i = sectors.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [sectors[i], sectors[j]] = [sectors[j], sectors[i]];
+  }
+  return sectors.slice(0, count);
+}
+
+function randomPerpSpawnInSector(
+  sector: SpawnSector,
+  existing: SimLatLng[],
+  police: SimLatLng[]
+): SimLatLng {
+  for (let i = 0; i < 80; i++) {
+    const p = randomPointInZone(sector.latMin, sector.latMax, sector.lngMin, sector.lngMax);
+    const farFromPolice = police.every(
+      (e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= MIN_PERP_POLICE_SPAWN_M
+    );
+    const farFromPerps = existing.every(
+      (e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= MIN_PERP_PERP_SPAWN_M
+    );
+    if (farFromPolice && farFromPerps) return p;
+  }
+  return randomPointInZone(sector.latMin, sector.latMax, sector.lngMin, sector.lngMax);
 }
 
 function randomPoliceSpawn(existing: SimLatLng[]): SimLatLng {
@@ -325,16 +379,6 @@ function randomPoliceSpawn(existing: SimLatLng[]): SimLatLng {
     }
   }
   return randomPointInZone(38.858, 38.905, -94.872, -94.835);
-}
-
-function randomPerpSpawn(existing: SimLatLng[], police: SimLatLng[]): SimLatLng {
-  for (let i = 0; i < 80; i++) {
-    const p = randomPointInZone(38.868, 38.912, -94.798, -94.762);
-    const farFromPolice = police.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= MIN_FLEET_DISTANCE_M);
-    const farFromPerps = existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 2200);
-    if (farFromPolice && farFromPerps) return p;
-  }
-  return randomPointInZone(38.868, 38.912, -94.798, -94.762);
 }
 
 function advanceVehicle(v: SimVehicle, elapsedSec: number) {
@@ -457,8 +501,9 @@ export function createSimSession(userId: string, round = 1): SimSession {
   }
 
   const perpSpawns: SimLatLng[] = [];
+  const perpSectors = buildPerpSpawnSectors(perpCount);
   for (let i = 0; i < perpCount; i++) {
-    const start = randomPerpSpawn(perpSpawns, policeSpawns);
+    const start = randomPerpSpawnInSector(perpSectors[i], perpSpawns, policeSpawns);
     perpSpawns.push(start);
     const dest = randomPerpDestination();
     const fleet = perpFleet[i % perpFleet.length];
