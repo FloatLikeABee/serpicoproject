@@ -28,13 +28,11 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
       'perps-cases': 'Hello! I can help you search for information about serial killers and their cases across North America. What would you like to know?',
       'perps': 'Hello! I can help you search for information about serial killers across North America. What would you like to know?',
       'case-library': 'Hello! I can help you search through serial killer case history. What case information are you looking for?',
-      'emergency': 'Hello! I can help you with emergency dispatch information and recommendations. How can I assist?',
       'mysteries': 'Hello! I can help you explore serial killers, paranormal phenomena, urban legends, and conspiracy theories across North America. What mystery interests you?',
       'leisure': 'Hello! I can help you explore serial killers, paranormal phenomena, urban legends, and conspiracy theories across North America. What mystery interests you?',
       'nearby-officers': 'Hello! I can help you find information about nearby Olathe PD officers and their locations. How can I help?',
       'nearby-perps': 'Hello! I can provide information about recent criminal activity in Olathe. What would you like to know?',
       'safe-routes': 'Hello! I can help you find safe routes in Olathe based on recent crime data. Where would you like to go?',
-      'crime-notifications': 'Hello! I can help you understand recent crime notifications in Olathe. What information do you need?',
       'chase-game': 'Hello! Ready for pursuit training? I can explain Chase Game rules, pursuit codex tips, and debrief your strategy.',
     };
     return contextMessages[context || ''] || 'Hello! I\'m your Serpico AI assistant for Olathe PD. How can I help you today?';

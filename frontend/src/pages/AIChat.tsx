@@ -45,13 +45,11 @@ const AIChat: React.FC = () => {
     const path = location.pathname;
     if (path.includes('/in-pursue')) return 'in-pursue';
     if (path.includes('/perps-cases') || path.includes('/perps') || path.includes('/case-library')) return 'perps-cases';
-    if (path.includes('/emergency')) return 'emergency';
     if (path.includes('/mysteries') || path.includes('/leisure')) return 'mysteries';
     if (path.includes('/chase-game')) return 'chase-game';
     if (path.includes('/nearby-officers')) return 'nearby-officers';
     if (path.includes('/nearby-perps')) return 'nearby-perps';
     if (path.includes('/safe-routes')) return 'safe-routes';
-    if (path.includes('/crime-notifications')) return 'crime-notifications';
     return user?.role === 'police' ? 'in-pursue' : 'nearby-officers';
   };
 
@@ -61,13 +59,11 @@ const AIChat: React.FC = () => {
       'perps-cases': 'Hello! I can help you search for information about serial killers and their cases across North America. What would you like to know?',
       'perps': 'Hello! I can help you search for information about serial killers across North America. What would you like to know?',
       'case-library': 'Hello! I can help you search through serial killer case history. What case information are you looking for?',
-      'emergency': 'Hello! I can help you with emergency dispatch information and recommendations. How can I assist?',
       'mysteries': 'Hello! I can help you explore serial killers, paranormal phenomena, urban legends, and conspiracy theories across North America. What mystery interests you?',
       'leisure': 'Hello! I can help you explore serial killers, paranormal phenomena, urban legends, and conspiracy theories across North America. What mystery interests you?',
       'nearby-officers': 'Hello! I can help you find information about nearby Olathe PD officers and their locations. How can I help?',
       'nearby-perps': 'Hello! I can provide information about recent criminal activity in Olathe. What would you like to know?',
       'safe-routes': 'Hello! I can help you find safe routes in Olathe based on recent crime data. Where would you like to go?',
-      'crime-notifications': 'Hello! I can help you understand recent crime notifications in Olathe. What information do you need?',
       'chase-game': 'Hello! Ready for pursuit training? I can explain Chase Game rules, pursuit codex tips, and debrief your strategy. Or head to the Chase tab to start a live scenario!',
     };
     return contextMessages[context || ''] || 'Hello! I\'m your Serpico AI assistant for Olathe PD. How can I help you today?';

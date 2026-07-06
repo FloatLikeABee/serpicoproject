@@ -1,19 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import AIChatModal from './AIChatModal';
-
-interface NavigationProps {
-  onChatClick?: () => void;
-}
 
 const iconProps = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 
-const Navigation: React.FC<NavigationProps> = () => {
+const Navigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const [isAIChatModalOpen, setIsAIChatModalOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -81,7 +75,7 @@ const Navigation: React.FC<NavigationProps> = () => {
     </svg>
   );
 
-  type NavItem = { path: string; label: string; shortLabel: string; icon: JSX.Element; isModal?: boolean };
+  type NavItem = { path: string; label: string; shortLabel: string; icon: JSX.Element };
 
   const policeNavItems: NavItem[] = [
     { path: '/in-pursue', label: 'Pursue', shortLabel: 'Go', icon: <PursueIcon /> },
@@ -94,7 +88,7 @@ const Navigation: React.FC<NavigationProps> = () => {
     { path: '/nearby-officers', label: 'Officers', shortLabel: 'PD', icon: <OfficersIcon /> },
     { path: '/nearby-perps', label: 'Perps', shortLabel: 'Perp', icon: <PerpsCasesIcon /> },
     { path: '/safe-routes', label: 'Routes', shortLabel: 'Map', icon: <RoutesIcon /> },
-    { path: '/crime-notifications', label: 'AI Chat', shortLabel: 'Chat', icon: <ChatBubbleIcon />, isModal: true },
+    { path: '/ai-chat', label: 'AI Chat', shortLabel: 'Chat', icon: <ChatBubbleIcon /> },
   ];
 
   const navItems = user?.role === 'police' ? policeNavItems : civilianNavItems;
@@ -104,12 +98,12 @@ const Navigation: React.FC<NavigationProps> = () => {
       active ? 'hud-nav-active' : 'text-synth-muted active:scale-95'
     }`;
 
-  const renderNavButton = (path: string, label: string, shortLabel: string, icon: JSX.Element, onClick?: () => void) => (
+  const renderNavButton = (path: string, label: string, shortLabel: string, icon: JSX.Element) => (
     <button
       key={path}
       type="button"
       title={label}
-      onClick={onClick ?? (() => navigate(path))}
+      onClick={() => navigate(path)}
       className={navButtonClass(isActive(path))}
     >
       <span className="flex-shrink-0">{icon}</span>
@@ -128,27 +122,15 @@ const Navigation: React.FC<NavigationProps> = () => {
       <div className="flex items-stretch justify-between gap-0 px-0.5 py-1 max-w-[100vw] overflow-hidden">
         {navItems.map((item, index) => (
           <React.Fragment key={item.path}>
-            {renderNavButton(
-              item.path,
-              item.label,
-              item.shortLabel,
-              item.icon,
-              item.isModal ? () => setIsAIChatModalOpen(true) : undefined
-            )}
+            {renderNavButton(item.path, item.label, item.shortLabel, item.icon)}
             {user?.role === 'police' && index === 0 &&
               renderNavButton('/ai-chat', 'AI Chat', 'AI', <AIIcon />)
             }
           </React.Fragment>
         ))}
 
-        {user?.role !== 'police' &&
-          renderNavButton('/ai-chat', 'AI Chat', 'AI', <AIIcon />)
-        }
-
         {renderNavButton('/settings', 'Settings', 'Cfg', <SettingsIcon />)}
       </div>
-
-      <AIChatModal isOpen={isAIChatModalOpen} onClose={() => setIsAIChatModalOpen(false)} />
     </nav>
   );
 };
