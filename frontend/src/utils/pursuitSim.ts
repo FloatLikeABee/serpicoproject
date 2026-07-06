@@ -100,16 +100,14 @@ export interface SimSession {
   roundStartMs?: number;
 }
 
-export const POLICE_COUNT_MIN = 3;
-export const POLICE_COUNT_MAX = 5;
-export const PERP_COUNT_MIN = 3;
-export const PERP_COUNT_MAX = 5;
+/** Total vehicles on the map each round (police + suspects), both factions present. */
+export const FLEET_TOTAL_MIN = 3;
+export const FLEET_TOTAL_MAX = 5;
 
 function randomFleetCounts(): { policeCount: number; perpCount: number } {
-  return {
-    policeCount: randInt(POLICE_COUNT_MIN, POLICE_COUNT_MAX),
-    perpCount: randInt(PERP_COUNT_MIN, PERP_COUNT_MAX),
-  };
+  const total = randInt(FLEET_TOTAL_MIN, FLEET_TOTAL_MAX);
+  const policeCount = randInt(1, total - 1);
+  return { policeCount, perpCount: total - policeCount };
 }
 /** Boosts sim travel speed so units feel responsive on the map grid. */
 export const SIM_MOVEMENT_SCALE = 6.0;
@@ -475,7 +473,7 @@ const downReasons = [
 
 function schedulePoliceDowns(vehicles: SimVehicle[], roundStart: number) {
   const police = vehicles.filter((v) => v.role === 'police');
-  if (police.length < POLICE_COUNT_MIN) return;
+  if (police.length < 1) return;
   const downCount = Math.min(randInt(1, 3), Math.max(1, police.length - 4));
   const shuffled = [...police].sort(() => Math.random() - 0.5);
   for (let i = 0; i < downCount; i++) {
@@ -856,10 +854,6 @@ export function simSessionFromAPI(raw: Record<string, unknown>): SimSession {
 export function isStoredSessionUsable(session: SimSession): boolean {
   const perpN = session.vehicles.filter((v) => v.role === 'perp').length;
   const polN = session.vehicles.filter((v) => v.role === 'police').length;
-  return (
-    polN >= POLICE_COUNT_MIN &&
-    polN <= POLICE_COUNT_MAX &&
-    perpN >= PERP_COUNT_MIN &&
-    perpN <= PERP_COUNT_MAX
-  );
+  const total = perpN + polN;
+  return total >= FLEET_TOTAL_MIN && total <= FLEET_TOTAL_MAX && polN >= 1 && perpN >= 1;
 }
