@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { PursuitExamProvider } from '../contexts/PursuitExamContext';
 import Navigation from '../components/Navigation';
 import InPursue from '../pages/police/InPursue';
 import PerpsAndCases from '../pages/police/PerpsAndCases';
@@ -26,33 +27,40 @@ const Dashboard: React.FC = () => {
     return <NearbyOfficers />;
   };
 
+  const routes = (
+    <Routes>
+      {/* Police routes */}
+      <Route path="/in-pursue" element={<InPursue />} />
+      <Route path="/perps-cases" element={<PerpsAndCases />} />
+      <Route path="/perps" element={<PerpsAndCases />} />
+      <Route path="/case-library" element={<PerpsAndCases />} />
+      <Route path="/emergency" element={<Emergency />} />
+      <Route path="/mysteries" element={<Mysteries />} />
+      <Route path="/leisure" element={<Mysteries />} />
+      <Route path="/chase-game" element={<ChaseGame />} />
+
+      {/* Civilian routes */}
+      <Route path="/nearby-officers" element={<NearbyOfficers />} />
+      <Route path="/nearby-perps" element={<NearbyPerps />} />
+      <Route path="/safe-routes" element={<SafeRoutes />} />
+      <Route path="/crime-notifications" element={<Navigate to="/" replace />} />
+
+      {/* Common routes */}
+      <Route path="/ai-chat" element={<AIChat />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="/" element={getDefaultView()} />
+    </Routes>
+  );
+
   return (
     <div className={`app-shell synth-grid-bg synth-scanlines ${theme === 'dark' ? '' : 'synth-light'}`}>
       <div className="flex-1 min-h-0 overflow-hidden relative">
-          <Routes>
-            {/* Police routes */}
-            <Route path="/in-pursue" element={<InPursue />} />
-            <Route path="/perps-cases" element={<PerpsAndCases />} />
-            <Route path="/perps" element={<PerpsAndCases />} />
-            <Route path="/case-library" element={<PerpsAndCases />} />
-            <Route path="/emergency" element={<Emergency />} />
-            <Route path="/mysteries" element={<Mysteries />} />
-            <Route path="/leisure" element={<Mysteries />} />
-            <Route path="/chase-game" element={<ChaseGame />} />
-            
-            {/* Civilian routes */}
-            <Route path="/nearby-officers" element={<NearbyOfficers />} />
-            <Route path="/nearby-perps" element={<NearbyPerps />} />
-            <Route path="/safe-routes" element={<SafeRoutes />} />
-            {/* crime-notifications route redirects - now opens modal via Navigation */}
-            <Route path="/crime-notifications" element={<Navigate to="/" replace />} />
-            
-            {/* Common routes */}
-            <Route path="/ai-chat" element={<AIChat />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/" element={getDefaultView()} />
-          </Routes>
-        </div>
+        {user?.role === 'police' ? (
+          <PursuitExamProvider>{routes}</PursuitExamProvider>
+        ) : (
+          routes
+        )}
+      </div>
 
         {user?.role === 'police' && <EmergencyButton />}
 
