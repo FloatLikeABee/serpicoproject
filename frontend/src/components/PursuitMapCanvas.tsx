@@ -193,7 +193,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   const selectedVehicle = vehicles.find((v) => v.id === selectedId);
 
   const routeLines = useMemo(() => {
-    const lines: Array<{ id: string; positions: [number, number][]; color: string }> = [];
+    const lines: Array<{ id: string; positions: [number, number][]; color: string; dashed?: boolean }> = [];
     if (selectedVehicle?.route && selectedVehicle.route.length > 1) {
       lines.push({
         id: selectedVehicle.id,
@@ -202,15 +202,16 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
       });
     }
     vehicles
-      .filter((v) => v.role === 'perp' && v.destination && v.status !== 'caught')
+      .filter((v) => v.route && v.route.length > 1 && v.status !== 'caught')
       .forEach((v) => {
+        const isPursuit = v.role === 'police' && v.status === 'pursuing';
+        const isPerp = v.role === 'perp';
+        if (!isPursuit && !isPerp) return;
         lines.push({
-          id: `${v.id}-dest`,
-          positions: [
-            [v.lat, v.lng],
-            [v.destination!.lat, v.destination!.lng],
-          ],
-          color: '#ff2bd6',
+          id: `${v.id}-route`,
+          positions: v.route!.map((p) => [p.lat, p.lng]),
+          color: isPursuit ? '#00f5ff' : v.beingPursued ? '#ff6b6b' : '#ff2bd6',
+          dashed: isPerp && !v.beingPursued,
         });
       });
     return lines;
@@ -230,9 +231,9 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
           positions={r.positions}
           pathOptions={{
             color: r.color,
-            weight: 2,
-            opacity: 0.4,
-            dashArray: r.id.includes('dest') ? '4 10' : '6 8',
+            weight: r.dashed ? 2 : 3,
+            opacity: r.dashed ? 0.35 : 0.55,
+            dashArray: r.dashed ? '4 8' : undefined,
           }}
         />
       ))}

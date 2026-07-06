@@ -100,9 +100,28 @@ export interface SimSession {
   roundStartMs?: number;
 }
 
-const ROUND_MS = 4 * 60 * 1000;
+export const POLICE_COUNT_MIN = 6;
+export const POLICE_COUNT_MAX = 10;
+/** Boosts sim travel speed so units feel responsive on the map grid. */
+export const SIM_MOVEMENT_SCALE = 3.0;
+
+const ROUND_MS = 8 * 60 * 1000;
 const CATCH_METERS = 85;
 const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
+/** ~45 m city blocks — vehicles move only on N/S/E/W grid lines. */
+const ROAD_GRID_STEP = 0.0004;
+const PURSUIT_ROUTE_REBUILD_M = 320;
+const MIN_FLEET_DISTANCE_M = 5200;
+
+const PATROL_CRUISE_MPH = 52;
+const PERP_CRUISE_MPH = 62;
+
+interface FleetSpec {
+  model: string;
+  ratedMaxMph: number;
+  pursuitMph?: number;
+  fleeMph?: number;
+}
 
 const policeProfiles = [
   { rank: 'Patrol Officer', eval: 'Steady responder — reliable on routine intercepts' },
@@ -110,23 +129,28 @@ const policeProfiles = [
   { rank: 'Corporal', eval: 'Veteran tracker — reads suspect patterns quickly' },
   { rank: 'Sergeant', eval: 'Command mindset — optimal unit deployment instincts' },
   { rank: 'Field Training Officer', eval: 'Precision driver — tight gap closure specialist' },
-  { rank: 'Traffic Unit', eval: 'Speed specialist — fastest straight-line pursuit' },
+  { rank: 'Traffic Unit', eval: 'Speed specialist — fastest intercept on arterial roads' },
+  { rank: 'K-9 Handler', eval: 'Tenacious — maintains pressure through complex routes' },
+  { rank: 'Detective', eval: 'Analytical — picks optimal intercept corridors' },
+  { rank: 'SWAT Support', eval: 'Heavy unit — strong on highway closure' },
+  { rank: 'Motor Unit', eval: 'Agile — cuts through grid traffic fast' },
 ];
 
-const policeFleet = [
-  { model: 'Dodge Charger Pursuit', speed: 145 },
-  { model: 'Ford Police Interceptor Utility', speed: 131 },
-  { model: 'Chevy Tahoe PPV', speed: 124 },
-  { model: 'Ford F-150 Police Responder', speed: 118 },
-  { model: 'Harley-Davidson Police Motorcycle', speed: 112 },
+const policeFleet: FleetSpec[] = [
+  { model: 'Dodge Charger Pursuit', ratedMaxMph: 149, pursuitMph: 125 },
+  { model: 'Ford Police Interceptor Utility', ratedMaxMph: 137, pursuitMph: 110 },
+  { model: 'Chevy Tahoe PPV', ratedMaxMph: 120, pursuitMph: 98 },
+  { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 88 },
+  { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 92 },
+  { model: 'Ram 1500 Special Service', ratedMaxMph: 115, pursuitMph: 95 },
 ];
 
-const perpFleet = [
-  { model: 'Stolen Honda Civic', speed: 108 },
-  { model: 'Black Ford F-150', speed: 115 },
-  { model: 'Sport Motorcycle', speed: 125 },
-  { model: 'Gray Panel Van', speed: 98 },
-  { model: 'Red Toyota Corolla', speed: 105 },
+const perpFleet: FleetSpec[] = [
+  { model: 'Stolen Honda Civic', ratedMaxMph: 137, fleeMph: 105 },
+  { model: 'Black Ford F-150', ratedMaxMph: 107, fleeMph: 95 },
+  { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 118 },
+  { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 78 },
+  { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 98 },
 ];
 
 const perpNames = [
@@ -134,9 +158,10 @@ const perpNames = [
   'Subject Echo', 'Subject Foxtrot', 'Subject Ghost', 'Subject Havoc', 'Subject Ion',
 ];
 
-const MIN_FLEET_DISTANCE_M = 5200;
-
-const officerNames = ['Martinez', 'Chen', 'Johnson', 'Williams', 'Patel', 'Garcia', 'Thompson', 'Davis'];
+const officerNames = [
+  'Martinez', 'Chen', 'Johnson', 'Williams', 'Patel', 'Garcia',
+  'Thompson', 'Davis', 'Wilson', 'Anderson', 'Lee', 'Brown',
+];
 
 function rand(min: number, max: number) {
   return min + Math.random() * (max - min);
@@ -161,32 +186,6 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const rad = Math.PI / 180;
-  const dLng = (lng2 - lng1) * rad;
-  const y = Math.sin(dLng) * Math.cos(lat2 * rad);
-  const x = Math.cos(lat1 * rad) * Math.sin(lat2 * rad) - Math.sin(lat1 * rad) * Math.cos(lat2 * rad) * Math.cos(dLng);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
-
-function destinationPoint(lat: number, lng: number, bearDeg: number, distM: number): SimLatLng {
-  const R = 6371000;
-  const rad = Math.PI / 180;
-  const bear = bearDeg * rad;
-  const lat1 = lat * rad;
-  const lng1 = lng * rad;
-  const lat2 = Math.asin(
-    Math.sin(lat1) * Math.cos(distM / R) + Math.cos(lat1) * Math.sin(distM / R) * Math.cos(bear)
-  );
-  const lng2 =
-    lng1 +
-    Math.atan2(
-      Math.sin(bear) * Math.sin(distM / R) * Math.cos(lat1),
-      Math.cos(distM / R) - Math.sin(lat1) * Math.sin(lat2)
-    );
-  return { lat: lat2 / rad, lng: lng2 / rad };
-}
-
 function mphToMps(mph: number) {
   return mph * 0.44704;
 }
@@ -195,38 +194,112 @@ function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
 }
 
-function randomPointInZone(latMin: number, latMax: number, lngMin: number, lngMax: number): SimLatLng {
-  const step = 0.003;
-  const latSteps = Math.max(1, Math.floor((latMax - latMin) / step));
-  const lngSteps = Math.max(1, Math.floor((lngMax - lngMin) / step));
+function snapToRoadGrid(p: SimLatLng): SimLatLng {
   return {
-    lat: latMin + Math.floor(Math.random() * (latSteps + 1)) * step,
-    lng: lngMin + Math.floor(Math.random() * (lngSteps + 1)) * step,
+    lat: Math.round(p.lat / ROAD_GRID_STEP) * ROAD_GRID_STEP,
+    lng: Math.round(p.lng / ROAD_GRID_STEP) * ROAD_GRID_STEP,
   };
 }
 
+function gridHeading(from: SimLatLng, to: SimLatLng): number {
+  const dLat = Math.abs(to.lat - from.lat);
+  const dLng = Math.abs(to.lng - from.lng);
+  if (dLng >= dLat) return to.lng > from.lng ? 90 : 270;
+  return to.lat > from.lat ? 0 : 180;
+}
+
+function randomPointInZone(latMin: number, latMax: number, lngMin: number, lngMax: number): SimLatLng {
+  return snapToRoadGrid({ lat: rand(latMin, latMax), lng: rand(lngMin, lngMax) });
+}
+
 function buildRoadRouteToDestination(start: SimLatLng, dest: SimLatLng): SimLatLng[] {
-  const route: SimLatLng[] = [{ ...start }];
-  let cur = { ...start };
+  const route: SimLatLng[] = [snapToRoadGrid(start)];
+  let cur = { ...route[0] };
+  const end = snapToRoadGrid(dest);
   let safety = 0;
-  while (haversineMeters(cur.lat, cur.lng, dest.lat, dest.lng) > 400 && safety < 24) {
+  let preferLat = Math.random() > 0.5;
+
+  while (haversineMeters(cur.lat, cur.lng, end.lat, end.lng) > 60 && safety < 280) {
     safety++;
-    const dLat = dest.lat - cur.lat;
-    const dLng = dest.lng - cur.lng;
-    const step = 0.004 + Math.random() * 0.003;
+    const dLat = end.lat - cur.lat;
+    const dLng = end.lng - cur.lng;
     const next = { ...cur };
-    if (Math.abs(dLat) >= Math.abs(dLng)) {
-      next.lat += Math.sign(dLat) * step;
+    const moveLat = Math.abs(dLat) >= ROAD_GRID_STEP * 0.4;
+    const moveLng = Math.abs(dLng) >= ROAD_GRID_STEP * 0.4;
+
+    if (moveLat && moveLng) {
+      if (preferLat) {
+        next.lat += Math.sign(dLat) * ROAD_GRID_STEP;
+        preferLat = false;
+      } else {
+        next.lng += Math.sign(dLng) * ROAD_GRID_STEP;
+        preferLat = true;
+      }
+    } else if (moveLng) {
+      next.lng += Math.sign(dLng) * ROAD_GRID_STEP;
+    } else if (moveLat) {
+      next.lat += Math.sign(dLat) * ROAD_GRID_STEP;
     } else {
-      next.lng += Math.sign(dLng) * step;
+      break;
     }
+
     next.lat = clamp(next.lat, OlatheBounds.latMin, OlatheBounds.latMax);
     next.lng = clamp(next.lng, OlatheBounds.lngMin, OlatheBounds.lngMax);
     route.push(next);
     cur = next;
   }
-  route.push({ ...dest });
+  route.push(end);
   return route;
+}
+
+function ensurePursuitRoute(v: SimVehicle, target: SimLatLng) {
+  const end = v.route[v.route.length - 1];
+  const stale =
+    v.route.length < 2 ||
+    !end ||
+    haversineMeters(end.lat, end.lng, target.lat, target.lng) > PURSUIT_ROUTE_REBUILD_M;
+  if (stale) {
+    v.route = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, target);
+    v.routeIndex = 0;
+    v.routeProgress = 0;
+  }
+}
+
+function releasePoliceForReassignment(v: SimVehicle) {
+  v.status = 'patrol';
+  v.pursuingPerpId = undefined;
+  v.route = randomPatrolRoute({ lat: v.lat, lng: v.lng });
+  v.routeIndex = 0;
+  v.routeProgress = 0;
+}
+
+function fleetSpecForVehicle(v: SimVehicle): FleetSpec | undefined {
+  const fleet = v.role === 'police' ? policeFleet : perpFleet;
+  return fleet.find((f) => f.model === v.vehicleModel);
+}
+
+export function getOperationalSpeedMph(v: SimVehicle): number {
+  if (v.status === 'caught' || v.status === 'escaped' || v.status === 'down') return 0;
+  const spec = fleetSpecForVehicle(v);
+  let mph = 0;
+  if (v.role === 'police') {
+    mph = v.status === 'pursuing'
+      ? (spec?.pursuitMph ?? v.maxSpeedMph * 0.82)
+      : PATROL_CRUISE_MPH;
+  } else if (v.beingPursued) {
+    mph = spec?.fleeMph ?? v.maxSpeedMph * 0.75;
+  } else {
+    mph = PERP_CRUISE_MPH;
+  }
+  return mph * SIM_MOVEMENT_SCALE;
+}
+
+export function isPoliceAvailableForPursuit(v: SimVehicle): boolean {
+  return v.role === 'police' && v.status !== 'down' && (v.status === 'patrol' || v.status === 'idle');
+}
+
+export function isPerpPursuitTarget(v: SimVehicle): boolean {
+  return v.role === 'perp' && v.status !== 'caught' && v.status !== 'escaped';
 }
 
 function randomPatrolRoute(start: SimLatLng): SimLatLng[] {
@@ -236,11 +309,7 @@ function randomPatrolRoute(start: SimLatLng): SimLatLng[] {
     OlatheBounds.lngMin,
     OlatheBounds.lngMax
   );
-  const route = buildRoadRouteToDestination(start, dest);
-  if (route.length < 3) {
-    route.push(randomPointInZone(start.lat - 0.02, start.lat + 0.02, start.lng - 0.02, start.lng + 0.02));
-  }
-  return route;
+  return buildRoadRouteToDestination(start, dest);
 }
 
 function randomPerpDestination(): SimLatLng {
@@ -248,9 +317,9 @@ function randomPerpDestination(): SimLatLng {
 }
 
 function randomPoliceSpawn(existing: SimLatLng[]): SimLatLng {
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 80; i++) {
     const p = randomPointInZone(38.858, 38.905, -94.872, -94.835);
-    if (existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 1500)) {
+    if (existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 1100)) {
       return p;
     }
   }
@@ -261,7 +330,7 @@ function randomPerpSpawn(existing: SimLatLng[], police: SimLatLng[]): SimLatLng 
   for (let i = 0; i < 80; i++) {
     const p = randomPointInZone(38.868, 38.912, -94.798, -94.762);
     const farFromPolice = police.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= MIN_FLEET_DISTANCE_M);
-    const farFromPerps = existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 1800);
+    const farFromPerps = existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 2200);
     if (farFromPolice && farFromPerps) return p;
   }
   return randomPointInZone(38.868, 38.912, -94.798, -94.762);
@@ -270,56 +339,53 @@ function randomPerpSpawn(existing: SimLatLng[], police: SimLatLng[]): SimLatLng 
 function advanceVehicle(v: SimVehicle, elapsedSec: number) {
   if (v.route.length < 2 || elapsedSec <= 0 || v.status === 'caught' || v.status === 'escaped') return;
 
-  let speed = mphToMps(v.maxSpeedMph);
-  if (v.role === 'perp' && v.beingPursued) speed *= 1.12;
-  if (v.role === 'police' && v.status === 'patrol') speed *= 0.55;
+  const speed = mphToMps(getOperationalSpeedMph(v));
+  if (speed <= 0) return;
 
   let remaining = speed * elapsedSec;
 
   while (remaining > 0 && v.route.length >= 2) {
     const cur = v.route[v.routeIndex];
-    let nextIdx = v.routeIndex + 1;
+    const nextIdx = v.routeIndex + 1;
     if (nextIdx >= v.route.length) {
-      if (v.role === 'perp') {
+      if (v.role === 'police' && v.status === 'patrol') {
+        v.route = randomPatrolRoute({ lat: v.lat, lng: v.lng });
+        v.routeIndex = 0;
+        v.routeProgress = 0;
+      } else if (v.role === 'perp') {
         const dest = randomPerpDestination();
         v.destination = dest;
         v.route = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, dest);
         v.routeIndex = 0;
         v.routeProgress = 0;
-        break;
       }
-      const dest = randomPointInZone(OlatheBounds.latMin, OlatheBounds.latMax, OlatheBounds.lngMin, OlatheBounds.lngMax);
-      v.route = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, dest);
-      v.routeIndex = 0;
-      v.routeProgress = 0;
       break;
     }
     const next = v.route[nextIdx];
     const segLen = haversineMeters(cur.lat, cur.lng, next.lat, next.lng);
     if (segLen < 1) {
-      v.routeIndex = nextIdx >= v.route.length ? 0 : nextIdx;
+      v.routeIndex = nextIdx;
       v.routeProgress = 0;
       continue;
     }
     const distLeft = segLen * (1 - v.routeProgress);
     if (remaining >= distLeft) {
       remaining -= distLeft;
-      v.routeIndex = nextIdx >= v.route.length - 1 ? 0 : nextIdx;
+      v.routeIndex = nextIdx;
       v.routeProgress = 0;
       v.lat = next.lat;
       v.lng = next.lng;
-      v.heading = bearingDeg(cur.lat, cur.lng, next.lat, next.lng);
-      if (v.role === 'perp' && v.destination && haversineMeters(v.lat, v.lng, v.destination.lat, v.destination.lng) < 200) {
-        const dest = randomPerpDestination();
-        v.destination = dest;
-        v.route = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, dest);
+      v.heading = gridHeading(cur, next);
+      if (v.role === 'police' && v.status === 'patrol' && nextIdx >= v.route.length - 1) {
+        v.route = randomPatrolRoute({ lat: v.lat, lng: v.lng });
         v.routeIndex = 0;
+        v.routeProgress = 0;
       }
     } else {
       v.routeProgress += remaining / segLen;
       v.lat = cur.lat + (next.lat - cur.lat) * v.routeProgress;
       v.lng = cur.lng + (next.lng - cur.lng) * v.routeProgress;
-      v.heading = bearingDeg(cur.lat, cur.lng, next.lat, next.lng);
+      v.heading = gridHeading(cur, next);
       remaining = 0;
     }
   }
@@ -334,12 +400,11 @@ const downReasons = [
 
 function schedulePoliceDowns(vehicles: SimVehicle[], roundStart: number) {
   const police = vehicles.filter((v) => v.role === 'police');
-  if (police.length < 4) return;
-  const downCount = Math.min(Math.max(police.length - 2, 1), randInt(1, 2));
+  if (police.length < POLICE_COUNT_MIN) return;
+  const downCount = Math.min(randInt(1, 3), Math.max(1, police.length - 4));
   const shuffled = [...police].sort(() => Math.random() - 0.5);
   for (let i = 0; i < downCount; i++) {
-    const unit = shuffled[i];
-    const vehicle = vehicles.find((v) => v.id === unit.id);
+    const vehicle = vehicles.find((v) => v.id === shuffled[i].id);
     if (!vehicle) continue;
     vehicle.downAt = roundStart + randInt(Math.floor(ROUND_MS * 0.2), Math.floor(ROUND_MS * 0.75));
     vehicle.downReason = downReasons[randInt(0, downReasons.length - 1)];
@@ -359,18 +424,9 @@ function applyPoliceDowns(vehicles: SimVehicle[], now: number) {
   }
 }
 
-function moveToward(v: SimVehicle, targetLat: number, targetLng: number, distM: number) {
-  if (distM <= 0) return;
-  const bear = bearingDeg(v.lat, v.lng, targetLat, targetLng);
-  const dest = destinationPoint(v.lat, v.lng, bear, distM);
-  v.lat = dest.lat;
-  v.lng = dest.lng;
-  v.heading = bear;
-}
-
 export function createSimSession(userId: string, round = 1): SimSession {
   const perpCount = randInt(5, 9);
-  const policeCount = randInt(4, 5);
+  const policeCount = randInt(POLICE_COUNT_MIN, POLICE_COUNT_MAX);
   const policeSpawns: SimLatLng[] = [];
   const vehicles: SimVehicle[] = [];
 
@@ -379,16 +435,17 @@ export function createSimSession(userId: string, round = 1): SimSession {
     policeSpawns.push(start);
     const fleet = policeFleet[i % policeFleet.length];
     const profile = policeProfiles[i % policeProfiles.length];
+    const route = randomPatrolRoute(start);
     vehicles.push({
       id: uid('police'),
       role: 'police',
       lat: start.lat,
       lng: start.lng,
-      heading: rand(0, 360),
-      route: randomPatrolRoute(start),
+      heading: route.length > 1 ? gridHeading(route[0], route[1]) : rand(0, 360),
+      route,
       routeIndex: 0,
       routeProgress: 0,
-      maxSpeedMph: fleet.speed + randInt(-3, 3),
+      maxSpeedMph: fleet.ratedMaxMph + randInt(-2, 2),
       officerName: `Officer ${officerNames[i % officerNames.length]}`,
       officerRank: profile.rank,
       evaluation: profile.eval,
@@ -404,16 +461,17 @@ export function createSimSession(userId: string, round = 1): SimSession {
     perpSpawns.push(start);
     const dest = randomPerpDestination();
     const fleet = perpFleet[i % perpFleet.length];
+    const route = buildRoadRouteToDestination(start, dest);
     vehicles.push({
       id: uid('perp'),
       role: 'perp',
       lat: start.lat,
       lng: start.lng,
-      heading: rand(0, 360),
-      route: buildRoadRouteToDestination(start, dest),
+      heading: route.length > 1 ? gridHeading(route[0], route[1]) : rand(0, 360),
+      route,
       routeIndex: 0,
       routeProgress: 0,
-      maxSpeedMph: fleet.speed + randInt(-4, 4),
+      maxSpeedMph: fleet.ratedMaxMph + randInt(-3, 3),
       officerName: perpNames[i % perpNames.length],
       evaluation: 'Suspect vehicle — evasive driving toward destination',
       vehicleModel: fleet.model,
@@ -511,24 +569,22 @@ export function tickSimSession(session: SimSession, elapsedSec: number): SimSess
 
   for (const v of next.vehicles) {
     if (v.role !== 'police' || v.status === 'down') continue;
-    if (v.status === 'idle') {
-      v.status = 'patrol';
-    }
+    if (v.status === 'idle') v.status = 'patrol';
+
     if (v.status === 'pursuing' && v.pursuingPerpId) {
+      const perp = next.vehicles.find((p) => p.id === v.pursuingPerpId);
       const target = perpPositions[v.pursuingPerpId];
-      if (!target) {
-        v.status = 'patrol';
-        v.pursuingPerpId = undefined;
+      if (!target || !perp || perp.status === 'caught') {
+        releasePoliceForReassignment(v);
         advanceVehicle(v, elapsedSec * 0.5);
         continue;
       }
-      moveToward(v, target.lat, target.lng, mphToMps(v.maxSpeedMph) * 0.9 * elapsedSec);
-      const perp = next.vehicles.find((p) => p.id === v.pursuingPerpId);
-      if (perp && haversineMeters(v.lat, v.lng, perp.lat, perp.lng) <= CATCH_METERS) {
+      ensurePursuitRoute(v, target);
+      advanceVehicle(v, elapsedSec);
+      if (haversineMeters(v.lat, v.lng, perp.lat, perp.lng) <= CATCH_METERS) {
         perp.status = 'caught';
         perp.beingPursued = false;
-        v.status = 'idle';
-        v.pursuingPerpId = undefined;
+        releasePoliceForReassignment(v);
       }
     } else if (v.status === 'patrol') {
       advanceVehicle(v, elapsedSec);
@@ -595,11 +651,23 @@ export function startPursuit(session: SimSession, policeId: string, perpId: stri
   if (session.phase !== 'active') return session;
   const police = session.vehicles.find((v) => v.id === policeId);
   const perp = session.vehicles.find((v) => v.id === perpId);
+  if (!police || !perp || !isPoliceAvailableForPursuit(police) || !isPerpPursuitTarget(perp)) {
+    return session;
+  }
+
+  const perpTarget = { lat: perp.lat, lng: perp.lng };
   const vehicles = session.vehicles.map((v) => {
-    if (v.id === policeId && v.role === 'police' && v.status !== 'down' && (v.status === 'patrol' || v.status === 'idle')) {
-      return { ...v, status: 'pursuing' as const, pursuingPerpId: perpId };
+    if (v.id === policeId) {
+      return {
+        ...v,
+        status: 'pursuing' as const,
+        pursuingPerpId: perpId,
+        route: buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, perpTarget),
+        routeIndex: 0,
+        routeProgress: 0,
+      };
     }
-    if (v.id === perpId && v.role === 'perp' && v.status !== 'caught') {
+    if (v.id === perpId) {
       return { ...v, beingPursued: true };
     }
     return { ...v };
@@ -621,31 +689,27 @@ export function startPursuit(session: SimSession, policeId: string, perpId: stri
     policeStatus: [],
   };
 
-  if (police && perp) {
-    stats.decisions = [
-      ...stats.decisions,
-      {
-        policeId,
-        policeName: police.officerName,
-        policeSpeed: police.maxSpeedMph,
-        policeRank: police.officerRank,
-        vehicleModel: police.vehicleModel,
-        perpId,
-        perpName: perp.officerName,
-        perpSpeed: perp.maxSpeedMph,
-        perpModel: perp.vehicleModel,
-        timestampMs: Date.now(),
-      },
-    ];
-    stats.pursuitsLaunched = stats.decisions.length;
-    const usedIds = new Set(stats.decisions.map((d) => d.policeId));
-    stats.policeUsed = usedIds.size;
-  }
+  stats.decisions = [
+    ...stats.decisions,
+    {
+      policeId,
+      policeName: police.officerName,
+      policeSpeed: police.maxSpeedMph,
+      policeRank: police.officerRank,
+      vehicleModel: police.vehicleModel,
+      perpId,
+      perpName: perp.officerName,
+      perpSpeed: perp.maxSpeedMph,
+      perpModel: perp.vehicleModel,
+      timestampMs: Date.now(),
+    },
+  ];
+  stats.pursuitsLaunched = stats.decisions.length;
+  stats.policeUsed = new Set(stats.decisions.map((d) => d.policeId)).size;
 
   return { ...session, vehicles, armedPoliceId: undefined, stats };
 }
 
-/** Merge server snapshot into local session (keep sim running between polls). */
 export function mergeServerSession(local: SimSession, server: SimSession): SimSession {
   if (!server?.vehicles?.length) return local;
   return {
@@ -674,4 +738,10 @@ export function simSessionFromAPI(raw: Record<string, unknown>): SimSession {
     result: raw.result as SimRoundResult | undefined,
     armedPoliceId: raw.armedPoliceId as string | undefined,
   };
+}
+
+export function isStoredSessionUsable(session: SimSession): boolean {
+  const perpN = session.vehicles.filter((v) => v.role === 'perp').length;
+  const polN = session.vehicles.filter((v) => v.role === 'police').length;
+  return perpN >= 5 && perpN <= 9 && polN >= POLICE_COUNT_MIN && polN <= POLICE_COUNT_MAX;
 }

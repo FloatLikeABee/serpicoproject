@@ -11,8 +11,12 @@ import (
 )
 
 const (
-	pursuitRoundDuration = 4 * time.Minute
+	pursuitRoundDuration = 8 * time.Minute
 	pursuitCatchMeters   = 85.0
+	simMovementScale     = 3.0
+	patrolCruiseMph      = 52.0
+	perpCruiseMph        = 62.0
+	pursuitRouteRebuildM = 320.0
 )
 
 // LatLng is a geographic coordinate.
@@ -227,7 +231,7 @@ func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSe
 func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamSession {
 	now := time.Now()
 	perpCount := 5 + rand.Intn(5)   // 5-9
-	policeCount := 4 + rand.Intn(2) // 4-5
+	policeCount := 6 + rand.Intn(5) // 6-10
 
 	policeSpawns := []LatLng{}
 	perpSpawns := []LatLng{}
@@ -314,10 +318,8 @@ func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 				continue
 			}
 
-			speedMps := mphToMps(v.MaxSpeedMph) * 0.92
-			if elapsed > 0 {
-				moveToward(v, target.Lat, target.Lng, speedMps*elapsed)
-			}
+			s.ensurePursuitRoute(v, target)
+			s.advanceVehicle(v, elapsed)
 
 			for j := range session.Vehicles {
 				perp := &session.Vehicles[j]
@@ -326,14 +328,14 @@ func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 					if dist <= pursuitCatchMeters {
 						perp.Status = "caught"
 						perp.BeingPursued = false
-						v.Status = "idle"
+						v.Status = "patrol"
 						v.PursuingPerpID = ""
 					}
 					break
 				}
 			}
 		} else if v.Status == "patrol" {
-			s.advanceVehicle(v, elapsed*0.55)
+			s.advanceVehicle(v, elapsed)
 		}
 	}
 
@@ -404,12 +406,9 @@ func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float6
 		return
 	}
 
-	speed := mphToMps(v.MaxSpeedMph)
-	if v.Role == "perp" && v.BeingPursued {
-		speed *= 1.15
-	}
-	if v.Role == "police" && v.Status == "patrol" {
-		speed *= 0.55
+	speed := mphToMps(s.operationalSpeedMph(v))
+	if speed <= 0 {
+		return
 	}
 
 	remaining := speed * elapsedSec
@@ -806,6 +805,38 @@ func minCrossFleetDistance(a, b []PursuitVehicle) float64 {
 		}
 	}
 	return minD
+}
+
+func (s *PursuitExamService) operationalSpeedMph(v *PursuitVehicle) float64 {
+	if v.Status == "caught" || v.Status == "escaped" || v.Status == "down" {
+		return 0
+	}
+	mph := perpCruiseMph
+	if v.Role == "police" {
+		if v.Status == "pursuing" {
+			mph = v.MaxSpeedMph * 0.82
+		} else {
+			mph = patrolCruiseMph
+		}
+	} else if v.BeingPursued {
+		mph = v.MaxSpeedMph * 0.75
+	}
+	return mph * simMovementScale
+}
+
+func (s *PursuitExamService) ensurePursuitRoute(v *PursuitVehicle, target LatLng) {
+	if len(v.Route) == 0 {
+		v.Route = buildRoadRouteToDestination(LatLng{Lat: v.Lat, Lng: v.Lng}, target)
+		v.RouteIndex = 0
+		v.RouteProgress = 0
+		return
+	}
+	end := v.Route[len(v.Route)-1]
+	if haversineMeters(end.Lat, end.Lng, target.Lat, target.Lng) > pursuitRouteRebuildM {
+		v.Route = buildRoadRouteToDestination(LatLng{Lat: v.Lat, Lng: v.Lng}, target)
+		v.RouteIndex = 0
+		v.RouteProgress = 0
+	}
 }
 
 func moveToward(v *PursuitVehicle, targetLat, targetLng float64, distMeters float64) {

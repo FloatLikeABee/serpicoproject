@@ -11,6 +11,10 @@ import {
   simSessionFromAPI,
   startPursuit,
   tickSimSession,
+  isPoliceAvailableForPursuit,
+  isPerpPursuitTarget,
+  POLICE_COUNT_MIN,
+  POLICE_COUNT_MAX,
 } from '../../utils/pursuitSim';
 
 function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
@@ -98,7 +102,7 @@ const InPursue: React.FC = () => {
         if (serverSession.vehicles.length >= 9) {
           const perpN = serverSession.vehicles.filter((v) => v.role === 'perp').length;
           const polN = serverSession.vehicles.filter((v) => v.role === 'police').length;
-          if (perpN >= 5 && perpN <= 9 && polN >= 4 && polN <= 5) {
+          if (perpN >= 5 && perpN <= 9 && polN >= POLICE_COUNT_MIN && polN <= POLICE_COUNT_MAX) {
             setSession(serverSession);
             setUseServer(true);
             return;
@@ -185,8 +189,7 @@ const InPursue: React.FC = () => {
   }, [session, now]);
 
   const canPursue = selectedPolice &&
-    selectedPolice.status !== 'down' &&
-    (selectedPolice.status === 'patrol' || selectedPolice.status === 'idle') &&
+    isPoliceAvailableForPursuit(selectedPolice) &&
     session?.phase === 'active';
 
   const handleVehicleClick = useCallback(async (vehicle: PursuitMapVehicle) => {
@@ -203,12 +206,7 @@ const InPursue: React.FC = () => {
       return;
     }
 
-    if (
-      vehicle.role === 'perp' &&
-      armedPolice &&
-      vehicle.status !== 'caught' &&
-      vehicle.status !== 'escaped'
-    ) {
+    if (vehicle.role === 'perp' && armedPolice && isPerpPursuitTarget(vehicle as SimVehicle)) {
       const policeId = armedPolice;
       let next = startPursuit(cur, policeId, vehicle.id);
       setSession(next);
