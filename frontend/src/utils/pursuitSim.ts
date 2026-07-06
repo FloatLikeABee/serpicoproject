@@ -113,7 +113,9 @@ const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94
 const ROAD_GRID_STEP = 0.0004;
 const PURSUIT_ROUTE_REBUILD_M = 320;
 const MIN_PERP_POLICE_SPAWN_M = 900;
-const MIN_PERP_PERP_SPAWN_M = 1500;
+const MIN_PERP_PERP_SPAWN_M = 2200;
+const MIN_PERP_DEST_DISTANCE_M = 5200;
+const MAP_CENTER: SimLatLng = { lat: 38.885, lng: -94.815 };
 
 const PATROL_CRUISE_MPH = 52;
 const PERP_CRUISE_MPH = 62;
@@ -314,13 +316,70 @@ function randomPatrolRoute(start: SimLatLng): SimLatLng[] {
   return buildRoadRouteToDestination(start, dest);
 }
 
-function randomPerpDestination(): SimLatLng {
-  return randomPointInZone(
-    OlatheBounds.latMin,
-    OlatheBounds.latMax,
-    OlatheBounds.lngMin,
-    OlatheBounds.lngMax
-  );
+function randomPerpDestinationFrom(start: SimLatLng): SimLatLng {
+  const latMid = (OlatheBounds.latMin + OlatheBounds.latMax) / 2;
+  const lngMid = (OlatheBounds.lngMin + OlatheBounds.lngMax) / 2;
+  const oppositeZone: SpawnSector = {
+    latMin: start.lat >= latMid ? OlatheBounds.latMin : latMid,
+    latMax: start.lat >= latMid ? latMid : OlatheBounds.latMax,
+    lngMin: start.lng >= lngMid ? OlatheBounds.lngMin : lngMid,
+    lngMax: start.lng >= lngMid ? lngMid : OlatheBounds.lngMax,
+  };
+
+  for (let i = 0; i < 80; i++) {
+    const p = randomPointInZone(oppositeZone.latMin, oppositeZone.latMax, oppositeZone.lngMin, oppositeZone.lngMax);
+    if (haversineMeters(start.lat, start.lng, p.lat, p.lng) >= MIN_PERP_DEST_DISTANCE_M) return p;
+  }
+
+  for (let i = 0; i < 80; i++) {
+    const p = randomPointInZone(
+      OlatheBounds.latMin,
+      OlatheBounds.latMax,
+      OlatheBounds.lngMin,
+      OlatheBounds.lngMax
+    );
+    if (haversineMeters(start.lat, start.lng, p.lat, p.lng) >= MIN_PERP_DEST_DISTANCE_M * 0.88) return p;
+  }
+
+  return farthestMapCorner(start);
+}
+
+function farthestMapCorner(start: SimLatLng): SimLatLng {
+  const corners = [
+    { lat: OlatheBounds.latMin, lng: OlatheBounds.lngMin },
+    { lat: OlatheBounds.latMin, lng: OlatheBounds.lngMax },
+    { lat: OlatheBounds.latMax, lng: OlatheBounds.lngMin },
+    { lat: OlatheBounds.latMax, lng: OlatheBounds.lngMax },
+  ];
+  let best = corners[0];
+  let bestDist = 0;
+  for (const c of corners) {
+    const d = haversineMeters(start.lat, start.lng, c.lat, c.lng);
+    if (d > bestDist) {
+      bestDist = d;
+      best = c;
+    }
+  }
+  return snapToRoadGrid(best);
+}
+
+function sectorOuterCorner(sector: SpawnSector): SimLatLng {
+  const corners = [
+    { lat: sector.latMin, lng: sector.lngMin },
+    { lat: sector.latMin, lng: sector.lngMax },
+    { lat: sector.latMax, lng: sector.lngMin },
+    { lat: sector.latMax, lng: sector.lngMax },
+  ];
+  let best = corners[0];
+  let bestDist = 0;
+  for (const c of corners) {
+    const d = haversineMeters(MAP_CENTER.lat, MAP_CENTER.lng, c.lat, c.lng);
+    if (d > bestDist) {
+      bestDist = d;
+      best = c;
+    }
+  }
+  return snapToRoadGrid(best);
 }
 
 interface SpawnSector {
@@ -331,8 +390,8 @@ interface SpawnSector {
 }
 
 function buildPerpSpawnSectors(count: number): SpawnSector[] {
-  const rows = 3;
-  const cols = 3;
+  const rows = 4;
+  const cols = 4;
   const sectors: SpawnSector[] = [];
   const latStep = (OlatheBounds.latMax - OlatheBounds.latMin) / rows;
   const lngStep = (OlatheBounds.lngMax - OlatheBounds.lngMin) / cols;
@@ -358,8 +417,13 @@ function randomPerpSpawnInSector(
   existing: SimLatLng[],
   police: SimLatLng[]
 ): SimLatLng {
+  const anchor = sectorOuterCorner(sector);
+  const jitter = ROAD_GRID_STEP * 4;
   for (let i = 0; i < 80; i++) {
-    const p = randomPointInZone(sector.latMin, sector.latMax, sector.lngMin, sector.lngMax);
+    const p = snapToRoadGrid({
+      lat: clamp(anchor.lat + rand(-jitter, jitter), sector.latMin, sector.latMax),
+      lng: clamp(anchor.lng + rand(-jitter, jitter), sector.lngMin, sector.lngMax),
+    });
     const farFromPolice = police.every(
       (e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= MIN_PERP_POLICE_SPAWN_M
     );
@@ -368,7 +432,7 @@ function randomPerpSpawnInSector(
     );
     if (farFromPolice && farFromPerps) return p;
   }
-  return randomPointInZone(sector.latMin, sector.latMax, sector.lngMin, sector.lngMax);
+  return anchor;
 }
 
 function randomPoliceSpawn(existing: SimLatLng[]): SimLatLng {
@@ -398,7 +462,7 @@ function advanceVehicle(v: SimVehicle, elapsedSec: number) {
         v.routeIndex = 0;
         v.routeProgress = 0;
       } else if (v.role === 'perp') {
-        const dest = randomPerpDestination();
+        const dest = randomPerpDestinationFrom({ lat: v.lat, lng: v.lng });
         v.destination = dest;
         v.route = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, dest);
         v.routeIndex = 0;
@@ -505,7 +569,7 @@ export function createSimSession(userId: string, round = 1): SimSession {
   for (let i = 0; i < perpCount; i++) {
     const start = randomPerpSpawnInSector(perpSectors[i], perpSpawns, policeSpawns);
     perpSpawns.push(start);
-    const dest = randomPerpDestination();
+    const dest = randomPerpDestinationFrom(start);
     const fleet = perpFleet[i % perpFleet.length];
     const route = buildRoadRouteToDestination(start, dest);
     vehicles.push({

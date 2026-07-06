@@ -17,8 +17,9 @@ const (
 	patrolCruiseMph      = 52.0
 	perpCruiseMph        = 62.0
 	pursuitRouteRebuildM = 320.0
-	minPerpPerpSpawnM    = 1500.0
+	minPerpPerpSpawnM    = 2200.0
 	minPerpPoliceSpawnM  = 900.0
+	minPerpDestDistanceM = 5200.0
 )
 
 // LatLng is a geographic coordinate.
@@ -482,7 +483,7 @@ func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float6
 
 func (s *PursuitExamService) maybeAssignPerpDestination(v *PursuitVehicle) {
 	if v.Destination == nil || haversineMeters(v.Lat, v.Lng, v.Destination.Lat, v.Destination.Lng) < 250 {
-		dest := randomPerpDestination()
+		dest := randomPerpDestinationFrom(LatLng{Lat: v.Lat, Lng: v.Lng})
 		v.Destination = &dest
 		v.Route = buildRoadRouteToDestination(LatLng{Lat: v.Lat, Lng: v.Lng}, dest)
 		v.RouteIndex = 0
@@ -572,9 +573,11 @@ type spawnSector struct {
 	latMin, latMax, lngMin, lngMax float64
 }
 
+var mapCenter = LatLng{Lat: 38.885, Lng: -94.815}
+
 func buildPerpSpawnSectors(count int) []spawnSector {
 	latMin, latMax, lngMin, lngMax := olatheMapBounds()
-	const rows, cols = 3, 3
+	const rows, cols = 4, 4
 	sectors := make([]spawnSector, 0, rows*cols)
 	latStep := (latMax - latMin) / float64(rows)
 	lngStep := (lngMax - lngMin) / float64(cols)
@@ -668,8 +671,13 @@ func randomPoliceSpawn(existing []LatLng) LatLng {
 }
 
 func randomPerpSpawnInSector(sector spawnSector, existing, police []LatLng) LatLng {
+	anchor := sectorOuterCorner(sector)
+	jitter := 0.0016
 	for attempt := 0; attempt < 80; attempt++ {
-		p := randomGridPoint(sector.latMin, sector.latMax, sector.lngMin, sector.lngMax)
+		p := LatLng{
+			Lat: clamp(anchor.Lat+(rand.Float64()*2-1)*jitter, sector.latMin, sector.latMax),
+			Lng: clamp(anchor.Lng+(rand.Float64()*2-1)*jitter, sector.lngMin, sector.lngMax),
+		}
 		ok := true
 		for _, e := range police {
 			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < minPerpPoliceSpawnM {
@@ -690,12 +698,77 @@ func randomPerpSpawnInSector(sector spawnSector, existing, police []LatLng) LatL
 			return p
 		}
 	}
-	return randomGridPoint(sector.latMin, sector.latMax, sector.lngMin, sector.lngMax)
+	return anchor
 }
 
-func randomPerpDestination() LatLng {
+func sectorOuterCorner(sector spawnSector) LatLng {
+	corners := []LatLng{
+		{Lat: sector.latMin, Lng: sector.lngMin},
+		{Lat: sector.latMin, Lng: sector.lngMax},
+		{Lat: sector.latMax, Lng: sector.lngMin},
+		{Lat: sector.latMax, Lng: sector.lngMax},
+	}
+	best := corners[0]
+	bestDist := 0.0
+	for _, c := range corners {
+		d := haversineMeters(mapCenter.Lat, mapCenter.Lng, c.Lat, c.Lng)
+		if d > bestDist {
+			bestDist = d
+			best = c
+		}
+	}
+	return best
+}
+
+func randomPerpDestinationFrom(start LatLng) LatLng {
 	latMin, latMax, lngMin, lngMax := olatheMapBounds()
-	return randomGridPoint(latMin, latMax, lngMin, lngMax)
+	latMid := (latMin + latMax) / 2
+	lngMid := (lngMin + lngMax) / 2
+	opposite := spawnSector{}
+	if start.Lat >= latMid {
+		opposite.latMin, opposite.latMax = latMin, latMid
+	} else {
+		opposite.latMin, opposite.latMax = latMid, latMax
+	}
+	if start.Lng >= lngMid {
+		opposite.lngMin, opposite.lngMax = lngMin, lngMid
+	} else {
+		opposite.lngMin, opposite.lngMax = lngMid, lngMax
+	}
+
+	for attempt := 0; attempt < 80; attempt++ {
+		p := randomGridPoint(opposite.latMin, opposite.latMax, opposite.lngMin, opposite.lngMax)
+		if haversineMeters(start.Lat, start.Lng, p.Lat, p.Lng) >= minPerpDestDistanceM {
+			return p
+		}
+	}
+	for attempt := 0; attempt < 80; attempt++ {
+		p := randomGridPoint(latMin, latMax, lngMin, lngMax)
+		if haversineMeters(start.Lat, start.Lng, p.Lat, p.Lng) >= minPerpDestDistanceM*0.88 {
+			return p
+		}
+	}
+	return farthestMapCorner(start)
+}
+
+func farthestMapCorner(start LatLng) LatLng {
+	latMin, latMax, lngMin, lngMax := olatheMapBounds()
+	corners := []LatLng{
+		{Lat: latMin, Lng: lngMin},
+		{Lat: latMin, Lng: lngMax},
+		{Lat: latMax, Lng: lngMin},
+		{Lat: latMax, Lng: lngMax},
+	}
+	best := corners[0]
+	bestDist := 0.0
+	for _, c := range corners {
+		d := haversineMeters(start.Lat, start.Lng, c.Lat, c.Lng)
+		if d > bestDist {
+			bestDist = d
+			best = c
+		}
+	}
+	return best
 }
 
 func buildPoliceVehicle(index int, start LatLng) PursuitVehicle {
@@ -724,7 +797,7 @@ func buildPoliceVehicle(index int, start LatLng) PursuitVehicle {
 }
 
 func buildPerpVehicle(index int, start LatLng) PursuitVehicle {
-	dest := randomPerpDestination()
+	dest := randomPerpDestinationFrom(start)
 	route := buildRoadRouteToDestination(start, dest)
 	fleet := perpFleet[index%len(perpFleet)]
 	v := PursuitVehicle{
