@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 	"sync"
 	"time"
 
@@ -17,9 +18,11 @@ const (
 	patrolCruiseMph      = 52.0
 	perpCruiseMph        = 62.0
 	pursuitRouteRebuildM = 320.0
-	minPerpPerpSpawnM    = 2200.0
+	minPerpPerpSpawnM    = 2800.0
 	minPerpPoliceSpawnM  = 900.0
-	minPerpDestDistanceM = 5200.0
+	minPerpDestDistanceM = 5500.0
+	destArrivalM         = 150.0
+	roadGridStep         = 0.0004
 )
 
 // LatLng is a geographic coordinate.
@@ -205,8 +208,8 @@ func (s *PursuitExamService) StartPursuit(userID, policeID, perpID string) (*Pur
 	if police.Status != "patrol" && police.Status != "pursuing" && police.Status != "idle" {
 		return nil, fmt.Errorf("police unit busy")
 	}
-	if perp.Status == "caught" {
-		return nil, fmt.Errorf("suspect already apprehended")
+	if perp.Status == "caught" || perp.Status == "escaped" {
+		return nil, fmt.Errorf("suspect already apprehended or evaded")
 	}
 
 	police.Status = "pursuing"
@@ -240,7 +243,7 @@ func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamS
 	perpSpawns := []LatLng{}
 	police := make([]PursuitVehicle, 0, policeCount)
 	perps := make([]PursuitVehicle, 0, perpCount)
-	perpSectors := buildPerpSpawnSectors(perpCount)
+	spawnAnchors := pickPerpSpawnAnchors(perpCount, policeSpawns)
 
 	for i := 0; i < policeCount; i++ {
 		start := randomPoliceSpawn(policeSpawns)
@@ -249,9 +252,11 @@ func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamS
 	}
 
 	for i := 0; i < perpCount; i++ {
-		start := randomPerpSpawnInSector(perpSectors[i], perpSpawns, policeSpawns)
+		start := spawnAnchors[i]
 		perpSpawns = append(perpSpawns, start)
-		perps = append(perps, buildPerpVehicle(i, start))
+		perp := buildPerpVehicle(i, start)
+		ensurePerpReady(&perp)
+		perps = append(perps, perp)
 	}
 
 	vehicles := append(police, perps...)
@@ -298,10 +303,18 @@ func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 	perpPositions := map[string]LatLng{}
 	for i := range session.Vehicles {
 		v := &session.Vehicles[i]
-		if v.Role == "perp" && v.Status != "caught" {
-			s.advanceVehicle(v, elapsed)
-			perpPositions[v.ID] = LatLng{Lat: v.Lat, Lng: v.Lng}
+		if v.Role != "perp" || v.Status == "caught" || v.Status == "escaped" {
+			continue
 		}
+		ensurePerpReady(v)
+		s.advanceVehicle(v, elapsed)
+		if v.Destination != nil && haversineMeters(v.Lat, v.Lng, v.Destination.Lat, v.Destination.Lng) <= destArrivalM {
+			v.Status = "escaped"
+			v.BeingPursued = false
+			v.Evaluation = "Suspect evaded — reached destination"
+			continue
+		}
+		perpPositions[v.ID] = LatLng{Lat: v.Lat, Lng: v.Lng}
 	}
 
 	for i := range session.Vehicles {
@@ -434,16 +447,11 @@ func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float6
 
 		segLen := haversineMeters(cur.Lat, cur.Lng, next.Lat, next.Lng)
 		if segLen < 1 {
-			v.RouteIndex = nextIdx
-			if v.RouteIndex >= len(v.Route)-1 {
-				if v.Role == "police" {
-					dest := randomGridPoint(38.86, 38.91, -94.85, -94.78)
-					v.Route = buildRoadRouteToDestination(LatLng{Lat: v.Lat, Lng: v.Lng}, dest)
-					v.RouteIndex = 0
-				} else {
-					v.RouteIndex = 0
-				}
+			if v.Role == "perp" {
+				s.maybeAssignPerpDestination(v)
+				break
 			}
+			v.RouteIndex = nextIdx
 			v.RouteProgress = 0
 			continue
 		}
@@ -458,7 +466,8 @@ func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float6
 					v.Route = buildRoadRouteToDestination(LatLng{Lat: v.Lat, Lng: v.Lng}, dest)
 					v.RouteIndex = 0
 				} else {
-					v.RouteIndex = 0
+					s.maybeAssignPerpDestination(v)
+					break
 				}
 			}
 			v.RouteProgress = 0
@@ -482,10 +491,21 @@ func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float6
 }
 
 func (s *PursuitExamService) maybeAssignPerpDestination(v *PursuitVehicle) {
-	if v.Destination == nil || haversineMeters(v.Lat, v.Lng, v.Destination.Lat, v.Destination.Lng) < 250 {
-		dest := randomPerpDestinationFrom(LatLng{Lat: v.Lat, Lng: v.Lng})
+	pos := LatLng{Lat: v.Lat, Lng: v.Lng}
+	destDist := 0.0
+	if v.Destination != nil {
+		destDist = haversineMeters(pos.Lat, pos.Lng, v.Destination.Lat, v.Destination.Lng)
+	}
+	if v.Destination == nil || destDist < minPerpDestDistanceM*0.85 || destDist <= destArrivalM {
+		dest := pickPerpDestination(pos)
 		v.Destination = &dest
-		v.Route = buildRoadRouteToDestination(LatLng{Lat: v.Lat, Lng: v.Lng}, dest)
+		v.Route = buildRoadRouteToDestination(pos, dest)
+		v.RouteIndex = 0
+		v.RouteProgress = 0
+		return
+	}
+	if len(v.Route) < 2 || !routeHasMovement(v.Route) {
+		v.Route = buildRoadRouteToDestination(pos, *v.Destination)
 		v.RouteIndex = 0
 		v.RouteProgress = 0
 	}
@@ -569,33 +589,147 @@ func olatheMapBounds() (latMin, latMax, lngMin, lngMax float64) {
 	return 38.86, 38.91, -94.85, -94.78
 }
 
-type spawnSector struct {
-	latMin, latMax, lngMin, lngMax float64
+type anchorDist struct {
+	anchor LatLng
+	dist   float64
 }
 
-var mapCenter = LatLng{Lat: 38.885, Lng: -94.815}
-
-func buildPerpSpawnSectors(count int) []spawnSector {
+func allPerpAnchors() []LatLng {
 	latMin, latMax, lngMin, lngMax := olatheMapBounds()
-	const rows, cols = 4, 4
-	sectors := make([]spawnSector, 0, rows*cols)
-	latStep := (latMax - latMin) / float64(rows)
-	lngStep := (lngMax - lngMin) / float64(cols)
-	for r := 0; r < rows; r++ {
-		for c := 0; c < cols; c++ {
-			sectors = append(sectors, spawnSector{
-				latMin: latMin + float64(r)*latStep,
-				latMax: latMin + float64(r+1)*latStep,
-				lngMin: lngMin + float64(c)*lngStep,
-				lngMax: lngMin + float64(c+1)*lngStep,
-			})
+	latMid := (latMin + latMax) / 2
+	lngMid := (lngMin + lngMax) / 2
+	latQuarter := latMin + (latMax-latMin)*0.25
+	latThreeQuarter := latMin + (latMax-latMin)*0.75
+	lngThreeQuarter := lngMin + (lngMax-lngMin)*0.75
+	return []LatLng{
+		{Lat: latMin, Lng: lngMax},
+		{Lat: latMax, Lng: lngMax},
+		{Lat: latMin, Lng: lngMid},
+		{Lat: latMax, Lng: lngMid},
+		{Lat: latMid, Lng: lngMax},
+		{Lat: latQuarter, Lng: lngThreeQuarter},
+		{Lat: latThreeQuarter, Lng: lngThreeQuarter},
+		{Lat: latMid, Lng: lngThreeQuarter},
+		{Lat: latThreeQuarter, Lng: lngMid},
+	}
+}
+
+func pickPerpSpawnAnchors(count int, police []LatLng) []LatLng {
+	anchors := allPerpAnchors()
+	rand.Shuffle(len(anchors), func(i, j int) { anchors[i], anchors[j] = anchors[j], anchors[i] })
+	picked := make([]LatLng, 0, count)
+	for _, anchor := range anchors {
+		if len(picked) >= count {
+			break
+		}
+		ok := true
+		for _, p := range police {
+			if haversineMeters(anchor.Lat, anchor.Lng, p.Lat, p.Lng) < minPerpPoliceSpawnM {
+				ok = false
+				break
+			}
+		}
+		if !ok {
+			continue
+		}
+		for _, p := range picked {
+			if haversineMeters(anchor.Lat, anchor.Lng, p.Lat, p.Lng) < minPerpPerpSpawnM {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			picked = append(picked, anchor)
 		}
 	}
-	rand.Shuffle(len(sectors), func(i, j int) { sectors[i], sectors[j] = sectors[j], sectors[i] })
-	if count > len(sectors) {
-		count = len(sectors)
+	for _, anchor := range anchors {
+		if len(picked) >= count {
+			break
+		}
+		dup := false
+		for _, p := range picked {
+			if p.Lat == anchor.Lat && p.Lng == anchor.Lng {
+				dup = true
+				break
+			}
+		}
+		if dup {
+			continue
+		}
+		picked = append(picked, anchor)
 	}
-	return sectors[:count]
+	for len(picked) < count {
+		picked = append(picked, anchors[len(picked)%len(anchors)])
+	}
+	return picked[:count]
+}
+
+func pickPerpDestination(from LatLng) LatLng {
+	ranked := make([]anchorDist, 0, len(allPerpAnchors()))
+	for _, anchor := range allPerpAnchors() {
+		dist := haversineMeters(from.Lat, from.Lng, anchor.Lat, anchor.Lng)
+		if dist >= minPerpDestDistanceM {
+			ranked = append(ranked, anchorDist{anchor: anchor, dist: dist})
+		}
+	}
+	if len(ranked) == 0 {
+		return farthestMapCorner(from)
+	}
+	sort.Slice(ranked, func(i, j int) bool { return ranked[i].dist > ranked[j].dist })
+	pick := ranked[rand.Intn(min(3, len(ranked)))]
+	return pick.anchor
+}
+
+func farthestMapCorner(start LatLng) LatLng {
+	latMin, latMax, lngMin, lngMax := olatheMapBounds()
+	corners := []LatLng{
+		{Lat: latMin, Lng: lngMin},
+		{Lat: latMin, Lng: lngMax},
+		{Lat: latMax, Lng: lngMin},
+		{Lat: latMax, Lng: lngMax},
+	}
+	best := corners[0]
+	bestDist := 0.0
+	for _, c := range corners {
+		d := haversineMeters(start.Lat, start.Lng, c.Lat, c.Lng)
+		if d > bestDist {
+			bestDist = d
+			best = c
+		}
+	}
+	return best
+}
+
+func routeHasMovement(route []LatLng) bool {
+	for i := 1; i < len(route); i++ {
+		if haversineMeters(route[i-1].Lat, route[i-1].Lng, route[i].Lat, route[i].Lng) > 40 {
+			return true
+		}
+	}
+	return false
+}
+
+func ensurePerpReady(v *PursuitVehicle) {
+	if v.Role != "perp" || v.Status == "caught" || v.Status == "escaped" {
+		return
+	}
+	if v.Status != "patrol" {
+		v.Status = "patrol"
+	}
+	pos := LatLng{Lat: v.Lat, Lng: v.Lng}
+	destDist := 0.0
+	if v.Destination != nil {
+		destDist = haversineMeters(pos.Lat, pos.Lng, v.Destination.Lat, v.Destination.Lng)
+	}
+	if v.Destination == nil || destDist < minPerpDestDistanceM*0.85 || destDist <= destArrivalM {
+		dest := pickPerpDestination(pos)
+		v.Destination = &dest
+	}
+	if len(v.Route) < 2 || !routeHasMovement(v.Route) {
+		v.Route = buildRoadRouteToDestination(pos, *v.Destination)
+		v.RouteIndex = 0
+		v.RouteProgress = 0
+	}
 }
 
 func schedulePoliceDowns(vehicles []PursuitVehicle, roundStart time.Time) {
@@ -670,107 +804,6 @@ func randomPoliceSpawn(existing []LatLng) LatLng {
 	return randomGridPoint(latMin, latMax, lngMin, lngMax)
 }
 
-func randomPerpSpawnInSector(sector spawnSector, existing, police []LatLng) LatLng {
-	anchor := sectorOuterCorner(sector)
-	jitter := 0.0016
-	for attempt := 0; attempt < 80; attempt++ {
-		p := LatLng{
-			Lat: clamp(anchor.Lat+(rand.Float64()*2-1)*jitter, sector.latMin, sector.latMax),
-			Lng: clamp(anchor.Lng+(rand.Float64()*2-1)*jitter, sector.lngMin, sector.lngMax),
-		}
-		ok := true
-		for _, e := range police {
-			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < minPerpPoliceSpawnM {
-				ok = false
-				break
-			}
-		}
-		if !ok {
-			continue
-		}
-		for _, e := range existing {
-			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < minPerpPerpSpawnM {
-				ok = false
-				break
-			}
-		}
-		if ok {
-			return p
-		}
-	}
-	return anchor
-}
-
-func sectorOuterCorner(sector spawnSector) LatLng {
-	corners := []LatLng{
-		{Lat: sector.latMin, Lng: sector.lngMin},
-		{Lat: sector.latMin, Lng: sector.lngMax},
-		{Lat: sector.latMax, Lng: sector.lngMin},
-		{Lat: sector.latMax, Lng: sector.lngMax},
-	}
-	best := corners[0]
-	bestDist := 0.0
-	for _, c := range corners {
-		d := haversineMeters(mapCenter.Lat, mapCenter.Lng, c.Lat, c.Lng)
-		if d > bestDist {
-			bestDist = d
-			best = c
-		}
-	}
-	return best
-}
-
-func randomPerpDestinationFrom(start LatLng) LatLng {
-	latMin, latMax, lngMin, lngMax := olatheMapBounds()
-	latMid := (latMin + latMax) / 2
-	lngMid := (lngMin + lngMax) / 2
-	opposite := spawnSector{}
-	if start.Lat >= latMid {
-		opposite.latMin, opposite.latMax = latMin, latMid
-	} else {
-		opposite.latMin, opposite.latMax = latMid, latMax
-	}
-	if start.Lng >= lngMid {
-		opposite.lngMin, opposite.lngMax = lngMin, lngMid
-	} else {
-		opposite.lngMin, opposite.lngMax = lngMid, lngMax
-	}
-
-	for attempt := 0; attempt < 80; attempt++ {
-		p := randomGridPoint(opposite.latMin, opposite.latMax, opposite.lngMin, opposite.lngMax)
-		if haversineMeters(start.Lat, start.Lng, p.Lat, p.Lng) >= minPerpDestDistanceM {
-			return p
-		}
-	}
-	for attempt := 0; attempt < 80; attempt++ {
-		p := randomGridPoint(latMin, latMax, lngMin, lngMax)
-		if haversineMeters(start.Lat, start.Lng, p.Lat, p.Lng) >= minPerpDestDistanceM*0.88 {
-			return p
-		}
-	}
-	return farthestMapCorner(start)
-}
-
-func farthestMapCorner(start LatLng) LatLng {
-	latMin, latMax, lngMin, lngMax := olatheMapBounds()
-	corners := []LatLng{
-		{Lat: latMin, Lng: lngMin},
-		{Lat: latMin, Lng: lngMax},
-		{Lat: latMax, Lng: lngMin},
-		{Lat: latMax, Lng: lngMax},
-	}
-	best := corners[0]
-	bestDist := 0.0
-	for _, c := range corners {
-		d := haversineMeters(start.Lat, start.Lng, c.Lat, c.Lng)
-		if d > bestDist {
-			bestDist = d
-			best = c
-		}
-	}
-	return best
-}
-
 func buildPoliceVehicle(index int, start LatLng) PursuitVehicle {
 	route := buildRandomPatrolRoute(start)
 	profile := policeProfiles[index%len(policeProfiles)]
@@ -797,7 +830,7 @@ func buildPoliceVehicle(index int, start LatLng) PursuitVehicle {
 }
 
 func buildPerpVehicle(index int, start LatLng) PursuitVehicle {
-	dest := randomPerpDestinationFrom(start)
+	dest := pickPerpDestination(start)
 	route := buildRoadRouteToDestination(start, dest)
 	fleet := perpFleet[index%len(perpFleet)]
 	v := PursuitVehicle{
@@ -827,24 +860,38 @@ func buildRandomPatrolRoute(start LatLng) []LatLng {
 }
 
 func buildRoadRouteToDestination(start, dest LatLng) []LatLng {
+	latMin, latMax, lngMin, lngMax := olatheMapBounds()
 	route := []LatLng{start}
 	cur := start
-	for safety := 0; safety < 24 && haversineMeters(cur.Lat, cur.Lng, dest.Lat, dest.Lng) > 400; safety++ {
-		dLat := dest.Lat - cur.Lat
-		dLng := dest.Lng - cur.Lng
-		step := 0.004 + float64(rand.Intn(3))*0.002
+	end := dest
+	preferLat := rand.Float64() > 0.5
+	for safety := 0; safety < 280 && haversineMeters(cur.Lat, cur.Lng, end.Lat, end.Lng) > 60; safety++ {
+		dLat := end.Lat - cur.Lat
+		dLng := end.Lng - cur.Lng
 		next := cur
-		if math.Abs(dLat) >= math.Abs(dLng) {
-			next.Lat += math.Copysign(step, dLat)
+		moveLat := math.Abs(dLat) >= roadGridStep*0.4
+		moveLng := math.Abs(dLng) >= roadGridStep*0.4
+		if moveLat && moveLng {
+			if preferLat {
+				next.Lat += math.Copysign(roadGridStep, dLat)
+				preferLat = false
+			} else {
+				next.Lng += math.Copysign(roadGridStep, dLng)
+				preferLat = true
+			}
+		} else if moveLng {
+			next.Lng += math.Copysign(roadGridStep, dLng)
+		} else if moveLat {
+			next.Lat += math.Copysign(roadGridStep, dLat)
 		} else {
-			next.Lng += math.Copysign(step, dLng)
+			break
 		}
-		next.Lat = clamp(next.Lat, 38.855, 38.915)
-		next.Lng = clamp(next.Lng, -94.865, -94.775)
+		next.Lat = clamp(next.Lat, latMin, latMax)
+		next.Lng = clamp(next.Lng, lngMin, lngMax)
 		route = append(route, next)
 		cur = next
 	}
-	route = append(route, dest)
+	route = append(route, end)
 	return route
 }
 
