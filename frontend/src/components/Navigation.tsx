@@ -79,8 +79,8 @@ const Navigation: React.FC = () => {
 
   const policeNavItems: NavItem[] = [
     { path: '/in-pursue', label: 'Pursue', shortLabel: 'Go', icon: <PursueIcon /> },
-    { path: '/perps-cases', label: 'Records', shortLabel: 'Rec', icon: <PerpsCasesIcon /> },
     { path: '/chase-game', label: 'Chase', shortLabel: 'Game', icon: <ChaseGameIcon /> },
+    { path: '/perps-cases', label: 'Records', shortLabel: 'Rec', icon: <PerpsCasesIcon /> },
     { path: '/mysteries', label: 'Mysteries', shortLabel: 'Myst', icon: <MysteriesIcon /> },
   ];
 
@@ -123,7 +123,7 @@ const Navigation: React.FC = () => {
         {navItems.map((item, index) => (
           <React.Fragment key={item.path}>
             {renderNavButton(item.path, item.label, item.shortLabel, item.icon)}
-            {user?.role === 'police' && index === 0 &&
+            {user?.role === 'police' && index === 1 &&
               renderNavButton('/ai-chat', 'AI Chat', 'AI', <AIIcon />)
             }
           </React.Fragment>
