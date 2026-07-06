@@ -111,6 +111,12 @@ const caughtOverlay = `
     <span style="color:#39ff14;font-size:18px;font-weight:bold;">✓</span>
   </div>`;
 
+const hidingOverlay = `
+  <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.65);border-radius:50%;border:2px dashed #888;pointer-events:auto;">
+    <span style="color:#888;font-size:14px;font-weight:bold;">?</span>
+  </div>`;
+
 function buildIcon(
   vehicle: PursuitMapVehicle,
   selected: boolean,
@@ -121,6 +127,14 @@ function buildIcon(
     return L.divIcon({
       className: 'custom-marker pursuit-vehicle-marker',
       html: caughtOverlay,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+    });
+  }
+  if (vehicle.status === 'hiding') {
+    return L.divIcon({
+      className: 'custom-marker pursuit-vehicle-marker',
+      html: hidingOverlay,
       iconSize: [44, 44],
       iconAnchor: [22, 22],
     });
@@ -193,7 +207,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   const selectedVehicle = vehicles.find((v) => v.id === selectedId);
 
   const routeLines = useMemo(() => {
-    const lines: Array<{ id: string; positions: [number, number][]; color: string }> = [];
+    const lines: Array<{ id: string; positions: [number, number][]; color: string; dashed?: boolean }> = [];
     if (selectedVehicle?.route && selectedVehicle.route.length > 1) {
       lines.push({
         id: selectedVehicle.id,
@@ -202,15 +216,13 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
       });
     }
     vehicles
-      .filter((v) => v.role === 'perp' && v.destination && v.status !== 'caught')
+      .filter((v) => v.role === 'perp' && v.route && v.route.length > 1 && v.status !== 'caught' && v.status !== 'hiding')
       .forEach((v) => {
         lines.push({
-          id: `${v.id}-dest`,
-          positions: [
-            [v.lat, v.lng],
-            [v.destination!.lat, v.destination!.lng],
-          ],
-          color: '#ff2bd6',
+          id: `${v.id}-route`,
+          positions: v.route!.map((p) => [p.lat, p.lng]),
+          color: v.beingPursued ? '#ff6b6b' : '#ff2bd6',
+          dashed: !v.beingPursued,
         });
       });
     return lines;
@@ -230,21 +242,21 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
           positions={r.positions}
           pathOptions={{
             color: r.color,
-            weight: 2,
-            opacity: 0.4,
-            dashArray: r.id.includes('dest') ? '4 10' : '6 8',
+            weight: r.dashed ? 2 : 3,
+            opacity: r.dashed ? 0.35 : 0.55,
+            dashArray: r.dashed ? '4 8' : undefined,
           }}
         />
       ))}
 
       {vehicles
-        .filter((v) => v.role === 'perp' && v.destination && v.status !== 'caught')
+        .filter((v) => v.role === 'perp' && v.destination && v.status !== 'caught' && v.status !== 'hiding')
         .map((v) => (
           <CircleMarker
             key={`${v.id}-dest-dot`}
             center={[v.destination!.lat, v.destination!.lng]}
             radius={5}
-            pathOptions={{ color: '#ff2bd6', fillColor: '#ff2bd6', fillOpacity: 0.5, weight: 1 }}
+            pathOptions={{ color: '#ff2bd6', fillColor: '#ff2bd6', fillOpacity: 0.35, weight: 1, dashArray: '2 4' }}
           />
         ))}
 
@@ -254,7 +266,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
           vehicle={vehicle}
           selected={selectedId === vehicle.id}
           armed={armedPoliceId === vehicle.id}
-          pursueTarget={!!pursueModePoliceId && vehicle.role === 'perp' && vehicle.status !== 'caught'}
+          pursueTarget={!!pursueModePoliceId && vehicle.role === 'perp' && vehicle.status !== 'caught' && vehicle.status !== 'hiding'}
           onClick={() => onVehicleClick?.(vehicle)}
         />
       ))}

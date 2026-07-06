@@ -1,16 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PursuitMapCanvas, { PursuitMapVehicle } from '../../components/PursuitMapCanvas';
-import { useAuth } from '../../contexts/AuthContext';
-import { pursuitExamAPI, PursuitAIEvaluation } from '../../services/api';
+import { usePursuitExam } from '../../contexts/PursuitExamContext';
+import { PursuitAIEvaluation } from '../../services/api';
 import {
-  SimSession,
   SimVehicle,
   RoundStats,
-  armPursuit,
-  createSimSession,
-  simSessionFromAPI,
-  startPursuit,
-  tickSimSession,
+  isPoliceAvailableForPursuit,
+  isPerpPursuitTarget,
+  ROUND_DURATION_MIN,
+  getDisplayOperationalMph,
 } from '../../utils/pursuitSim';
 
 function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
@@ -63,106 +61,21 @@ function toMapVehicle(v: SimVehicle): PursuitMapVehicle {
 }
 
 const InPursue: React.FC = () => {
-  const { user } = useAuth();
-  const userId = user?.id || 'guest';
+  const {
+    session,
+    selectedPoliceId,
+    pursueModePoliceId,
+    aiEvaluation,
+    evalLoading,
+    setSelectedPoliceId,
+    armPursue,
+    cancelTargeting,
+    launchPursuit,
+    pursueModeRef,
+    sessionRef,
+  } = usePursuitExam();
 
-  const [session, setSession] = useState<SimSession | null>(null);
-  const [selectedPoliceId, setSelectedPoliceId] = useState<string | null>(null);
-  const [pursueModePoliceId, setPursueModePoliceId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
-  const [useServer, setUseServer] = useState(false);
-  const [aiEvaluation, setAiEvaluation] = useState<PursuitAIEvaluation | null>(null);
-  const [evalLoading, setEvalLoading] = useState(false);
-  const evaluatedRoundRef = useRef<number | null>(null);
-
-  const sessionRef = useRef<SimSession | null>(null);
-  const lastTickRef = useRef<number>(performance.now());
-  const pursueModeRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    sessionRef.current = session;
-  }, [session]);
-
-  useEffect(() => {
-    pursueModeRef.current = pursueModePoliceId;
-  }, [pursueModePoliceId]);
-
-  // Server sync on init only; local sim drives movement
-  useEffect(() => {
-    let cancelled = false;
-    const init = async () => {
-      try {
-        const { session: raw } = await pursuitExamAPI.getState(userId);
-        if (cancelled) return;
-        const serverSession = simSessionFromAPI(raw as unknown as Record<string, unknown>);
-        if (serverSession.vehicles.length >= 9) {
-          const perpN = serverSession.vehicles.filter((v) => v.role === 'perp').length;
-          const polN = serverSession.vehicles.filter((v) => v.role === 'police').length;
-          if (perpN >= 5 && perpN <= 9 && polN >= 4 && polN <= 5) {
-            setSession(serverSession);
-            setUseServer(true);
-            return;
-          }
-        }
-      } catch {
-        /* local sim fallback */
-      }
-      if (!cancelled) {
-        setSession(createSimSession(userId));
-        setUseServer(false);
-      }
-    };
-    init();
-    return () => { cancelled = true; };
-  }, [userId]);
-
-  // Local simulation tick (~30fps)
-  useEffect(() => {
-    let frame: number;
-    const loop = (ts: number) => {
-      const elapsed = Math.min((ts - lastTickRef.current) / 1000, 0.1);
-      lastTickRef.current = ts;
-      const cur = sessionRef.current;
-      if (cur) {
-        if (cur.phase === 'active') {
-          const next = tickSimSession(cur, elapsed);
-          setSession(next);
-          sessionRef.current = next;
-        } else if (cur.cooldownEndsAt && Date.now() >= cur.cooldownEndsAt) {
-          const next = createSimSession(cur.userId, cur.round + 1);
-          setSession(next);
-          sessionRef.current = next;
-          setSelectedPoliceId(null);
-          setPursueModePoliceId(null);
-          setAiEvaluation(null);
-          evaluatedRoundRef.current = null;
-        }
-      }
-      frame = requestAnimationFrame(loop);
-    };
-    frame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frame);
-  }, []);
-
-  // AI evaluation when round completes
-  useEffect(() => {
-    if (session?.phase !== 'completed' || !session.result?.stats) return;
-    if (evaluatedRoundRef.current === session.round) return;
-    evaluatedRoundRef.current = session.round;
-
-    const runEval = async () => {
-      setEvalLoading(true);
-      try {
-        const { evaluation } = await pursuitExamAPI.evaluateRound(session.result!.stats!);
-        setAiEvaluation(evaluation);
-      } catch {
-        setAiEvaluation(localFallbackEvaluation(session.result!.stats!));
-      } finally {
-        setEvalLoading(false);
-      }
-    };
-    runEval();
-  }, [session?.phase, session?.round, session?.result]);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -185,9 +98,16 @@ const InPursue: React.FC = () => {
   }, [session, now]);
 
   const canPursue = selectedPolice &&
-    selectedPolice.status !== 'down' &&
-    (selectedPolice.status === 'patrol' || selectedPolice.status === 'idle') &&
+    isPoliceAvailableForPursuit(selectedPolice) &&
     session?.phase === 'active';
+
+  const displayEvaluation = useMemo(() => {
+    if (aiEvaluation) return aiEvaluation;
+    if (session?.result?.stats && !evalLoading) {
+      return localFallbackEvaluation(session.result.stats);
+    }
+    return null;
+  }, [aiEvaluation, session?.result?.stats, evalLoading]);
 
   const handleVehicleClick = useCallback(async (vehicle: PursuitMapVehicle) => {
     const cur = sessionRef.current;
@@ -197,8 +117,7 @@ const InPursue: React.FC = () => {
     if (vehicle.role === 'police' && vehicle.status !== 'caught') {
       setSelectedPoliceId(vehicle.id);
       if (vehicle.status !== 'down') {
-        setPursueModePoliceId(null);
-        pursueModeRef.current = null;
+        cancelTargeting();
       }
       return;
     }
@@ -206,61 +125,21 @@ const InPursue: React.FC = () => {
     if (
       vehicle.role === 'perp' &&
       armedPolice &&
-      vehicle.status !== 'caught' &&
-      vehicle.status !== 'escaped'
+      isPerpPursuitTarget(vehicle as SimVehicle)
     ) {
-      const policeId = armedPolice;
-      let next = startPursuit(cur, policeId, vehicle.id);
-      setSession(next);
-      sessionRef.current = next;
-      setPursueModePoliceId(null);
-      pursueModeRef.current = null;
-      setSelectedPoliceId(null);
-
-      if (useServer) {
-        try {
-          const { session: raw } = await pursuitExamAPI.startPursuit(userId, policeId, vehicle.id);
-          next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
-          setSession(next);
-          sessionRef.current = next;
-        } catch {
-          setUseServer(false);
-        }
-      }
+      await launchPursuit(armedPolice, vehicle.id);
     }
-  }, [useServer, userId]);
+  }, [cancelTargeting, launchPursuit, pursueModeRef, sessionRef, setSelectedPoliceId]);
 
   const handleArmPursue = useCallback(async () => {
-    if (!selectedPoliceId || !sessionRef.current) return;
-    const policeId = selectedPoliceId;
-    pursueModeRef.current = policeId;
-    setPursueModePoliceId(policeId);
-
-    let next = armPursuit(sessionRef.current, policeId);
-    setSession(next);
-    sessionRef.current = next;
-
-    if (useServer) {
-      try {
-        const { session: raw } = await pursuitExamAPI.armPursuit(userId, policeId);
-        next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
-        setSession(next);
-        sessionRef.current = next;
-      } catch {
-        setUseServer(false);
-      }
-    }
-  }, [selectedPoliceId, useServer, userId]);
-
-  const cancelTargeting = useCallback(() => {
-    setPursueModePoliceId(null);
-    pursueModeRef.current = null;
-    setSession((s) => (s ? { ...s, armedPoliceId: undefined } : s));
-  }, []);
+    if (!selectedPoliceId) return;
+    await armPursue(selectedPoliceId);
+  }, [armPursue, selectedPoliceId]);
 
   const caughtCount = perpUnits.filter((v) => v.status === 'caught').length;
+  const hiddenCount = perpUnits.filter((v) => v.status === 'hiding').length;
   const activePursuits = policeUnits.filter((v) => v.status === 'pursuing').length;
-  const downCount = policeUnits.filter((v) => v.status === 'down').length;
+  const availablePolice = policeUnits.filter((v) => isPoliceAvailableForPursuit(v)).length;
 
   if (!session) {
     return (
@@ -272,25 +151,32 @@ const InPursue: React.FC = () => {
 
   return (
     <div className="page-fill">
-      <div className="game-header p-2 sm:p-3 flex-shrink-0">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
+      <div className="game-header p-2 sm:p-3 flex-shrink-0 relative min-h-[52px] sm:min-h-[56px]">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-shrink-0">
             <h1 className="text-lg sm:text-xl font-display font-bold text-serpico-red tracking-wide">
               Pursue Exam
             </h1>
-            <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate">
-              Round {session.round} · {useServer ? 'Live sim' : 'Local sim'}
+            <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate max-w-[140px] sm:max-w-none">
+              Round {session.round}
             </p>
           </div>
-          {session.phase === 'active' && (
-            <div className="text-right flex-shrink-0">
-              <div className="font-display text-lg sm:text-xl font-bold neon-text-cyan tabular-nums">
-                {formatTime(roundSecondsLeft)}
-              </div>
-              <div className="text-[10px] text-synth-muted uppercase tracking-wider">Time left</div>
-            </div>
-          )}
+          <div className="min-w-0 flex-shrink-0 text-right invisible sm:visible" aria-hidden="true">
+            <p className="text-[10px] text-synth-muted font-mono uppercase tracking-wider">Op clock</p>
+            <p className="text-[10px] text-synth-muted/80 font-mono">{ROUND_DURATION_MIN} min</p>
+          </div>
         </div>
+
+        {session.phase === 'active' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+            <div className="font-display text-3xl sm:text-4xl font-bold neon-text-cyan tabular-nums leading-none tracking-tight">
+              {formatTime(roundSecondsLeft)}
+            </div>
+            <div className="text-[9px] sm:text-[10px] text-synth-muted uppercase tracking-widest mt-1">
+              Time left
+            </div>
+          </div>
+        )}
 
         {pursueModePoliceId && (
           <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-neon-magenta/50 bg-neon-magenta/10">
@@ -356,9 +242,14 @@ const InPursue: React.FC = () => {
             <div className="mt-1.5 flex items-center justify-between text-[10px] gap-2">
               <span className="text-synth-muted truncate">{selectedPolice.vehicleModel}</span>
               <span className="font-display font-bold text-neon-cyan flex-shrink-0 whitespace-nowrap">
-                {Math.round(selectedPolice.maxSpeedMph)} mph
+                {Math.round(selectedPolice.maxSpeedMph)} mph rated
               </span>
             </div>
+            {selectedPolice.status === 'pursuing' && (
+              <p className="text-[9px] text-synth-muted mt-1 text-right font-mono">
+                Pursuit ~{getDisplayOperationalMph(selectedPolice)} mph
+              </p>
+            )}
             {selectedPolice.status === 'down' && (
               <p className="mt-2 text-[10px] text-red-400 font-display uppercase tracking-wide text-center">
                 ✕ Unit down — unavailable
@@ -367,6 +258,11 @@ const InPursue: React.FC = () => {
             {selectedPolice.status === 'pursuing' && (
               <p className="mt-2 text-[10px] text-neon-green font-display uppercase tracking-wide text-center">
                 ● In active pursuit
+              </p>
+            )}
+            {canPursue && (
+              <p className="mt-2 text-[10px] text-neon-cyan/80 font-mono text-center">
+                Available for reassignment
               </p>
             )}
           </div>
@@ -386,37 +282,37 @@ const InPursue: React.FC = () => {
 
               {evalLoading ? (
                 <p className="text-xs text-neon-cyan mt-3 animate-pulse font-display">AI analyzing your operations…</p>
-              ) : aiEvaluation ? (
+              ) : displayEvaluation ? (
                 <div className="mt-3 space-y-3">
                   <div className="flex items-center gap-3">
-                    <p className="text-4xl font-display font-bold text-white">{aiEvaluation.grade}</p>
+                    <p className="text-4xl font-display font-bold text-white">{displayEvaluation.grade}</p>
                     <div>
-                      <p className="text-xs text-gray-300">{aiEvaluation.summary}</p>
-                      <p className="text-[10px] text-synth-muted mt-0.5">Score: {aiEvaluation.score}</p>
+                      <p className="text-xs text-gray-300">{displayEvaluation.summary}</p>
+                      <p className="text-[10px] text-synth-muted mt-0.5">Score: {displayEvaluation.score}</p>
                     </div>
                   </div>
                   <div className="text-[11px] space-y-2">
                     <div>
                       <p className="text-neon-cyan font-display uppercase text-[10px] tracking-wider">Strategy</p>
-                      <p className="text-gray-300 mt-0.5 leading-snug">{aiEvaluation.strategyAnalysis}</p>
+                      <p className="text-gray-300 mt-0.5 leading-snug">{displayEvaluation.strategyAnalysis}</p>
                     </div>
                     <div>
                       <p className="text-neon-magenta font-display uppercase text-[10px] tracking-wider">Resources</p>
-                      <p className="text-gray-300 mt-0.5 leading-snug">{aiEvaluation.resourceAnalysis}</p>
+                      <p className="text-gray-300 mt-0.5 leading-snug">{displayEvaluation.resourceAnalysis}</p>
                     </div>
-                    {aiEvaluation.strengths?.length > 0 && (
+                    {displayEvaluation.strengths?.length > 0 && (
                       <div>
                         <p className="text-neon-green font-display uppercase text-[10px] tracking-wider">Strengths</p>
                         <ul className="text-gray-300 mt-0.5 list-disc list-inside">
-                          {aiEvaluation.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                          {displayEvaluation.strengths.map((s, i) => <li key={i}>{s}</li>)}
                         </ul>
                       </div>
                     )}
-                    {aiEvaluation.improvements?.length > 0 && (
+                    {displayEvaluation.improvements?.length > 0 && (
                       <div>
                         <p className="text-neon-amber font-display uppercase text-[10px] tracking-wider">Improve</p>
                         <ul className="text-gray-300 mt-0.5 list-disc list-inside">
-                          {aiEvaluation.improvements.map((s, i) => <li key={i}>{s}</li>)}
+                          {displayEvaluation.improvements.map((s, i) => <li key={i}>{s}</li>)}
                         </ul>
                       </div>
                     )}
@@ -446,7 +342,7 @@ const InPursue: React.FC = () => {
       </div>
 
       <div className="game-header border-t border-neon-purple/20 p-2 sm:p-3 flex-shrink-0">
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px] sm:text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[10px] sm:text-xs">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-serpico-blue flex-shrink-0" />
             <span className="text-synth-muted">Police</span>
@@ -455,7 +351,7 @@ const InPursue: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-serpico-red flex-shrink-0" />
             <span className="text-synth-muted">Suspects</span>
-            <span className="font-bold text-serpico-red ml-auto">{perpUnits.length}</span>
+            <span className="font-bold text-serpico-red ml-auto">{perpUnits.filter((v) => v.status !== 'hiding').length}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-neon-green flex-shrink-0" />
@@ -463,18 +359,23 @@ const InPursue: React.FC = () => {
             <span className="font-bold text-neon-green ml-auto">{caughtCount}</span>
           </div>
           <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0" />
+            <span className="text-synth-muted">Hidden</span>
+            <span className="font-bold text-gray-400 ml-auto">{hiddenCount}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-neon-cyan flex-shrink-0" />
             <span className="text-synth-muted">Pursuing</span>
             <span className="font-bold text-neon-cyan ml-auto">{activePursuits}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0" />
-            <span className="text-synth-muted">Down</span>
-            <span className="font-bold text-gray-400 ml-auto">{downCount}</span>
+            <span className="w-2 h-2 rounded-full bg-neon-amber flex-shrink-0" />
+            <span className="text-synth-muted">Available</span>
+            <span className="font-bold text-neon-amber ml-auto">{availablePolice}</span>
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap police → Pursue → tap suspect · Units may go down mid-round
+          Suspects head to hideouts 6–11 km away · Reach hideout = in hiding (pursuit failed) · Follow road routes
         </p>
       </div>
     </div>
