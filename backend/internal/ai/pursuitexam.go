@@ -17,6 +17,10 @@ const (
 	patrolCruiseMph      = 52.0
 	perpCruiseMph        = 62.0
 	pursuitRouteRebuildM = 320.0
+	policeCountMin       = 3
+	policeCountMax       = 5
+	perpCountMin         = 3
+	perpCountMax         = 5
 	minPerpPoliceSpawnM  = 600.0
 	minPerpDestDistanceM = 7200.0
 	minVehicleSpawnSepM  = 1200.0
@@ -124,7 +128,16 @@ func (s *PursuitExamService) GetOrStart(userID string) (*PursuitExamSession, err
 
 	if sid, ok := s.byUser[userID]; ok {
 		if session, exists := s.sessions[sid]; exists {
-			s.simulateLocked(session)
+			if !sessionFleetUsable(session) {
+				next := s.newRound(userID, session.Round)
+				if session.Round < 1 {
+					next.Round = 1
+				}
+				next.ID = session.ID
+				*session = *next
+			} else {
+				s.simulateLocked(session)
+			}
 			return s.copySession(session), nil
 		}
 		delete(s.byUser, userID)
@@ -233,10 +246,29 @@ func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSe
 	return session, nil
 }
 
+func randomFleetCounts() (policeCount, perpCount int) {
+	policeCount = policeCountMin + rand.Intn(policeCountMax-policeCountMin+1)
+	perpCount = perpCountMin + rand.Intn(perpCountMax-perpCountMin+1)
+	return policeCount, perpCount
+}
+
+func sessionFleetUsable(session *PursuitExamSession) bool {
+	police, perps := 0, 0
+	for i := range session.Vehicles {
+		switch session.Vehicles[i].Role {
+		case "police":
+			police++
+		case "perp":
+			perps++
+		}
+	}
+	return police >= policeCountMin && police <= policeCountMax &&
+		perps >= perpCountMin && perps <= perpCountMax
+}
+
 func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamSession {
 	now := time.Now()
-	perpCount := 3 + rand.Intn(3)   // 3-5
-	policeCount := 3 + rand.Intn(3) // 3-5
+	policeCount, perpCount := randomFleetCounts()
 
 	mixedSpawns := pickMixedRandomSpawns(policeCount + perpCount)
 	roles := make([]string, 0, policeCount+perpCount)

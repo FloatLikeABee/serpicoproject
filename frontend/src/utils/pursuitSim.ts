@@ -104,6 +104,13 @@ export const POLICE_COUNT_MIN = 3;
 export const POLICE_COUNT_MAX = 5;
 export const PERP_COUNT_MIN = 3;
 export const PERP_COUNT_MAX = 5;
+
+function randomFleetCounts(): { policeCount: number; perpCount: number } {
+  return {
+    policeCount: randInt(POLICE_COUNT_MIN, POLICE_COUNT_MAX),
+    perpCount: randInt(PERP_COUNT_MIN, PERP_COUNT_MAX),
+  };
+}
 /** Boosts sim travel speed so units feel responsive on the map grid. */
 export const SIM_MOVEMENT_SCALE = 6.0;
 
@@ -493,8 +500,7 @@ function applyPoliceDowns(vehicles: SimVehicle[], now: number) {
 }
 
 export function createSimSession(userId: string, round = 1): SimSession {
-  const perpCount = randInt(PERP_COUNT_MIN, PERP_COUNT_MAX);
-  const policeCount = randInt(POLICE_COUNT_MIN, POLICE_COUNT_MAX);
+  const { policeCount, perpCount } = randomFleetCounts();
   const mixedSpawns = pickMixedRandomSpawns(policeCount + perpCount);
   const roles: Array<'police' | 'perp'> = [
     ...Array(policeCount).fill('police' as const),
@@ -850,5 +856,10 @@ export function simSessionFromAPI(raw: Record<string, unknown>): SimSession {
 export function isStoredSessionUsable(session: SimSession): boolean {
   const perpN = session.vehicles.filter((v) => v.role === 'perp').length;
   const polN = session.vehicles.filter((v) => v.role === 'police').length;
-  return perpN >= PERP_COUNT_MIN && perpN <= PERP_COUNT_MAX && polN >= POLICE_COUNT_MIN && polN <= POLICE_COUNT_MAX;
+  return (
+    polN >= POLICE_COUNT_MIN &&
+    polN <= POLICE_COUNT_MAX &&
+    perpN >= PERP_COUNT_MIN &&
+    perpN <= PERP_COUNT_MAX
+  );
 }
