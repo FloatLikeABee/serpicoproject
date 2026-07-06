@@ -339,7 +339,7 @@ func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 		}
 	}
 
-	if now.After(session.RoundEndsAt) {
+	if now.After(session.RoundEndsAt) || allPerpsResolved(session.Vehicles) {
 		s.finishRound(session)
 	}
 
@@ -805,6 +805,20 @@ func minCrossFleetDistance(a, b []PursuitVehicle) float64 {
 		}
 	}
 	return minD
+}
+
+func allPerpsResolved(vehicles []PursuitVehicle) bool {
+	total := 0
+	for i := range vehicles {
+		if vehicles[i].Role != "perp" {
+			continue
+		}
+		total++
+		if vehicles[i].Status != "caught" && vehicles[i].Status != "escaped" {
+			return false
+		}
+	}
+	return total > 0
 }
 
 func (s *PursuitExamService) operationalSpeedMph(v *PursuitVehicle) float64 {

@@ -107,6 +107,7 @@ export const SIM_MOVEMENT_SCALE = 3.0;
 
 const ROUND_MS = 8 * 60 * 1000;
 const CATCH_METERS = 85;
+const DEST_ARRIVAL_M = 150;
 const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
 /** ~45 m city blocks — vehicles move only on N/S/E/W grid lines. */
 const ROAD_GRID_STEP = 0.0004;
@@ -546,6 +547,28 @@ export function buildRoundStats(session: SimSession, result: SimRoundResult): Ro
   };
 }
 
+function markPerpEscaped(v: SimVehicle, vehicles: SimVehicle[]) {
+  v.status = 'escaped';
+  v.beingPursued = false;
+  v.evaluation = 'Suspect evaded — reached destination';
+  for (const unit of vehicles) {
+    if (unit.role === 'police' && unit.pursuingPerpId === v.id) {
+      releasePoliceForReassignment(unit);
+    }
+  }
+}
+
+function perpReachedDestination(v: SimVehicle): boolean {
+  if (!v.destination) return false;
+  return haversineMeters(v.lat, v.lng, v.destination.lat, v.destination.lng) <= DEST_ARRIVAL_M;
+}
+
+function shouldFinishRoundEarly(vehicles: SimVehicle[]): boolean {
+  const perps = vehicles.filter((v) => v.role === 'perp');
+  if (perps.length === 0) return false;
+  return perps.every((v) => v.status === 'caught' || v.status === 'escaped');
+}
+
 export function tickSimSession(session: SimSession, elapsedSec: number): SimSession {
   const now = Date.now();
   const next = { ...session, vehicles: session.vehicles.map((v) => ({ ...v, route: [...v.route] })) };
@@ -563,7 +586,11 @@ export function tickSimSession(session: SimSession, elapsedSec: number): SimSess
   for (const v of next.vehicles) {
     if (v.role === 'perp' && v.status !== 'caught' && v.status !== 'escaped') {
       advanceVehicle(v, elapsedSec);
-      perpPositions[v.id] = { lat: v.lat, lng: v.lng };
+      if (perpReachedDestination(v)) {
+        markPerpEscaped(v, next.vehicles);
+      } else {
+        perpPositions[v.id] = { lat: v.lat, lng: v.lng };
+      }
     }
   }
 
@@ -574,7 +601,7 @@ export function tickSimSession(session: SimSession, elapsedSec: number): SimSess
     if (v.status === 'pursuing' && v.pursuingPerpId) {
       const perp = next.vehicles.find((p) => p.id === v.pursuingPerpId);
       const target = perpPositions[v.pursuingPerpId];
-      if (!target || !perp || perp.status === 'caught') {
+      if (!target || !perp || perp.status === 'caught' || perp.status === 'escaped') {
         releasePoliceForReassignment(v);
         advanceVehicle(v, elapsedSec * 0.5);
         continue;
@@ -589,6 +616,10 @@ export function tickSimSession(session: SimSession, elapsedSec: number): SimSess
     } else if (v.status === 'patrol') {
       advanceVehicle(v, elapsedSec);
     }
+  }
+
+  if (shouldFinishRoundEarly(next.vehicles)) {
+    return finishSimRound(next);
   }
 
   if (now >= next.roundEndsAt) {
