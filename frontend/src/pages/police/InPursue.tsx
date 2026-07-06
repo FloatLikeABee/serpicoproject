@@ -13,8 +13,7 @@ import {
   tickSimSession,
   isPoliceAvailableForPursuit,
   isPerpPursuitTarget,
-  POLICE_COUNT_MIN,
-  POLICE_COUNT_MAX,
+  isStoredSessionUsable,
 } from '../../utils/pursuitSim';
 
 function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
@@ -99,14 +98,10 @@ const InPursue: React.FC = () => {
         const { session: raw } = await pursuitExamAPI.getState(userId);
         if (cancelled) return;
         const serverSession = simSessionFromAPI(raw as unknown as Record<string, unknown>);
-        if (serverSession.vehicles.length >= 9) {
-          const perpN = serverSession.vehicles.filter((v) => v.role === 'perp').length;
-          const polN = serverSession.vehicles.filter((v) => v.role === 'police').length;
-          if (perpN >= 5 && perpN <= 9 && polN >= POLICE_COUNT_MIN && polN <= POLICE_COUNT_MAX) {
-            setSession(serverSession);
-            setUseServer(true);
-            return;
-          }
+        if (isStoredSessionUsable(serverSession)) {
+          setSession(serverSession);
+          setUseServer(true);
+          return;
         }
       } catch {
         /* local sim fallback */
