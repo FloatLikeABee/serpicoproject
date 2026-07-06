@@ -7,6 +7,8 @@ import {
   RoundStats,
   isPoliceAvailableForPursuit,
   isPerpPursuitTarget,
+  ROUND_DURATION_MIN,
+  getDisplayOperationalMph,
 } from '../../utils/pursuitSim';
 
 function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
@@ -150,23 +152,37 @@ const InPursue: React.FC = () => {
   return (
     <div className="page-fill">
       <div className="game-header p-2 sm:p-3 flex-shrink-0">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <div className="min-w-0 justify-self-start">
             <h1 className="text-lg sm:text-xl font-display font-bold text-serpico-red tracking-wide">
               Pursue Exam
             </h1>
             <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate">
-              Round {session.round} · {useServer ? 'Live sim' : 'Local sim'} · session persists across tabs
+              Round {session.round} · {useServer ? 'Live sim' : 'Local sim'}
             </p>
           </div>
-          {session.phase === 'active' && (
-            <div className="text-right flex-shrink-0">
-              <div className="font-display text-lg sm:text-xl font-bold neon-text-cyan tabular-nums">
+
+          {session.phase === 'active' ? (
+            <div className="justify-self-center text-center px-2">
+              <div className="font-display text-2xl sm:text-3xl font-bold neon-text-cyan tabular-nums leading-none">
                 {formatTime(roundSecondsLeft)}
               </div>
-              <div className="text-[10px] text-synth-muted uppercase tracking-wider">Time left</div>
+              <div className="text-[9px] sm:text-[10px] text-synth-muted uppercase tracking-widest mt-0.5">
+                Time left · {ROUND_DURATION_MIN} min op
+              </div>
             </div>
+          ) : (
+            <div className="justify-self-center" aria-hidden="true" />
           )}
+
+          <div className="justify-self-end text-right min-w-0">
+            <p className="text-[9px] sm:text-[10px] text-synth-muted font-mono uppercase tracking-wider hidden sm:block">
+              Real-world speeds
+            </p>
+            <p className="text-[9px] text-synth-muted/80 font-mono hidden sm:block">
+              Pursuit 82–120 mph
+            </p>
+          </div>
         </div>
 
         {pursueModePoliceId && (
@@ -233,9 +249,14 @@ const InPursue: React.FC = () => {
             <div className="mt-1.5 flex items-center justify-between text-[10px] gap-2">
               <span className="text-synth-muted truncate">{selectedPolice.vehicleModel}</span>
               <span className="font-display font-bold text-neon-cyan flex-shrink-0 whitespace-nowrap">
-                {Math.round(selectedPolice.maxSpeedMph)} mph
+                {Math.round(selectedPolice.maxSpeedMph)} mph rated
               </span>
             </div>
+            {selectedPolice.status === 'pursuing' && (
+              <p className="text-[9px] text-synth-muted mt-1 text-right font-mono">
+                Pursuit ~{getDisplayOperationalMph(selectedPolice)} mph
+              </p>
+            )}
             {selectedPolice.status === 'down' && (
               <p className="mt-2 text-[10px] text-red-400 font-display uppercase tracking-wide text-center">
                 ✕ Unit down — unavailable
@@ -356,7 +377,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap police → Pursue → tap suspect · Reassign units after each catch · Session continues in background
+          Rated max = manufacturer spec · Pursuit 82–120 mph · {ROUND_DURATION_MIN}-min round (extended multi-unit op)
         </p>
       </div>
     </div>

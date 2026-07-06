@@ -11,8 +11,11 @@ import (
 )
 
 const (
-	pursuitRoundDuration = 4 * time.Minute
+	pursuitRoundDuration = 8 * time.Minute
 	pursuitCatchMeters   = 85.0
+	patrolCruiseMph      = 42.0
+	perpCruiseMph          = 54.0
+	simMovementScale       = 1.85
 )
 
 // LatLng is a geographic coordinate.
@@ -314,7 +317,7 @@ func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 				continue
 			}
 
-			speedMps := mphToMps(v.MaxSpeedMph) * 0.92
+			speedMps := mphToMps(operationalSpeedMph(v))
 			if elapsed > 0 {
 				moveToward(v, target.Lat, target.Lng, speedMps*elapsed)
 			}
@@ -399,17 +402,49 @@ func (s *PursuitExamService) finishRound(session *PursuitExamSession) {
 	session.CooldownEndsAt = &cooldown
 }
 
+func operationalSpeedMph(v *PursuitVehicle) float64 {
+	if v.Status == "caught" || v.Status == "escaped" || v.Status == "down" {
+		return 0
+	}
+	var mph float64
+	if v.Role == "police" {
+		if v.Status == "pursuing" {
+			for _, f := range policeFleet {
+				if f.Model == v.VehicleModel {
+					mph = f.PursuitMph
+					break
+				}
+			}
+			if mph == 0 {
+				mph = v.MaxSpeedMph * 0.78
+			}
+		} else {
+			mph = patrolCruiseMph
+		}
+	} else if v.BeingPursued {
+		for _, f := range perpFleet {
+			if f.Model == v.VehicleModel {
+				mph = f.FleeMph
+				break
+			}
+		}
+		if mph == 0 {
+			mph = v.MaxSpeedMph * 0.72
+		}
+	} else {
+		mph = perpCruiseMph
+	}
+	return mph * simMovementScale
+}
+
 func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float64) {
 	if len(v.Route) < 2 || elapsedSec <= 0 {
 		return
 	}
 
-	speed := mphToMps(v.MaxSpeedMph)
-	if v.Role == "perp" && v.BeingPursued {
-		speed *= 1.15
-	}
-	if v.Role == "police" && v.Status == "patrol" {
-		speed *= 0.55
+	speed := mphToMps(operationalSpeedMph(v))
+	if speed <= 0 {
+		return
 	}
 
 	remaining := speed * elapsedSec
@@ -520,29 +555,31 @@ var (
 	}
 
 	policeFleet = []struct {
-		Model string
-		Speed float64
+		Model       string
+		RatedMaxMph float64
+		PursuitMph  float64
 	}{
-		{"Dodge Charger Pursuit", 145},
-		{"Ford Police Interceptor Utility", 131},
-		{"Chevy Tahoe PPV", 124},
-		{"Ford F-150 Police Responder", 118},
-		{"Harley-Davidson Police Motorcycle", 112},
-		{"Ram 1500 Special Service", 115},
+		{"Dodge Charger Pursuit", 149, 120},
+		{"Ford Police Interceptor Utility", 137, 105},
+		{"Chevy Tahoe PPV", 120, 95},
+		{"Ford F-150 Police Responder", 100, 82},
+		{"Harley-Davidson Police Motorcycle", 105, 88},
+		{"Ram 1500 Special Service", 115, 90},
 	}
 
 	perpFleet = []struct {
-		Model string
-		Speed float64
+		Model       string
+		RatedMaxMph float64
+		FleeMph     float64
 	}{
-		{"Stolen Honda Civic", 108},
-		{"Black Ford F-150", 115},
-		{"White Chevy Tahoe", 112},
-		{"Sport Motorcycle", 125},
-		{"Gray Panel Van", 98},
-		{"Red Toyota Corolla", 105},
-		{"Blue Work Truck", 102},
-		{"Green RAV4", 110},
+		{"Stolen Honda Civic", 137, 100},
+		{"Black Ford F-150", 107, 90},
+		{"White Chevy Tahoe", 112, 88},
+		{"Sport Motorcycle", 130, 115},
+		{"Gray Panel Van", 90, 75},
+		{"Red Toyota Corolla", 118, 95},
+		{"Blue Work Truck", 102, 80},
+		{"Green RAV4", 110, 88},
 	}
 
 	perpAliases = []string{
@@ -683,7 +720,7 @@ func buildPoliceVehicle(index int, start LatLng) PursuitVehicle {
 		OfficerRank:  profile.Rank,
 		Evaluation:   profile.Eval,
 		VehicleModel: fleet.Model,
-		MaxSpeedMph:  fleet.Speed + float64(rand.Intn(8)-4),
+		MaxSpeedMph:  fleet.RatedMaxMph + float64(rand.Intn(5)-2),
 	}
 	if len(route) > 1 {
 		v.Heading = bearingDeg(route[0].Lat, route[0].Lng, route[1].Lat, route[1].Lng)
@@ -706,7 +743,7 @@ func buildPerpVehicle(index int, start LatLng) PursuitVehicle {
 		Status:       "patrol",
 		OfficerName:  perpAliases[index%len(perpAliases)],
 		VehicleModel: fleet.Model,
-		MaxSpeedMph:  fleet.Speed + float64(rand.Intn(10)-5),
+		MaxSpeedMph:  fleet.RatedMaxMph + float64(rand.Intn(7)-3),
 		Evaluation:   "Suspect vehicle — evasive driving toward destination",
 		Destination:  &dest,
 	}

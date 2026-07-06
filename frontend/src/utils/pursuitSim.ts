@@ -102,9 +102,28 @@ export interface SimSession {
   lastTickAt?: number;
 }
 
-const ROUND_MS = 4 * 60 * 1000;
+/** Round length — ~8 min mirrors a typical extended multi-unit suburban pursuit operation. */
+export const ROUND_MS = 8 * 60 * 1000;
+export const ROUND_DURATION_MIN = 8;
+/** Scales road travel to offset grid routing distance vs real roads (training responsiveness). */
+export const SIM_MOVEMENT_SCALE = 1.85;
 const CATCH_METERS = 85;
 const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
+
+/** Urban patrol cruise — real-world typical (mph). */
+const PATROL_CRUISE_MPH = 42;
+/** Suspect cruising speed before pursuit (mph). */
+const PERP_CRUISE_MPH = 54;
+
+interface FleetSpec {
+  model: string;
+  /** Manufacturer / pursuit-package rated top speed (shown in UI). */
+  ratedMaxMph: number;
+  /** Typical high-speed pursuit operational speed (mph). */
+  pursuitMph?: number;
+  /** Typical fleeing suspect speed under pressure (mph). */
+  fleeMph?: number;
+}
 
 const policeProfiles = [
   { rank: 'Patrol Officer', eval: 'Steady responder — reliable on routine intercepts' },
@@ -115,20 +134,21 @@ const policeProfiles = [
   { rank: 'Traffic Unit', eval: 'Speed specialist — fastest straight-line pursuit' },
 ];
 
-const policeFleet = [
-  { model: 'Dodge Charger Pursuit', speed: 145 },
-  { model: 'Ford Police Interceptor Utility', speed: 131 },
-  { model: 'Chevy Tahoe PPV', speed: 124 },
-  { model: 'Ford F-150 Police Responder', speed: 118 },
-  { model: 'Harley-Davidson Police Motorcycle', speed: 112 },
+const policeFleet: FleetSpec[] = [
+  // Rated max: Mopar pursuit calibration / manufacturer pursuit package specs
+  { model: 'Dodge Charger Pursuit', ratedMaxMph: 149, pursuitMph: 120 },
+  { model: 'Ford Police Interceptor Utility', ratedMaxMph: 137, pursuitMph: 105 },
+  { model: 'Chevy Tahoe PPV', ratedMaxMph: 120, pursuitMph: 95 },
+  { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 82 },
+  { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 88 },
 ];
 
-const perpFleet = [
-  { model: 'Stolen Honda Civic', speed: 108 },
-  { model: 'Black Ford F-150', speed: 115 },
-  { model: 'Sport Motorcycle', speed: 125 },
-  { model: 'Gray Panel Van', speed: 98 },
-  { model: 'Red Toyota Corolla', speed: 105 },
+const perpFleet: FleetSpec[] = [
+  { model: 'Stolen Honda Civic', ratedMaxMph: 137, fleeMph: 100 },
+  { model: 'Black Ford F-150', ratedMaxMph: 107, fleeMph: 90 },
+  { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 115 },
+  { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 75 },
+  { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 95 },
 ];
 
 const perpNames = [
@@ -286,12 +306,50 @@ function randomPerpSpawn(existing: SimLatLng[], police: SimLatLng[]): SimLatLng 
   return randomPointInZone(38.868, 38.912, -94.798, -94.762);
 }
 
+function fleetSpecForVehicle(v: SimVehicle): FleetSpec | undefined {
+  const fleet = v.role === 'police' ? policeFleet : perpFleet;
+  return fleet.find((f) => f.model === v.vehicleModel);
+}
+
+/** Operational speed used by the sim — grounded in real patrol/pursuit/flee behavior (mph). */
+export function getOperationalSpeedMph(v: SimVehicle): number {
+  if (v.status === 'caught' || v.status === 'escaped' || v.status === 'down') return 0;
+
+  const spec = fleetSpecForVehicle(v);
+  let mph = 0;
+
+  if (v.role === 'police') {
+    if (v.status === 'pursuing') {
+      mph = spec?.pursuitMph ?? v.maxSpeedMph * 0.78;
+    } else {
+      mph = PATROL_CRUISE_MPH;
+    }
+  } else if (v.beingPursued) {
+    mph = spec?.fleeMph ?? v.maxSpeedMph * 0.72;
+  } else {
+    mph = PERP_CRUISE_MPH;
+  }
+
+  return mph * SIM_MOVEMENT_SCALE;
+}
+
+/** Operational mph without sim scale — for UI labels. */
+export function getDisplayOperationalMph(v: SimVehicle): number {
+  if (v.status === 'caught' || v.status === 'escaped' || v.status === 'down') return 0;
+  const spec = fleetSpecForVehicle(v);
+  if (v.role === 'police') {
+    if (v.status === 'pursuing') return spec?.pursuitMph ?? Math.round(v.maxSpeedMph * 0.78);
+    return PATROL_CRUISE_MPH;
+  }
+  if (v.beingPursued) return spec?.fleeMph ?? Math.round(v.maxSpeedMph * 0.72);
+  return PERP_CRUISE_MPH;
+}
+
 function advanceVehicle(v: SimVehicle, elapsedSec: number) {
   if (v.route.length < 2 || elapsedSec <= 0 || v.status === 'caught' || v.status === 'escaped') return;
 
-  let speed = mphToMps(v.maxSpeedMph);
-  if (v.role === 'perp' && v.beingPursued) speed *= 1.12;
-  if (v.role === 'police' && v.status === 'patrol') speed *= 0.55;
+  let speed = mphToMps(getOperationalSpeedMph(v));
+  if (speed <= 0) return;
 
   let remaining = speed * elapsedSec;
 
@@ -398,7 +456,7 @@ export function createSimSession(userId: string, round = 1): SimSession {
       route: randomPatrolRoute(start),
       routeIndex: 0,
       routeProgress: 0,
-      maxSpeedMph: fleet.speed + randInt(-3, 3),
+      maxSpeedMph: fleet.ratedMaxMph + randInt(-2, 2),
       officerName: `Officer ${officerNames[i % officerNames.length]}`,
       officerRank: profile.rank,
       evaluation: profile.eval,
@@ -423,7 +481,7 @@ export function createSimSession(userId: string, round = 1): SimSession {
       route: buildRoadRouteToDestination(start, dest),
       routeIndex: 0,
       routeProgress: 0,
-      maxSpeedMph: fleet.speed + randInt(-4, 4),
+      maxSpeedMph: fleet.ratedMaxMph + randInt(-3, 3),
       officerName: perpNames[i % perpNames.length],
       evaluation: 'Suspect vehicle — evasive driving toward destination',
       vehicleModel: fleet.model,
