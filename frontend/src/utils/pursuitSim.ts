@@ -574,9 +574,6 @@ export function tickSimSession(session: SimSession, elapsedSec: number): SimSess
   const next = { ...session, vehicles: session.vehicles.map((v) => ({ ...v, route: [...v.route] })) };
 
   if (next.phase === 'completed' || next.phase === 'cooldown') {
-    if (next.cooldownEndsAt && now >= next.cooldownEndsAt) {
-      return createSimSession(next.userId, next.round + 1);
-    }
     return next;
   }
 
@@ -664,7 +661,7 @@ function finishSimRound(session: SimSession): SimSession {
   return {
     ...session,
     phase: 'completed',
-    cooldownEndsAt: Date.now() + 20 * 1000,
+    cooldownEndsAt: undefined,
     result: (() => {
       const result = { outcome, caught, escaped, totalPerps: total, score, message, grade };
       return { ...result, stats: buildRoundStats(session, result) };

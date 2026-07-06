@@ -98,11 +98,6 @@ func (s *PursuitExamService) backgroundTick() {
 		for _, session := range s.sessions {
 			if session.Phase == "active" {
 				s.simulateLocked(session)
-			} else if (session.Phase == "completed" || session.Phase == "cooldown") &&
-				session.CooldownEndsAt != nil && time.Now().After(*session.CooldownEndsAt) {
-				next := s.newRound(session.UserID, session.Round+1)
-				next.ID = session.ID
-				*session = *next
 			}
 		}
 		s.mu.Unlock()
@@ -216,6 +211,24 @@ func (s *PursuitExamService) StartPursuit(userID, policeID, perpID string) (*Pur
 	return s.copySession(session), nil
 }
 
+func (s *PursuitExamService) StartNextRound(userID string) (*PursuitExamSession, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session, err := s.sessionForUserLocked(userID)
+	if err != nil {
+		return nil, err
+	}
+	if session.Phase != "completed" {
+		return nil, fmt.Errorf("round is not completed")
+	}
+
+	next := s.newRound(userID, session.Round+1)
+	next.ID = session.ID
+	*session = *next
+	return s.copySession(session), nil
+}
+
 func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSession, error) {
 	sid, ok := s.byUser[userID]
 	if !ok {
@@ -270,12 +283,7 @@ func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamS
 func (s *PursuitExamService) simulateLocked(session *PursuitExamSession) {
 	now := time.Now()
 
-	if session.Phase == "cooldown" || session.Phase == "completed" {
-		if session.CooldownEndsAt != nil && now.After(*session.CooldownEndsAt) {
-			next := s.newRound(session.UserID, session.Round+1)
-			next.ID = session.ID
-			*session = *next
-		}
+	if session.Phase != "active" {
 		return
 	}
 
@@ -396,9 +404,7 @@ func (s *PursuitExamService) finishRound(session *PursuitExamSession) {
 
 	session.Result = result
 	session.Phase = "completed"
-
-	cooldown := time.Now().Add(20 * time.Second)
-	session.CooldownEndsAt = &cooldown
+	session.CooldownEndsAt = nil
 }
 
 func (s *PursuitExamService) advanceVehicle(v *PursuitVehicle, elapsedSec float64) {

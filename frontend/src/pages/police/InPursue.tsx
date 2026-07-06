@@ -132,14 +132,6 @@ const InPursue: React.FC = () => {
           const next = tickSimSession(cur, elapsed);
           setSession(next);
           sessionRef.current = next;
-        } else if (cur.cooldownEndsAt && Date.now() >= cur.cooldownEndsAt) {
-          const next = createSimSession(cur.userId, cur.round + 1);
-          setSession(next);
-          sessionRef.current = next;
-          setSelectedPoliceId(null);
-          setPursueModePoliceId(null);
-          setAiEvaluation(null);
-          evaluatedRoundRef.current = null;
         }
       }
       frame = requestAnimationFrame(loop);
@@ -183,10 +175,7 @@ const InPursue: React.FC = () => {
     return Math.max(0, Math.floor((session.roundEndsAt - now) / 1000));
   }, [session, now]);
 
-  const cooldownSecondsLeft = useMemo(() => {
-    if (!session?.cooldownEndsAt) return 0;
-    return Math.max(0, Math.floor((session.cooldownEndsAt - now) / 1000));
-  }, [session, now]);
+  const canStartNextRound = session?.phase === 'completed' && !evalLoading && aiEvaluation !== null;
 
   const canPursue = selectedPolice &&
     isPoliceAvailableForPursuit(selectedPolice) &&
@@ -255,6 +244,32 @@ const InPursue: React.FC = () => {
     pursueModeRef.current = null;
     setSession((s) => (s ? { ...s, armedPoliceId: undefined } : s));
   }, []);
+
+  const handleStartNextRound = useCallback(async () => {
+    const cur = sessionRef.current;
+    if (!cur || cur.phase !== 'completed' || evalLoading || !aiEvaluation) return;
+
+    let next: SimSession;
+    if (useServer) {
+      try {
+        const { session: raw } = await pursuitExamAPI.startNextRound(userId);
+        next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
+      } catch {
+        next = createSimSession(cur.userId, cur.round + 1);
+        setUseServer(false);
+      }
+    } else {
+      next = createSimSession(cur.userId, cur.round + 1);
+    }
+
+    setSession(next);
+    sessionRef.current = next;
+    setSelectedPoliceId(null);
+    setPursueModePoliceId(null);
+    pursueModeRef.current = null;
+    setAiEvaluation(null);
+    evaluatedRoundRef.current = null;
+  }, [aiEvaluation, evalLoading, useServer, userId]);
 
   const caughtCount = perpUnits.filter((v) => v.status === 'caught').length;
   const activePursuits = policeUnits.filter((v) => v.status === 'pursuing').length;
@@ -433,11 +448,22 @@ const InPursue: React.FC = () => {
                 <span className="text-neon-cyan">Suspects: {session.result.totalPerps}</span>
               </div>
 
-              {cooldownSecondsLeft > 0 && (
-                <p className="mt-4 text-center text-[10px] text-synth-muted font-mono uppercase">
-                  Next round in {formatTime(cooldownSecondsLeft)}
-                </p>
-              )}
+              <div className="mt-4">
+                {evalLoading ? (
+                  <p className="text-center text-[10px] text-synth-muted font-mono uppercase">
+                    Review available after AI analysis completes…
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleStartNextRound}
+                    disabled={!canStartNextRound}
+                    className="w-full py-2.5 rounded-lg font-display text-xs uppercase tracking-wider border transition-colors touch-manipulation disabled:opacity-40 disabled:cursor-not-allowed border-neon-cyan/50 bg-neon-cyan/15 text-neon-cyan hover:bg-neon-cyan/25 enabled:shadow-[0_0_12px_rgba(0,255,255,0.2)]"
+                  >
+                    Start Next Round
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
