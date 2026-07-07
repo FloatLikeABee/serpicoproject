@@ -112,7 +112,8 @@ function randomFleetCounts(): { policeCount: number; perpCount: number } {
 /** Boosts sim travel speed so units feel responsive on the map grid. */
 export const SIM_MOVEMENT_SCALE = 6.0;
 
-const ROUND_MS = 2 * 60 * 1000;
+export const ROUND_MS = 20 * 60 * 1000;
+export const ROUND_RESET_AVAILABLE_MS = 3 * 60 * 1000;
 const CATCH_METERS = 85;
 const DEST_ARRIVAL_M = 150;
 const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
@@ -544,6 +545,19 @@ function applyPoliceDowns(vehicles: SimVehicle[], now: number) {
     v.pursuingPerpId = undefined;
     if (v.downReason) v.evaluation = v.downReason;
   }
+}
+
+export function getRoundElapsedMs(session: SimSession, now = Date.now()): number {
+  const roundStart = session.roundStartMs ?? session.roundEndsAt - ROUND_MS;
+  return Math.max(0, now - roundStart);
+}
+
+export function canResetRound(session: SimSession, now = Date.now()): boolean {
+  return session.phase === 'active' && getRoundElapsedMs(session, now) >= ROUND_RESET_AVAILABLE_MS;
+}
+
+export function resetActiveRound(session: SimSession): SimSession {
+  return createSimSession(session.userId, session.round);
 }
 
 export function createSimSession(userId: string, round = 1): SimSession {

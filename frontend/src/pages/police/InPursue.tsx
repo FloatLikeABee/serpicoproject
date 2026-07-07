@@ -7,7 +7,9 @@ import {
   SimVehicle,
   RoundStats,
   armPursuit,
+  canResetRound,
   createSimSession,
+  resetActiveRound,
   simSessionFromAPI,
   startPursuit,
   tickSimSession,
@@ -158,6 +160,11 @@ const InPursue: React.FC = () => {
     return Math.max(0, Math.floor((session.roundEndsAt - now) / 1000));
   }, [session, now]);
 
+  const showResetRound = useMemo(() => {
+    if (!session || session.phase !== 'active') return false;
+    return canResetRound(session, now);
+  }, [session, now]);
+
   const cooldownSecondsLeft = useMemo(() => {
     if (!session?.cooldownEndsAt) return 0;
     return Math.max(0, Math.floor((session.cooldownEndsAt - now) / 1000));
@@ -231,6 +238,19 @@ const InPursue: React.FC = () => {
     setSession((s) => (s ? { ...s, armedPoliceId: undefined } : s));
   }, []);
 
+  const handleResetRound = useCallback(() => {
+    const cur = sessionRef.current;
+    if (!cur || !canResetRound(cur)) return;
+    const next = resetActiveRound(cur);
+    setSession(next);
+    sessionRef.current = next;
+    setSelectedPoliceId(null);
+    setPursueModePoliceId(null);
+    pursueModeRef.current = null;
+    setAiEvaluation(null);
+    evaluatedRoundRef.current = null;
+  }, []);
+
   const caughtCount = perpUnits.filter((v) => v.status === 'caught').length;
   const activePursuits = policeUnits.filter((v) => v.status === 'pursuing').length;
   const downCount = policeUnits.filter((v) => v.status === 'down').length;
@@ -261,6 +281,15 @@ const InPursue: React.FC = () => {
                 {formatTime(roundSecondsLeft)}
               </div>
               <div className="text-[10px] text-synth-muted uppercase tracking-wider">Time left</div>
+              {showResetRound && (
+                <button
+                  type="button"
+                  onClick={handleResetRound}
+                  className="mt-1.5 px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-amber/50 bg-neon-amber/15 text-neon-amber hover:bg-neon-amber/25 transition-colors touch-manipulation min-h-0 min-w-0"
+                >
+                  Reset round
+                </button>
+              )}
             </div>
           )}
         </div>
