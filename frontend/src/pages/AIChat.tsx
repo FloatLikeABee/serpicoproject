@@ -4,15 +4,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { chatAPI } from '../services/api';
 import ChatMarkdown from '../components/ChatMarkdown';
-import { getChatInitialMessage } from '../utils/chatMessages';
+import {
+  ChatMessage,
+  clearChatHistory,
+  createInitialMessages,
+  historyForApi,
+  loadChatHistory,
+  saveChatHistory,
+} from '../utils/chatHistory';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  context?: string;
-}
+interface Message extends ChatMessage {}
 
 interface ChatSession {
   id: string;
@@ -54,51 +55,57 @@ const AIChat: React.FC = () => {
     return user?.role === 'police' ? 'in-pursue' : 'nearby-officers';
   };
 
-  const getInitialMessage = (context?: string) => getChatInitialMessage(context);
+  const userId = user?.id || 'guest';
+  const context = getContext();
 
-  // Initialize messages for current session
+  // Load persisted history when session or context changes
   useEffect(() => {
-    const context = getContext();
-    const initialMessage: Message = {
-      id: '1',
-      role: 'assistant',
-      content: getInitialMessage(context),
-      timestamp: new Date(),
-      context,
-    };
-    setMessages([initialMessage]);
-  }, [currentSessionId]);
+    setMessages(loadChatHistory(userId, context, currentSessionId));
+  }, [currentSessionId, userId, context]);
+
+  // Persist history after each update
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveChatHistory(userId, context, messages, currentSessionId);
+    }
+  }, [messages, userId, context, currentSessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handleClearChat = () => {
+    clearChatHistory(userId, context, currentSessionId);
+    setMessages(createInitialMessages(context));
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
-    const context = getContext();
+    const chatContext = getContext();
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: input,
       timestamp: new Date(),
-      context,
+      context: chatContext,
     };
 
     const messageText = input;
+    const priorHistory = historyForApi(messages);
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
     try {
-      const response = await chatAPI.sendMessage(messageText, context);
+      const response = await chatAPI.sendMessage(messageText, chatContext, priorHistory);
       
       const aiMessage: Message = {
         id: response.response.id || (Date.now() + 1).toString(),
         role: 'assistant',
         content: response.response.content,
         timestamp: new Date(response.response.timestamp || new Date()),
-        context,
+        context: chatContext,
       };
       
       setMessages(prev => [...prev, aiMessage]);
@@ -119,7 +126,7 @@ const AIChat: React.FC = () => {
           ? `**Heads up** — ${error.response.data.error}`
           : '**Copy that** — I hit a comms issue processing your request. Try again in a moment.',
         timestamp: new Date(),
-        context,
+        context: chatContext,
       };
       
       setMessages(prev => [...prev, errorMessage]);
@@ -219,6 +226,18 @@ const AIChat: React.FC = () => {
               </p>
             </div>
             <div className="hidden sm:flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleClearChat}
+                className={`px-2.5 py-1 rounded text-xs font-medium touch-manipulation ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                }`}
+                title="Clear chat history"
+              >
+                Clear chat
+              </button>
               <span className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Intel:</span>
               <div className="flex gap-1">
                 <span

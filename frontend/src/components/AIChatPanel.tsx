@@ -3,14 +3,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { chatAPI } from '../services/api';
 import ChatMarkdown from './ChatMarkdown';
-import { getChatInitialMessage } from '../utils/chatMessages';
+import {
+  ChatMessage,
+  clearChatHistory,
+  createInitialMessages,
+  historyForApi,
+  loadChatHistory,
+  saveChatHistory,
+} from '../utils/chatHistory';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
+interface Message extends ChatMessage {}
 
 interface AIChatPanelProps {
   context?: string;
@@ -23,20 +25,16 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
   isCollapsed = false,
   onToggleCollapse 
 }) => {
-  const getInitialMessage = () => getChatInitialMessage(context);
-
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: getInitialMessage(),
-      timestamp: new Date(),
-    },
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   const { theme } = useTheme();
+  const userId = user?.id || 'guest';
+  const chatContext = context || 'general';
+
+  const [messages, setMessages] = useState<Message[]>(() =>
+    loadChatHistory(userId, chatContext)
+  );
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isMinimized, setIsMinimized] = useState(isCollapsed);
 
@@ -46,16 +44,20 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
     }
   }, [messages, isMinimized]);
 
-  // Update initial message when context changes (only if it's still the initial message)
   useEffect(() => {
-    setMessages([{
-      id: '1',
-      role: 'assistant',
-      content: getInitialMessage(),
-      timestamp: new Date(),
-    }]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context]);
+    setMessages(loadChatHistory(userId, chatContext));
+  }, [userId, chatContext]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveChatHistory(userId, chatContext, messages);
+    }
+  }, [messages, userId, chatContext]);
+
+  const handleClearChat = () => {
+    clearChatHistory(userId, chatContext);
+    setMessages(createInitialMessages(chatContext));
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -68,13 +70,14 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
     };
 
     const messageText = input;
+    const priorHistory = historyForApi(messages);
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
     try {
       // Call backend AI API
-      const response = await chatAPI.sendMessage(messageText, context);
+      const response = await chatAPI.sendMessage(messageText, context, priorHistory);
       
       const aiMessage: Message = {
         id: response.response.id || (Date.now() + 1).toString(),
@@ -156,14 +159,24 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
         <h3 className="text-sm font-bold text-serpico-blue dark:text-serpico-blue-light">
           Officer Serpico
         </h3>
-        <button
-          onClick={handleToggleMinimize}
-          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-        >
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={handleClearChat}
+            className="text-[10px] text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-1"
+            title="Clear chat history"
+          >
+            Clear
+          </button>
+          <button
+            onClick={handleToggleMinimize}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
           </svg>
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* Messages */}

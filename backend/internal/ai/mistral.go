@@ -47,8 +47,8 @@ type MistralChoice struct {
 }
 
 // GenerateResponse generates a response using Mistral API with RAG context
-func (m *MistralClient) GenerateResponse(userMessage, context string, ragContext []RAGDocument, webSearchResult string) (string, error) {
-	prompt := BuildChatPrompt(userMessage, context, ragContext, webSearchResult)
+func (m *MistralClient) GenerateResponse(userMessage, context string, history []ChatHistoryMessage, ragContext []RAGDocument, webSearchResult string) (string, error) {
+	prompt := BuildChatPrompt(userMessage, context, history, ragContext, webSearchResult)
 
 	// Print prompt to console
 	fmt.Printf("\n=== MISTRAL PROMPT ===\n%s\n=== END PROMPT ===\n\n", prompt)
