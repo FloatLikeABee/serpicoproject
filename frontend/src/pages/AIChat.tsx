@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { chatAPI } from '../services/api';
+import ChatMarkdown from '../components/ChatMarkdown';
+import { getChatInitialMessage } from '../utils/chatMessages';
 
 interface Message {
   id: string;
@@ -53,21 +54,7 @@ const AIChat: React.FC = () => {
     return user?.role === 'police' ? 'in-pursue' : 'nearby-officers';
   };
 
-  const getInitialMessage = (context?: string) => {
-    const contextMessages: Record<string, string> = {
-      'in-pursue': 'Hello! I\'m your Serpico AI assistant for Olathe PD. I can help you with active pursuits, suspect locations, and pursuit strategies. How can I assist you?',
-      'perps-cases': 'Hello! I can help you search for information about serial killers and their cases across North America. What would you like to know?',
-      'perps': 'Hello! I can help you search for information about serial killers across North America. What would you like to know?',
-      'case-library': 'Hello! I can help you search through serial killer case history. What case information are you looking for?',
-      'mysteries': 'Hello! I can help you explore serial killers, paranormal phenomena, urban legends, and conspiracy theories across North America. What mystery interests you?',
-      'leisure': 'Hello! I can help you explore serial killers, paranormal phenomena, urban legends, and conspiracy theories across North America. What mystery interests you?',
-      'nearby-officers': 'Hello! I can help you find information about nearby Olathe PD officers and their locations. How can I help?',
-      'nearby-perps': 'Hello! I can provide information about recent criminal activity in Olathe. What would you like to know?',
-      'safe-routes': 'Hello! I can help you find safe routes in Olathe based on recent crime data. Where would you like to go?',
-      'chase-game': 'Hello! Ready for pursuit training? I can explain Chase Game rules, pursuit codex tips, and debrief your strategy. Or head to the Chase tab to start a live scenario!',
-    };
-    return contextMessages[context || ''] || 'Hello! I\'m your Serpico AI assistant for Olathe PD. How can I help you today?';
-  };
+  const getInitialMessage = (context?: string) => getChatInitialMessage(context);
 
   // Initialize messages for current session
   useEffect(() => {
@@ -128,9 +115,9 @@ const AIChat: React.FC = () => {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: error.response?.data?.error 
-          ? `Error: ${error.response.data.error}` 
-          : 'Sorry, I encountered an error processing your request. Please try again.',
+        content: error.response?.data?.error
+          ? `**Heads up** — ${error.response.data.error}`
+          : '**Copy that** — I hit a comms issue processing your request. Try again in a moment.',
         timestamp: new Date(),
         context,
       };
@@ -225,36 +212,31 @@ const AIChat: React.FC = () => {
             </button>
             <div className="flex-1 min-w-0">
               <h1 className="text-lg sm:text-2xl font-bold text-serpico-blue dark:text-serpico-blue-light truncate">
-                AI Assistant
+                Officer Serpico
               </h1>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 hidden sm:block">
-                Your intelligent assistant for serial killers & mysteries
+                Olathe PD field advisor · Markdown intel briefs · Web search for crime data
               </p>
             </div>
-            {/* Tools Selection */}
             <div className="hidden sm:flex items-center gap-2">
-              <span className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Tools:</span>
+              <span className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Intel:</span>
               <div className="flex gap-1">
-                <button
-                  className={`px-2 py-1 rounded text-xs font-medium touch-manipulation ${
-                    theme === 'dark'
-                      ? 'bg-gray-700 active:bg-gray-600 text-gray-300'
-                      : 'bg-gray-200 active:bg-gray-300 text-gray-700'
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
                   }`}
-                  title="RAG Database - Crime data search"
+                  title="Department records — always searched"
                 >
-                  RAG
-                </button>
-                <button
-                  className={`px-2 py-1 rounded text-xs font-medium touch-manipulation ${
-                    theme === 'dark'
-                      ? 'bg-gray-700 active:bg-gray-600 text-gray-300'
-                      : 'bg-gray-200 active:bg-gray-300 text-gray-700'
+                  Records
+                </span>
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
                   }`}
-                  title="Web Search - Latest online information"
+                  title="Live web search — auto-enabled for crime-data queries"
                 >
-                  Web
-                </button>
+                  Web*
+                </span>
               </div>
             </div>
           </div>
@@ -276,37 +258,11 @@ const AIChat: React.FC = () => {
                     : 'bg-gray-100 text-gray-900'
                 }`}
               >
-                {message.role === 'assistant' ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown
-                      components={{
-                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                        ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-                        li: ({ children }) => <li className="ml-2">{children}</li>,
-                        h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
-                        h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
-                        h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
-                        code: ({ children, className }) => {
-                          const isInline = !className;
-                          return isInline ? (
-                            <code className="bg-gray-800 dark:bg-gray-900 px-1 py-0.5 rounded text-xs">{children}</code>
-                          ) : (
-                            <code className="block bg-gray-800 dark:bg-gray-900 p-2 rounded mb-2 overflow-x-auto">{children}</code>
-                          );
-                        },
-                        pre: ({ children }) => <pre className="bg-gray-800 dark:bg-gray-900 p-2 rounded mb-2 overflow-x-auto">{children}</pre>,
-                        strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-                        em: ({ children }) => <em className="italic">{children}</em>,
-                        blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-400 pl-2 italic mb-2">{children}</blockquote>,
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="text-sm">{message.content}</p>
-                )}
+                <ChatMarkdown
+                  content={message.content}
+                  size="sm"
+                  inverted={message.role === 'user'}
+                />
                 <p className={`text-xs mt-2 ${
                   message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
                 }`}>
@@ -341,7 +297,7 @@ const AIChat: React.FC = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-              placeholder="Type your message..."
+              placeholder="Ask Officer Serpico…"
               className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg border text-sm sm:text-base ${
                 theme === 'dark'
                   ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
