@@ -14,8 +14,11 @@ const (
 	pursuitRoundDuration = 2 * time.Minute
 	pursuitCatchMeters   = 85.0
 	simMovementScale     = 6.0
-	patrolCruiseMph      = 52.0
-	perpCruiseMph        = 62.0
+	patrolCruiseMph      = 58.0
+	perpCruiseMph        = 54.0
+	policePursuitBonusMph = 6.0
+	perpFleeMultiplier   = 0.70
+	policePursuitMultiplier = 0.88
 	pursuitRouteRebuildM = 320.0
 	fleetTotalMin        = 3
 	fleetTotalMax        = 5
@@ -1051,12 +1054,12 @@ func (s *PursuitExamService) operationalSpeedMph(v *PursuitVehicle) float64 {
 	mph := perpCruiseMph
 	if v.Role == "police" {
 		if v.Status == "pursuing" {
-			mph = v.MaxSpeedMph * 0.82
+			mph = v.MaxSpeedMph*policePursuitMultiplier + policePursuitBonusMph
 		} else {
 			mph = patrolCruiseMph
 		}
 	} else if v.BeingPursued {
-		mph = v.MaxSpeedMph * 0.75
+		mph = v.MaxSpeedMph * perpFleeMultiplier
 	}
 	return mph * simMovementScale
 }
