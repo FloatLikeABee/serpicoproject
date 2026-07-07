@@ -49,19 +49,20 @@ func NewAIService(config *Config) (*AIService, error) {
 // ProcessChat handles a chat message and returns AI response
 func (s *AIService) ProcessChat(userMessage string, context string) (string, error) {
 	// Step 1: Screen the prompt (only filters jibberish now)
-	shouldProcess, reason := s.screener.ScreenPrompt(userMessage)
+	shouldProcess, _ := s.screener.ScreenPrompt(userMessage)
 	if !shouldProcess {
-		return fmt.Sprintf("I couldn't understand your message: %s. Please try rephrasing your question.", reason), nil
+		return "**Copy that** — I didn't catch that transmission. Please rephrase your question in a full sentence.", nil
 	}
 
 	// Step 2: Search RAG database (optional - for relevant context)
 	ragResults := s.rag.Search(userMessage+" "+context, 5)
 	log.Printf("RAG search returned %d results", len(ragResults))
 
-	// Step 3: Perform web search if enabled
+	// Step 3: Web search only when the prompt needs live crime data
 	var webResult string
-	if s.config.EnableWebSearch {
-		result, err := s.webSearch.Search(userMessage)
+	if s.config.EnableWebSearch && NeedsCrimeDataWebSearch(userMessage, context) {
+		log.Printf("Crime-data web search triggered for query")
+		result, err := s.webSearch.Search(userMessage + " " + context)
 		if err != nil {
 			log.Printf("Web search error: %v", err)
 			webResult = ""
@@ -71,14 +72,14 @@ func (s *AIService) ProcessChat(userMessage string, context string) (string, err
 	}
 
 	// Step 4: Generate response using Gemini, fallback to Mistral if unavailable
-	response, err := s.gemini.GenerateResponse(userMessage, ragResults, webResult)
+	response, err := s.gemini.GenerateResponse(userMessage, context, ragResults, webResult)
 	if err != nil {
 		log.Printf("Gemini API error: %v", err)
 		
 		// Check if it's a service unavailable error (503, 429, etc.) and try Mistral
 		if s.isServiceUnavailable(err) {
 			log.Printf("Gemini unavailable, trying Mistral as fallback")
-			mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, ragResults, webResult)
+			mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, ragResults, webResult)
 			if mistralErr != nil {
 				log.Printf("Mistral API error: %v", mistralErr)
 				// Fallback response
@@ -89,7 +90,7 @@ func (s *AIService) ProcessChat(userMessage string, context string) (string, err
 		
 		// For other errors, try Mistral anyway
 		log.Printf("Trying Mistral as fallback")
-		mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, ragResults, webResult)
+		mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, ragResults, webResult)
 		if mistralErr != nil {
 			log.Printf("Mistral API error: %v", mistralErr)
 			// Fallback response
@@ -113,9 +114,9 @@ func (s *AIService) isServiceUnavailable(err error) bool {
 
 func (s *AIService) generateFallbackResponse(query string, ragDocs []RAGDocument) string {
 	if len(ragDocs) > 0 {
-		return fmt.Sprintf("Based on available records: %s\n\nFor more information, please consult the relevant documentation or contact support.", ragDocs[0].Content)
+		return fmt.Sprintf("**Copy that.** Here's what I pulled from department records:\n\n%s\n\n*Intel may be incomplete — confirm through official channels before action.*", ragDocs[0].Content)
 	}
-	return "I'm having trouble processing your request right now. Please try rephrasing your question or ask something else."
+	return "**Heads up** — I'm having trouble reaching dispatch systems right now. Try rephrasing your question or ask about pursuit tactics, case files, or area intel."
 }
 
 // GetRAGDatabase returns the RAG database for direct access

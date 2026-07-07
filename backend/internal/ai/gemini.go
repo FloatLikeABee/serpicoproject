@@ -62,31 +62,8 @@ type Candidate struct {
 }
 
 // GenerateResponse generates a response using Gemini API with RAG context
-func (g *GeminiClient) GenerateResponse(userMessage string, ragContext []RAGDocument, webSearchResult string) (string, error) {
-	// Build context strings
-	ragContextStr := ""
-	if len(ragContext) > 0 {
-		ragContextStr = "Context from knowledge base:\n" + g.buildContext(ragContext, "")
-	}
-	
-	webContextStr := ""
-	if webSearchResult != "" {
-		webContextStr = "Web search results:\n" + webSearchResult
-	}
-	
-	// Build the prompt
-	prompt := fmt.Sprintf(`You are a helpful AI assistant. You can answer questions on a wide variety of topics.
-
-%s
-
-%s
-
-User question: %s
-
-Provide a helpful, accurate, and informative response. If relevant context is available from the knowledge base or web search, use it to enhance your answer. Otherwise, answer based on your general knowledge.`, 
-		ragContextStr,
-		webContextStr,
-		userMessage)
+func (g *GeminiClient) GenerateResponse(userMessage, context string, ragContext []RAGDocument, webSearchResult string) (string, error) {
+	prompt := BuildChatPrompt(userMessage, context, ragContext, webSearchResult)
 
 	// Print prompt to console
 	fmt.Printf("\n=== GEMINI PROMPT ===\n%s\n=== END PROMPT ===\n\n", prompt)

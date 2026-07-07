@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { chatAPI } from '../services/api';
+import ChatMarkdown from './ChatMarkdown';
+import { getChatInitialMessage } from '../utils/chatMessages';
 
 interface Message {
   id: string;
@@ -22,21 +23,7 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
   isCollapsed = false,
   onToggleCollapse 
 }) => {
-  const getInitialMessage = () => {
-    const contextMessages: Record<string, string> = {
-      'in-pursue': 'Hello! I\'m your Serpico AI assistant for Olathe PD. I can help you with active pursuits, suspect locations, and pursuit strategies. How can I assist you?',
-      'perps-cases': 'Hello! I can help you search for information about serial killers and their cases across North America. What would you like to know?',
-      'perps': 'Hello! I can help you search for information about serial killers across North America. What would you like to know?',
-      'case-library': 'Hello! I can help you search through serial killer case history. What case information are you looking for?',
-      'mysteries': 'Hello! I can help you explore serial killers, paranormal phenomena, urban legends, and conspiracy theories across North America. What mystery interests you?',
-      'leisure': 'Hello! I can help you explore serial killers, paranormal phenomena, urban legends, and conspiracy theories across North America. What mystery interests you?',
-      'nearby-officers': 'Hello! I can help you find information about nearby Olathe PD officers and their locations. How can I help?',
-      'nearby-perps': 'Hello! I can provide information about recent criminal activity in Olathe. What would you like to know?',
-      'safe-routes': 'Hello! I can help you find safe routes in Olathe based on recent crime data. Where would you like to go?',
-      'chase-game': 'Hello! Ready for pursuit training? I can explain Chase Game rules, pursuit codex tips, and debrief your strategy.',
-    };
-    return contextMessages[context || ''] || 'Hello! I\'m your Serpico AI assistant for Olathe PD. How can I help you today?';
-  };
+  const getInitialMessage = () => getChatInitialMessage(context);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -104,9 +91,9 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: error.response?.data?.error 
-          ? `Error: ${error.response.data.error}` 
-          : 'Sorry, I encountered an error processing your request. Please try again.',
+        content: error.response?.data?.error
+          ? `**Heads up** — ${error.response.data.error}`
+          : '**Copy that** — I hit a comms issue. Try again.',
         timestamp: new Date(),
       };
       
@@ -167,7 +154,7 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
         theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
       }`}>
         <h3 className="text-sm font-bold text-serpico-blue dark:text-serpico-blue-light">
-          AI Assistant
+          Officer Serpico
         </h3>
         <button
           onClick={handleToggleMinimize}
@@ -195,37 +182,11 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
                   : 'bg-gray-100 text-gray-900'
               }`}
             >
-              {message.role === 'assistant' ? (
-                <div className="prose prose-xs dark:prose-invert max-w-none">
-                  <ReactMarkdown
-                    components={{
-                      p: ({ children }) => <p className="mb-1 last:mb-0 text-xs">{children}</p>,
-                      ul: ({ children }) => <ul className="list-disc list-inside mb-1 space-y-0.5 text-xs">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal list-inside mb-1 space-y-0.5 text-xs">{children}</ol>,
-                      li: ({ children }) => <li className="ml-1 text-xs">{children}</li>,
-                      h1: ({ children }) => <h1 className="text-sm font-bold mb-1">{children}</h1>,
-                      h2: ({ children }) => <h2 className="text-xs font-bold mb-1">{children}</h2>,
-                      h3: ({ children }) => <h3 className="text-xs font-bold mb-0.5">{children}</h3>,
-                      code: ({ children, className }) => {
-                        const isInline = !className;
-                        return isInline ? (
-                          <code className="bg-gray-800 dark:bg-gray-900 px-1 py-0.5 rounded text-xs">{children}</code>
-                        ) : (
-                          <code className="block bg-gray-800 dark:bg-gray-900 p-1 rounded text-xs overflow-x-auto">{children}</code>
-                        );
-                      },
-                      pre: ({ children }) => <pre className="bg-gray-800 dark:bg-gray-900 p-1 rounded mb-1 overflow-x-auto text-xs">{children}</pre>,
-                      strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-                      em: ({ children }) => <em className="italic">{children}</em>,
-                      blockquote: ({ children }) => <blockquote className="border-l-2 border-gray-400 pl-1 italic mb-1 text-xs">{children}</blockquote>,
-                    }}
-                  >
-                    {message.content}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <p className="text-xs">{message.content}</p>
-              )}
+              <ChatMarkdown
+                content={message.content}
+                size="xs"
+                inverted={message.role === 'user'}
+              />
             </div>
           </div>
         ))}
@@ -255,7 +216,7 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type message..."
+            placeholder="Ask Officer Serpico…"
             className={`flex-1 px-2 py-1.5 text-xs rounded border ${
               theme === 'dark'
                 ? 'bg-gray-700 border-gray-600 text-white'
