@@ -114,21 +114,22 @@ export const SIM_MOVEMENT_SCALE = 6.0;
 
 export const ROUND_MS = 20 * 60 * 1000;
 export const ROUND_RESET_AVAILABLE_MS = 3 * 60 * 1000;
-const CATCH_METERS = 85;
+const CATCH_METERS = 110;
 const DEST_ARRIVAL_M = 150;
 const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
 /** ~45 m city blocks — vehicles move only on N/S/E/W grid lines. */
 const ROAD_GRID_STEP = 0.0004;
-const PURSUIT_ROUTE_REBUILD_M = 320;
+const PURSUIT_ROUTE_REBUILD_M = 160;
 const MIN_PERP_POLICE_SPAWN_M = 600;
 const MIN_PERP_DEST_DISTANCE_M = 6000;
 const MIN_VEHICLE_SPAWN_SEP_M = 2800;
 
 const PATROL_CRUISE_MPH = 58;
 const PERP_CRUISE_MPH = 54;
-const POLICE_PURSUIT_BONUS_MPH = 6;
-const POLICE_PURSUIT_MULTIPLIER = 0.88;
-const PERP_FLEE_MULTIPLIER = 0.70;
+const POLICE_PURSUIT_BONUS_MPH = 22;
+const POLICE_PURSUIT_MULTIPLIER = 0.95;
+const PERP_FLEE_MULTIPLIER = 0.58;
+const PURSUIT_CLOSURE_BOOST = 1.35;
 
 interface FleetSpec {
   model: string;
@@ -151,20 +152,20 @@ const policeProfiles = [
 ];
 
 const policeFleet: FleetSpec[] = [
-  { model: 'Dodge Charger Pursuit', ratedMaxMph: 149, pursuitMph: 132 },
-  { model: 'Ford Police Interceptor Utility', ratedMaxMph: 137, pursuitMph: 117 },
-  { model: 'Chevy Tahoe PPV', ratedMaxMph: 120, pursuitMph: 105 },
-  { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 98 },
-  { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 99 },
-  { model: 'Ram 1500 Special Service', ratedMaxMph: 115, pursuitMph: 102 },
+  { model: 'Dodge Charger Pursuit', ratedMaxMph: 149, pursuitMph: 138 },
+  { model: 'Ford Police Interceptor Utility', ratedMaxMph: 137, pursuitMph: 122 },
+  { model: 'Chevy Tahoe PPV', ratedMaxMph: 120, pursuitMph: 110 },
+  { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 104 },
+  { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 106 },
+  { model: 'Ram 1500 Special Service', ratedMaxMph: 115, pursuitMph: 108 },
 ];
 
 const perpFleet: FleetSpec[] = [
-  { model: 'Stolen Honda Civic', ratedMaxMph: 137, fleeMph: 96 },
-  { model: 'Black Ford F-150', ratedMaxMph: 107, fleeMph: 87 },
-  { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 100 },
-  { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 72 },
-  { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 90 },
+  { model: 'Stolen Honda Civic', ratedMaxMph: 137, fleeMph: 88 },
+  { model: 'Black Ford F-150', ratedMaxMph: 107, fleeMph: 80 },
+  { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 92 },
+  { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 66 },
+  { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 84 },
 ];
 
 const perpNames = [
@@ -298,7 +299,7 @@ export function getOperationalSpeedMph(v: SimVehicle): number {
   let mph = 0;
   if (v.role === 'police') {
     mph = v.status === 'pursuing'
-      ? (spec?.pursuitMph ?? v.maxSpeedMph * POLICE_PURSUIT_MULTIPLIER) + POLICE_PURSUIT_BONUS_MPH
+      ? ((spec?.pursuitMph ?? v.maxSpeedMph * POLICE_PURSUIT_MULTIPLIER) + POLICE_PURSUIT_BONUS_MPH) * PURSUIT_CLOSURE_BOOST
       : PATROL_CRUISE_MPH;
   } else if (v.beingPursued) {
     mph = spec?.fleeMph ?? v.maxSpeedMph * PERP_FLEE_MULTIPLIER;

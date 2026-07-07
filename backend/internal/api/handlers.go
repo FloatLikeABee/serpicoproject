@@ -425,8 +425,9 @@ func handleGetEmergency(c *gin.Context, db *database.Database) {
 
 func handleChat(c *gin.Context, aiService interface{}) {
 	var req struct {
-		Message string `json:"message"`
-		Context string `json:"context"`
+		Message string                   `json:"message"`
+		Context string                   `json:"context"`
+		History []ai.ChatHistoryMessage  `json:"history"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -436,7 +437,7 @@ func handleChat(c *gin.Context, aiService interface{}) {
 
 	// Type assert to get AIService
 	ai, ok := aiService.(interface {
-		ProcessChat(userMessage string, context string) (string, error)
+		ProcessChat(userMessage string, context string, history []ai.ChatHistoryMessage) (string, error)
 	})
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI service not available"})
@@ -444,7 +445,7 @@ func handleChat(c *gin.Context, aiService interface{}) {
 	}
 
 	// Process chat with AI service
-	content, err := ai.ProcessChat(req.Message, req.Context)
+	content, err := ai.ProcessChat(req.Message, req.Context, req.History)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -3,14 +3,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { chatAPI } from '../services/api';
 import ChatMarkdown from './ChatMarkdown';
-import { getChatInitialMessage } from '../utils/chatMessages';
+import {
+  ChatMessage,
+  clearChatHistory,
+  createInitialMessages,
+  historyForApi,
+  loadChatHistory,
+  saveChatHistory,
+} from '../utils/chatHistory';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
+interface Message extends ChatMessage {}
 
 interface AIChatDrawerProps {
   isOpen: boolean;
@@ -19,20 +21,16 @@ interface AIChatDrawerProps {
 }
 
 const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose, context }) => {
-  const getInitialMessage = () => getChatInitialMessage(context);
-
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: getInitialMessage(),
-      timestamp: new Date(),
-    },
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   const { theme } = useTheme();
+  const userId = user?.id || 'guest';
+  const chatContext = context || 'general';
+
+  const [messages, setMessages] = useState<Message[]>(() =>
+    loadChatHistory(userId, chatContext)
+  );
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,16 +39,20 @@ const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose, context })
     }
   }, [messages, isOpen]);
 
-  // Update initial message when context changes (only if it's still the initial message)
   useEffect(() => {
-    setMessages([{
-      id: '1',
-      role: 'assistant',
-      content: getInitialMessage(),
-      timestamp: new Date(),
-    }]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context]);
+    setMessages(loadChatHistory(userId, chatContext));
+  }, [userId, chatContext]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveChatHistory(userId, chatContext, messages);
+    }
+  }, [messages, userId, chatContext]);
+
+  const handleClearChat = () => {
+    clearChatHistory(userId, chatContext);
+    setMessages(createInitialMessages(chatContext));
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -63,13 +65,14 @@ const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose, context })
     };
 
     const messageText = input;
+    const priorHistory = historyForApi(messages);
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
     try {
       // Call backend AI API
-      const response = await chatAPI.sendMessage(messageText, context);
+      const response = await chatAPI.sendMessage(messageText, context, priorHistory);
       
       const aiMessage: Message = {
         id: response.response.id || (Date.now() + 1).toString(),
@@ -123,14 +126,24 @@ const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose, context })
           <h2 className="text-lg sm:text-xl font-bold text-serpico-blue dark:text-serpico-blue-light">
             Officer Serpico
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 active:text-gray-700 dark:text-gray-400 dark:active:text-gray-200 touch-manipulation p-1"
-          >
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleClearChat}
+              className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-2 py-1"
+              title="Clear chat history"
+            >
+              Clear
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-500 active:text-gray-700 dark:text-gray-400 dark:active:text-gray-200 touch-manipulation p-1"
+            >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+            </button>
+          </div>
         </div>
 
         {/* Messages */}

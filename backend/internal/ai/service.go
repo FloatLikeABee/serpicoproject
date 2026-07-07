@@ -47,7 +47,7 @@ func NewAIService(config *Config) (*AIService, error) {
 }
 
 // ProcessChat handles a chat message and returns AI response
-func (s *AIService) ProcessChat(userMessage string, context string) (string, error) {
+func (s *AIService) ProcessChat(userMessage string, context string, history []ChatHistoryMessage) (string, error) {
 	// Step 1: Screen the prompt (only filters jibberish now)
 	shouldProcess, _ := s.screener.ScreenPrompt(userMessage)
 	if !shouldProcess {
@@ -72,14 +72,14 @@ func (s *AIService) ProcessChat(userMessage string, context string) (string, err
 	}
 
 	// Step 4: Generate response using Gemini, fallback to Mistral if unavailable
-	response, err := s.gemini.GenerateResponse(userMessage, context, ragResults, webResult)
+	response, err := s.gemini.GenerateResponse(userMessage, context, history, ragResults, webResult)
 	if err != nil {
 		log.Printf("Gemini API error: %v", err)
 		
 		// Check if it's a service unavailable error (503, 429, etc.) and try Mistral
 		if s.isServiceUnavailable(err) {
 			log.Printf("Gemini unavailable, trying Mistral as fallback")
-			mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, ragResults, webResult)
+			mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, history, ragResults, webResult)
 			if mistralErr != nil {
 				log.Printf("Mistral API error: %v", mistralErr)
 				// Fallback response
@@ -90,7 +90,7 @@ func (s *AIService) ProcessChat(userMessage string, context string) (string, err
 		
 		// For other errors, try Mistral anyway
 		log.Printf("Trying Mistral as fallback")
-		mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, ragResults, webResult)
+		mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, history, ragResults, webResult)
 		if mistralErr != nil {
 			log.Printf("Mistral API error: %v", mistralErr)
 			// Fallback response

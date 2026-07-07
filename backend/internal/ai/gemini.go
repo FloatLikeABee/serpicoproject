@@ -62,8 +62,8 @@ type Candidate struct {
 }
 
 // GenerateResponse generates a response using Gemini API with RAG context
-func (g *GeminiClient) GenerateResponse(userMessage, context string, ragContext []RAGDocument, webSearchResult string) (string, error) {
-	prompt := BuildChatPrompt(userMessage, context, ragContext, webSearchResult)
+func (g *GeminiClient) GenerateResponse(userMessage, context string, history []ChatHistoryMessage, ragContext []RAGDocument, webSearchResult string) (string, error) {
+	prompt := BuildChatPrompt(userMessage, context, history, ragContext, webSearchResult)
 
 	// Print prompt to console
 	fmt.Printf("\n=== GEMINI PROMPT ===\n%s\n=== END PROMPT ===\n\n", prompt)

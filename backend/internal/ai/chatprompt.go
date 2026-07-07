@@ -117,14 +117,41 @@ func buildRAGContextString(ragDocs []RAGDocument) string {
 	return b.String()
 }
 
+// ChatHistoryMessage is a prior turn in the conversation.
+type ChatHistoryMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+func buildHistoryContextString(history []ChatHistoryMessage) string {
+	if len(history) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("### Prior conversation\n")
+	for _, msg := range history {
+		role := strings.ToUpper(msg.Role)
+		if role != "USER" && role != "ASSISTANT" {
+			continue
+		}
+		b.WriteString(fmt.Sprintf("- **%s:** %s\n", role, msg.Content))
+	}
+	return b.String()
+}
+
 // BuildChatPrompt assembles the full prompt for Gemini/Mistral chat generation.
-func BuildChatPrompt(userMessage, context string, ragDocs []RAGDocument, webSearchResult string) string {
+func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, ragDocs []RAGDocument, webSearchResult string) string {
 	var b strings.Builder
 	b.WriteString(officerChatSystemPrompt)
 	b.WriteString("\n\n")
 
 	if context != "" {
 		b.WriteString(fmt.Sprintf("**Operational context:** %s\n\n", contextLabel(context)))
+	}
+
+	if histStr := buildHistoryContextString(history); histStr != "" {
+		b.WriteString(histStr)
+		b.WriteString("\n\n")
 	}
 
 	if ragStr := buildRAGContextString(ragDocs); ragStr != "" {

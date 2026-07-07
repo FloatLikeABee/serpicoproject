@@ -170,11 +170,21 @@ export interface PursuitExamSession {
   updatedAt?: string;
 }
 
+export interface ChatHistoryEntry {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export const chatAPI = {
-  sendMessage: async (message: string, context?: string): Promise<ChatResponse> => {
+  sendMessage: async (
+    message: string,
+    context?: string,
+    history?: ChatHistoryEntry[]
+  ): Promise<ChatResponse> => {
     const response = await api.post<ChatResponse>('/chat', {
       message,
       context: context || '',
+      history: history || [],
     });
     return response.data;
   },
