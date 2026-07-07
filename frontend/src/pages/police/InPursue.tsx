@@ -9,6 +9,7 @@ import {
   armPursuit,
   canResetRound,
   createSimSession,
+  ensureRoadNetwork,
   resetActiveRound,
   simSessionFromAPI,
   startPursuit,
@@ -46,8 +47,12 @@ function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
 const OLATHE_CENTER: [number, number] = [38.8814, -94.8191];
 
 function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
@@ -83,6 +88,9 @@ const InPursue: React.FC = () => {
   const lastTickRef = useRef<number>(performance.now());
   const pursueModeRef = useRef<string | null>(null);
 
+  const [roadsReady, setRoadsReady] = useState(false);
+  const [roadsError, setRoadsError] = useState(false);
+
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
@@ -91,10 +99,28 @@ const InPursue: React.FC = () => {
     pursueModeRef.current = pursueModePoliceId;
   }, [pursueModePoliceId]);
 
-  // Server sync on init only; local sim drives movement
+  // Load OSM road network then start sim (vehicles snap to real roads)
   useEffect(() => {
-    setSession(createSimSession(userId));
-    setUseServer(false);
+    let cancelled = false;
+    setRoadsReady(false);
+    setRoadsError(false);
+    ensureRoadNetwork()
+      .then(() => {
+        if (!cancelled) {
+          setRoadsReady(true);
+          setSession(createSimSession(userId));
+          setUseServer(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRoadsError(true);
+          setRoadsReady(true);
+          setSession(createSimSession(userId));
+          setUseServer(false);
+        }
+      });
+    return () => { cancelled = true; };
   }, [userId]);
 
   // Local simulation tick (~30fps)
@@ -255,10 +281,12 @@ const InPursue: React.FC = () => {
   const activePursuits = policeUnits.filter((v) => v.status === 'pursuing').length;
   const downCount = policeUnits.filter((v) => v.status === 'down').length;
 
-  if (!session) {
+  if (!session || !roadsReady) {
     return (
       <div className="page-fill items-center justify-center">
-        <p className="text-neon-cyan font-display text-sm animate-pulse">Initializing pursuit exam…</p>
+        <p className="text-neon-cyan font-display text-sm animate-pulse">
+          {roadsError ? 'Loading road fallback grid…' : 'Loading Olathe road network…'}
+        </p>
       </div>
     );
   }
@@ -313,7 +341,7 @@ const InPursue: React.FC = () => {
       <div className="flex-1 min-h-0 relative">
         <PursuitMapCanvas
           center={OLATHE_CENTER}
-          zoom={13}
+          zoom={15}
           vehicles={vehicles.map(toMapVehicle)}
           selectedId={selectedPoliceId}
           armedPoliceId={pursueModePoliceId || session.armedPoliceId}

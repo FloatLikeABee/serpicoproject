@@ -34,33 +34,33 @@ const MapUpdater: React.FC<{ center: [number, number]; zoom: number }> = ({ cent
   return null;
 };
 
-const policeDownSvg = (heading: number) => `
+const policeDownSvg = (heading: number, size: number) => `
   <div style="
     transform: rotate(${heading}deg);
     transform-origin: center center;
-    width: 44px;
-    height: 44px;
-    filter: drop-shadow(0 0 6px rgba(100,100,100,0.5));
+    width: ${size}px;
+    height: ${size}px;
+    filter: drop-shadow(0 0 4px rgba(100,100,100,0.5));
     opacity: 0.65;
     pointer-events: auto;
   ">
-    <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 44 44">
       <ellipse cx="22" cy="22" rx="20" ry="20" fill="rgba(80,80,80,0.2)" stroke="#666" stroke-width="1.5" stroke-dasharray="4 3"/>
       <path d="M10 24h24l-2.5-8H12.5l-2.5 8z" fill="#444" stroke="#888" stroke-width="1"/>
       <text x="22" y="20" text-anchor="middle" fill="#ef4444" font-size="10" font-weight="bold">✕</text>
     </svg>
   </div>`;
 
-const policeVehicleSvg = (heading: number, glow: string, selected: boolean) => `
+const policeVehicleSvg = (heading: number, glow: string, selected: boolean, size: number) => `
   <div style="
     transform: rotate(${heading}deg);
     transform-origin: center center;
-    width: 44px;
-    height: 44px;
-    filter: drop-shadow(0 0 ${selected ? '10px' : '6px'} ${glow});
+    width: ${size}px;
+    height: ${size}px;
+    filter: drop-shadow(0 0 ${selected ? '6px' : '4px'} ${glow});
     pointer-events: auto;
   ">
-    <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 44 44">
       <defs>
         <linearGradient id="polBody" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" style="stop-color:#00f5ff"/>
@@ -78,18 +78,20 @@ const policeVehicleSvg = (heading: number, glow: string, selected: boolean) => `
     </svg>
   </div>`;
 
-const perpVehicleSvg = (heading: number, pursued: boolean, lockOn: boolean) => `
+const perpVehicleSvg = (heading: number, pursued: boolean, lockOn: boolean, size: number) => {
+  const outer = lockOn ? size + 8 : size;
+  return `
   <div style="
     transform: rotate(${heading}deg);
     transform-origin: center center;
-    width: ${lockOn ? '52px' : '44px'};
-    height: ${lockOn ? '52px' : '44px'};
-    filter: drop-shadow(0 0 ${lockOn ? '14px #ff2bd6' : pursued ? '12px #ff2bd6' : '6px rgba(255,43,214,0.6)'});
+    width: ${outer}px;
+    height: ${outer}px;
+    filter: drop-shadow(0 0 ${lockOn ? '8px #ff2bd6' : pursued ? '6px #ff2bd6' : '4px rgba(255,43,214,0.6)'});
     pointer-events: auto;
     cursor: ${lockOn ? 'crosshair' : 'pointer'};
   ">
-    ${lockOn ? '<div style="position:absolute;inset:-4px;border:2px dashed #ff2bd6;border-radius:50%;animation:pulse 1s infinite;"></div>' : ''}
-    <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44" style="margin:${lockOn ? '4px' : '0'}">
+    ${lockOn ? '<div style="position:absolute;inset:-3px;border:2px dashed #ff2bd6;border-radius:50%;animation:pulse 1s infinite;"></div>' : ''}
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 44 44" style="margin:${lockOn ? '4px' : '0'}">
       <defs>
         <linearGradient id="perpBody" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" style="stop-color:#ff2bd6"/>
@@ -104,55 +106,61 @@ const perpVehicleSvg = (heading: number, pursued: boolean, lockOn: boolean) => `
       ${pursued ? '<text x="22" y="8" text-anchor="middle" fill="#ff2bd6" font-size="8" font-weight="bold">!</text>' : ''}
     </svg>
   </div>`;
+};
 
-const caughtOverlay = `
-  <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+const caughtOverlay = (size: number) => `
+  <div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;
     background:rgba(0,0,0,0.55);border-radius:50%;border:2px solid #39ff14;pointer-events:auto;">
-    <span style="color:#39ff14;font-size:18px;font-weight:bold;">✓</span>
+    <span style="color:#39ff14;font-size:${Math.round(size * 0.4)}px;font-weight:bold;">✓</span>
   </div>`;
 
-const escapedOverlay = `
-  <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+const escapedOverlay = (size: number) => `
+  <div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;
     background:rgba(0,0,0,0.55);border-radius:50%;border:2px solid #888;pointer-events:auto;">
-    <span style="color:#888;font-size:14px;font-weight:bold;">—</span>
+    <span style="color:#888;font-size:${Math.round(size * 0.32)}px;font-weight:bold;">—</span>
   </div>`;
+
+function iconSizeForZoom(zoom: number) {
+  return Math.round(Math.max(14, Math.min(26, 8 + zoom * 0.85)));
+}
 
 function buildIcon(
   vehicle: PursuitMapVehicle,
   selected: boolean,
   armed: boolean,
-  pursueTarget: boolean
+  pursueTarget: boolean,
+  iconSize: number
 ): L.DivIcon {
   if (vehicle.status === 'caught') {
     return L.divIcon({
       className: 'custom-marker pursuit-vehicle-marker',
-      html: caughtOverlay,
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
+      html: caughtOverlay(iconSize),
+      iconSize: [iconSize, iconSize],
+      iconAnchor: [iconSize / 2, iconSize / 2],
     });
   }
   if (vehicle.status === 'escaped') {
     return L.divIcon({
       className: 'custom-marker pursuit-vehicle-marker',
-      html: escapedOverlay,
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
+      html: escapedOverlay(iconSize),
+      iconSize: [iconSize, iconSize],
+      iconAnchor: [iconSize / 2, iconSize / 2],
     });
   }
   if (vehicle.role === 'police' && vehicle.status === 'down') {
     return L.divIcon({
       className: 'custom-marker pursuit-vehicle-marker',
-      html: policeDownSvg(vehicle.heading),
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
+      html: policeDownSvg(vehicle.heading, iconSize),
+      iconSize: [iconSize, iconSize],
+      iconAnchor: [iconSize / 2, iconSize / 2],
     });
   }
   const isPolice = vehicle.role === 'police';
   const html = isPolice
-    ? policeVehicleSvg(vehicle.heading, armed ? '#00f5ff' : '#2563eb', selected || armed)
-    : perpVehicleSvg(vehicle.heading, vehicle.beingPursued || false, pursueTarget);
+    ? policeVehicleSvg(vehicle.heading, armed ? '#00f5ff' : '#2563eb', selected || armed, iconSize)
+    : perpVehicleSvg(vehicle.heading, vehicle.beingPursued || false, pursueTarget, iconSize);
 
-  const size = !isPolice && pursueTarget ? 52 : 44;
+  const size = !isPolice && pursueTarget ? iconSize + 8 : iconSize;
   return L.divIcon({
     className: 'custom-marker pursuit-vehicle-marker',
     html,
@@ -167,23 +175,24 @@ const MovingVehicleMarker: React.FC<{
   selected: boolean;
   armed: boolean;
   pursueTarget: boolean;
+  iconSize: number;
   onClick: () => void;
-}> = ({ vehicle, selected, armed, pursueTarget, onClick }) => {
+}> = ({ vehicle, selected, armed, pursueTarget, iconSize, onClick }) => {
   const markerRef = useRef<L.Marker | null>(null);
 
   useEffect(() => {
     const marker = markerRef.current;
     if (!marker) return;
     marker.setLatLng([vehicle.lat, vehicle.lng]);
-    marker.setIcon(buildIcon(vehicle, selected, armed, pursueTarget));
+    marker.setIcon(buildIcon(vehicle, selected, armed, pursueTarget, iconSize));
     marker.setZIndexOffset(pursueTarget ? 2000 : selected || armed ? 1000 : vehicle.role === 'police' ? 500 : 400);
-  }, [vehicle.lat, vehicle.lng, vehicle.heading, vehicle.status, vehicle.beingPursued, selected, armed, pursueTarget, vehicle]);
+  }, [vehicle.lat, vehicle.lng, vehicle.heading, vehicle.status, vehicle.beingPursued, selected, armed, pursueTarget, vehicle, iconSize]);
 
   return (
     <Marker
       ref={markerRef}
       position={[vehicle.lat, vehicle.lng]}
-      icon={buildIcon(vehicle, selected, armed, pursueTarget)}
+      icon={buildIcon(vehicle, selected, armed, pursueTarget, iconSize)}
       eventHandlers={{
         click: (e) => {
           L.DomEvent.stopPropagation(e);
@@ -195,9 +204,45 @@ const MovingVehicleMarker: React.FC<{
   );
 };
 
+const ZoomAwareMarkers: React.FC<{
+  vehicles: PursuitMapVehicle[];
+  selectedId?: string | null;
+  armedPoliceId?: string | null;
+  pursueModePoliceId?: string | null;
+  onVehicleClick?: (vehicle: PursuitMapVehicle) => void;
+}> = ({ vehicles, selectedId, armedPoliceId, pursueModePoliceId, onVehicleClick }) => {
+  const map = useMap();
+  const [iconSize, setIconSize] = React.useState(() => iconSizeForZoom(map.getZoom()));
+
+  useEffect(() => {
+    const update = () => setIconSize(iconSizeForZoom(map.getZoom()));
+    map.on('zoomend', update);
+    update();
+    return () => {
+      map.off('zoomend', update);
+    };
+  }, [map]);
+
+  return (
+    <>
+      {vehicles.map((vehicle) => (
+        <MovingVehicleMarker
+          key={vehicle.id}
+          vehicle={vehicle}
+          selected={selectedId === vehicle.id}
+          armed={armedPoliceId === vehicle.id}
+          pursueTarget={!!pursueModePoliceId && vehicle.role === 'perp' && vehicle.status !== 'caught' && vehicle.status !== 'escaped'}
+          iconSize={iconSize}
+          onClick={() => onVehicleClick?.(vehicle)}
+        />
+      ))}
+    </>
+  );
+};
+
 const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   center = [38.8814, -94.8191],
-  zoom = 13,
+  zoom = 15,
   vehicles,
   selectedId,
   armedPoliceId,
@@ -263,16 +308,13 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
           />
         ))}
 
-      {vehicles.map((vehicle) => (
-        <MovingVehicleMarker
-          key={vehicle.id}
-          vehicle={vehicle}
-          selected={selectedId === vehicle.id}
-          armed={armedPoliceId === vehicle.id}
-          pursueTarget={!!pursueModePoliceId && vehicle.role === 'perp' && vehicle.status !== 'caught' && vehicle.status !== 'escaped'}
-          onClick={() => onVehicleClick?.(vehicle)}
-        />
-      ))}
+      <ZoomAwareMarkers
+        vehicles={vehicles}
+        selectedId={selectedId}
+        armedPoliceId={armedPoliceId}
+        pursueModePoliceId={pursueModePoliceId}
+        onVehicleClick={onVehicleClick}
+      />
     </MapContainer>
   );
 };

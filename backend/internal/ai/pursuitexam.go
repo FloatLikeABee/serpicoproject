@@ -11,23 +11,23 @@ import (
 )
 
 const (
-	pursuitRoundDuration = 20 * time.Minute
-	pursuitCatchMeters   = 110.0
-	simMovementScale     = 6.0
-	patrolCruiseMph      = 58.0
-	perpCruiseMph        = 54.0
-	policePursuitBonusMph = 22.0
-	perpFleeMultiplier   = 0.58
-	policePursuitMultiplier = 0.95
-	pursuitClosureBoost  = 1.35
-	pursuitRouteRebuildM = 160.0
+	pursuitRoundDuration = 12 * time.Hour
+	pursuitCatchMeters   = 35.0
+	simMovementScale     = 1.0
+	patrolCruiseMph      = 28.0
+	perpCruiseMph        = 30.0
+	policePursuitBonusMph = 4.0
+	perpFleeMultiplier   = 1.0
+	policePursuitMultiplier = 1.0
+	pursuitClosureBoost  = 1.1
+	pursuitRouteRebuildM = 80.0
 	fleetTotalMin        = 3
 	fleetTotalMax        = 5
 	minPerpPoliceSpawnM  = 600.0
 	minPerpDestDistanceM = 6000.0
 	minVehicleSpawnSepM  = 2800.0
-	destArrivalM         = 150.0
-	roadGridStep         = 0.0004
+	destArrivalM         = 40.0
+	roadGridStep         = 0.0002
 )
 
 // LatLng is a geographic coordinate.

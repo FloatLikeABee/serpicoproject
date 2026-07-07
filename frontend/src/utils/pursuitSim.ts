@@ -1,5 +1,11 @@
 /** Client-side pursuit exam simulation — drives smooth map movement. */
 
+import {
+  buildOsmRoadRoute,
+  getRoadNetwork,
+  snapToNearestRoad,
+} from './olatheRoadNetwork';
+
 export interface SimLatLng {
   lat: number;
   lng: number;
@@ -109,27 +115,27 @@ function randomFleetCounts(): { policeCount: number; perpCount: number } {
   const policeCount = randInt(1, total - 1);
   return { policeCount, perpCount: total - policeCount };
 }
-/** Boosts sim travel speed so units feel responsive on the map grid. */
-export const SIM_MOVEMENT_SCALE = 6.0;
+/** Real mph on the map — no arcade speed multiplier. */
+export const SIM_MOVEMENT_SCALE = 1.0;
 
-export const ROUND_MS = 20 * 60 * 1000;
+export const ROUND_MS = 12 * 60 * 60 * 1000;
 export const ROUND_RESET_AVAILABLE_MS = 3 * 60 * 1000;
-const CATCH_METERS = 110;
-const DEST_ARRIVAL_M = 150;
+const CATCH_METERS = 35;
+const DEST_ARRIVAL_M = 40;
 const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
-/** ~45 m city blocks — vehicles move only on N/S/E/W grid lines. */
-const ROAD_GRID_STEP = 0.0004;
-const PURSUIT_ROUTE_REBUILD_M = 160;
+/** Fallback grid step when OSM roads are still loading (~22 m). */
+const ROAD_GRID_STEP = 0.0002;
+const PURSUIT_ROUTE_REBUILD_M = 80;
 const MIN_PERP_POLICE_SPAWN_M = 600;
 const MIN_PERP_DEST_DISTANCE_M = 6000;
 const MIN_VEHICLE_SPAWN_SEP_M = 2800;
 
-const PATROL_CRUISE_MPH = 58;
-const PERP_CRUISE_MPH = 54;
-const POLICE_PURSUIT_BONUS_MPH = 22;
-const POLICE_PURSUIT_MULTIPLIER = 0.95;
-const PERP_FLEE_MULTIPLIER = 0.58;
-const PURSUIT_CLOSURE_BOOST = 1.35;
+const PATROL_CRUISE_MPH = 28;
+const PERP_CRUISE_MPH = 30;
+const POLICE_PURSUIT_BONUS_MPH = 4;
+const POLICE_PURSUIT_MULTIPLIER = 1.0;
+const PERP_FLEE_MULTIPLIER = 1.0;
+const PURSUIT_CLOSURE_BOOST = 1.1;
 
 interface FleetSpec {
   model: string;
@@ -152,20 +158,20 @@ const policeProfiles = [
 ];
 
 const policeFleet: FleetSpec[] = [
-  { model: 'Dodge Charger Pursuit', ratedMaxMph: 149, pursuitMph: 138 },
-  { model: 'Ford Police Interceptor Utility', ratedMaxMph: 137, pursuitMph: 122 },
-  { model: 'Chevy Tahoe PPV', ratedMaxMph: 120, pursuitMph: 110 },
-  { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 104 },
-  { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 106 },
-  { model: 'Ram 1500 Special Service', ratedMaxMph: 115, pursuitMph: 108 },
+  { model: 'Dodge Charger Pursuit', ratedMaxMph: 149, pursuitMph: 95 },
+  { model: 'Ford Police Interceptor Utility', ratedMaxMph: 137, pursuitMph: 88 },
+  { model: 'Chevy Tahoe PPV', ratedMaxMph: 120, pursuitMph: 82 },
+  { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 78 },
+  { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 85 },
+  { model: 'Ram 1500 Special Service', ratedMaxMph: 115, pursuitMph: 80 },
 ];
 
 const perpFleet: FleetSpec[] = [
-  { model: 'Stolen Honda Civic', ratedMaxMph: 137, fleeMph: 88 },
-  { model: 'Black Ford F-150', ratedMaxMph: 107, fleeMph: 80 },
-  { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 92 },
-  { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 66 },
-  { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 84 },
+  { model: 'Stolen Honda Civic', ratedMaxMph: 137, fleeMph: 72 },
+  { model: 'Black Ford F-150', ratedMaxMph: 107, fleeMph: 68 },
+  { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 78 },
+  { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 58 },
+  { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 70 },
 ];
 
 const perpNames = [
@@ -224,13 +230,19 @@ function gridHeading(from: SimLatLng, to: SimLatLng): number {
 }
 
 function randomPointInZone(latMin: number, latMax: number, lngMin: number, lngMax: number): SimLatLng {
-  return snapToRoadGrid({ lat: rand(latMin, latMax), lng: rand(lngMin, lngMax) });
+  return snapToRoad({ lat: rand(latMin, latMax), lng: rand(lngMin, lngMax) });
 }
 
-function buildRoadRouteToDestination(start: SimLatLng, dest: SimLatLng): SimLatLng[] {
-  const route: SimLatLng[] = [snapToRoadGrid(start)];
+function snapToRoad(p: SimLatLng): SimLatLng {
+  const network = getRoadNetwork();
+  if (network) return snapToNearestRoad(network, p);
+  return snapToRoadGrid(p);
+}
+
+function buildGridRouteFallback(start: SimLatLng, dest: SimLatLng): SimLatLng[] {
+  const route: SimLatLng[] = [snapToRoad(start)];
   let cur = { ...route[0] };
-  const end = snapToRoadGrid(dest);
+  const end = snapToRoad(dest);
   let safety = 0;
   let preferLat = Math.random() > 0.5;
 
@@ -265,6 +277,27 @@ function buildRoadRouteToDestination(start: SimLatLng, dest: SimLatLng): SimLatL
   }
   route.push(end);
   return route;
+}
+
+function buildRoadRouteToDestination(start: SimLatLng, dest: SimLatLng): SimLatLng[] {
+  const network = getRoadNetwork();
+  if (network) return buildOsmRoadRoute(network, start, dest);
+  return buildGridRouteFallback(start, dest);
+}
+
+function lockToSegment(cur: SimLatLng, next: SimLatLng, progress: number): SimLatLng {
+  const dLat = Math.abs(next.lat - cur.lat);
+  const dLng = Math.abs(next.lng - cur.lng);
+  if (dLng > dLat) {
+    return {
+      lat: cur.lat,
+      lng: cur.lng + (next.lng - cur.lng) * progress,
+    };
+  }
+  return {
+    lat: cur.lat + (next.lat - cur.lat) * progress,
+    lng: cur.lng,
+  };
 }
 
 function ensurePursuitRoute(v: SimVehicle, target: SimLatLng) {
@@ -348,7 +381,7 @@ function spreadAnchors(): SimLatLng[] {
     { lat: latMid, lng: lngMax },
     { lat: latMin, lng: lngMid },
     { lat: latMax, lng: lngMid },
-  ].map(snapToRoadGrid);
+  ].map(snapToRoad);
 }
 
 function mapCorners(): SimLatLng[] {
@@ -358,7 +391,7 @@ function mapCorners(): SimLatLng[] {
     { lat: latMin, lng: lngMax },
     { lat: latMax, lng: lngMin },
     { lat: latMax, lng: lngMax },
-  ].map(snapToRoadGrid);
+  ].map(snapToRoad);
 }
 
 function pickSpreadAnchors(count: number, avoid: SimLatLng[] = []): SimLatLng[] {
@@ -418,7 +451,7 @@ function farthestMapCorner(start: SimLatLng): SimLatLng {
       best = c;
     }
   }
-  return snapToRoadGrid(best);
+  return snapToRoad(best);
 }
 
 function routeHasMovement(route: SimLatLng[]): boolean {
@@ -507,12 +540,16 @@ function advanceVehicle(v: SimVehicle, elapsedSec: number) {
       }
     } else {
       v.routeProgress += remaining / segLen;
-      v.lat = cur.lat + (next.lat - cur.lat) * v.routeProgress;
-      v.lng = cur.lng + (next.lng - cur.lng) * v.routeProgress;
+      const pos = lockToSegment(cur, next, v.routeProgress);
+      v.lat = pos.lat;
+      v.lng = pos.lng;
       v.heading = gridHeading(cur, next);
       remaining = 0;
     }
   }
+  const snapped = snapToRoad({ lat: v.lat, lng: v.lng });
+  v.lat = snapped.lat;
+  v.lng = snapped.lng;
 }
 
 const downReasons = [
@@ -547,6 +584,8 @@ function applyPoliceDowns(vehicles: SimVehicle[], now: number) {
     if (v.downReason) v.evaluation = v.downReason;
   }
 }
+
+export { ensureRoadNetwork } from './olatheRoadNetwork';
 
 export function getRoundElapsedMs(session: SimSession, now = Date.now()): number {
   const roundStart = session.roundStartMs ?? session.roundEndsAt - ROUND_MS;
