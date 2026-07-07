@@ -123,8 +123,11 @@ const MIN_PERP_POLICE_SPAWN_M = 600;
 const MIN_PERP_DEST_DISTANCE_M = 6000;
 const MIN_VEHICLE_SPAWN_SEP_M = 2800;
 
-const PATROL_CRUISE_MPH = 52;
-const PERP_CRUISE_MPH = 62;
+const PATROL_CRUISE_MPH = 58;
+const PERP_CRUISE_MPH = 54;
+const POLICE_PURSUIT_BONUS_MPH = 6;
+const POLICE_PURSUIT_MULTIPLIER = 0.88;
+const PERP_FLEE_MULTIPLIER = 0.70;
 
 interface FleetSpec {
   model: string;
@@ -147,20 +150,20 @@ const policeProfiles = [
 ];
 
 const policeFleet: FleetSpec[] = [
-  { model: 'Dodge Charger Pursuit', ratedMaxMph: 149, pursuitMph: 125 },
-  { model: 'Ford Police Interceptor Utility', ratedMaxMph: 137, pursuitMph: 110 },
-  { model: 'Chevy Tahoe PPV', ratedMaxMph: 120, pursuitMph: 98 },
-  { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 88 },
-  { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 92 },
-  { model: 'Ram 1500 Special Service', ratedMaxMph: 115, pursuitMph: 95 },
+  { model: 'Dodge Charger Pursuit', ratedMaxMph: 149, pursuitMph: 132 },
+  { model: 'Ford Police Interceptor Utility', ratedMaxMph: 137, pursuitMph: 117 },
+  { model: 'Chevy Tahoe PPV', ratedMaxMph: 120, pursuitMph: 105 },
+  { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 98 },
+  { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 99 },
+  { model: 'Ram 1500 Special Service', ratedMaxMph: 115, pursuitMph: 102 },
 ];
 
 const perpFleet: FleetSpec[] = [
-  { model: 'Stolen Honda Civic', ratedMaxMph: 137, fleeMph: 105 },
-  { model: 'Black Ford F-150', ratedMaxMph: 107, fleeMph: 95 },
-  { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 118 },
-  { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 78 },
-  { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 98 },
+  { model: 'Stolen Honda Civic', ratedMaxMph: 137, fleeMph: 96 },
+  { model: 'Black Ford F-150', ratedMaxMph: 107, fleeMph: 87 },
+  { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 100 },
+  { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 72 },
+  { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 90 },
 ];
 
 const perpNames = [
@@ -294,10 +297,10 @@ export function getOperationalSpeedMph(v: SimVehicle): number {
   let mph = 0;
   if (v.role === 'police') {
     mph = v.status === 'pursuing'
-      ? (spec?.pursuitMph ?? v.maxSpeedMph * 0.82)
+      ? (spec?.pursuitMph ?? v.maxSpeedMph * POLICE_PURSUIT_MULTIPLIER) + POLICE_PURSUIT_BONUS_MPH
       : PATROL_CRUISE_MPH;
   } else if (v.beingPursued) {
-    mph = spec?.fleeMph ?? v.maxSpeedMph * 0.75;
+    mph = spec?.fleeMph ?? v.maxSpeedMph * PERP_FLEE_MULTIPLIER;
   } else {
     mph = PERP_CRUISE_MPH;
   }
