@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	pursuitRoundDuration = 2 * time.Minute
+	pursuitRoundDuration = 20 * time.Minute
 	pursuitCatchMeters   = 85.0
 	simMovementScale     = 6.0
 	patrolCruiseMph      = 58.0
