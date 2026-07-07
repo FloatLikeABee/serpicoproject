@@ -111,6 +111,12 @@ const caughtOverlay = `
     <span style="color:#39ff14;font-size:18px;font-weight:bold;">✓</span>
   </div>`;
 
+const escapedOverlay = `
+  <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.55);border-radius:50%;border:2px solid #888;pointer-events:auto;">
+    <span style="color:#888;font-size:14px;font-weight:bold;">—</span>
+  </div>`;
+
 function buildIcon(
   vehicle: PursuitMapVehicle,
   selected: boolean,
@@ -121,6 +127,14 @@ function buildIcon(
     return L.divIcon({
       className: 'custom-marker pursuit-vehicle-marker',
       html: caughtOverlay,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+    });
+  }
+  if (vehicle.status === 'escaped') {
+    return L.divIcon({
+      className: 'custom-marker pursuit-vehicle-marker',
+      html: escapedOverlay,
       iconSize: [44, 44],
       iconAnchor: [22, 22],
     });
@@ -255,7 +269,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
           vehicle={vehicle}
           selected={selectedId === vehicle.id}
           armed={armedPoliceId === vehicle.id}
-          pursueTarget={!!pursueModePoliceId && vehicle.role === 'perp' && vehicle.status !== 'caught'}
+          pursueTarget={!!pursueModePoliceId && vehicle.role === 'perp' && vehicle.status !== 'caught' && vehicle.status !== 'escaped'}
           onClick={() => onVehicleClick?.(vehicle)}
         />
       ))}

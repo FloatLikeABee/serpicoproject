@@ -100,19 +100,28 @@ export interface SimSession {
   roundStartMs?: number;
 }
 
-export const POLICE_COUNT_MIN = 6;
-export const POLICE_COUNT_MAX = 10;
-/** Boosts sim travel speed so units feel responsive on the map grid. */
-export const SIM_MOVEMENT_SCALE = 3.0;
+/** Total vehicles on the map each round (police + suspects), both factions present. */
+export const FLEET_TOTAL_MIN = 3;
+export const FLEET_TOTAL_MAX = 5;
 
-const ROUND_MS = 8 * 60 * 1000;
+function randomFleetCounts(): { policeCount: number; perpCount: number } {
+  const total = randInt(FLEET_TOTAL_MIN, FLEET_TOTAL_MAX);
+  const policeCount = randInt(1, total - 1);
+  return { policeCount, perpCount: total - policeCount };
+}
+/** Boosts sim travel speed so units feel responsive on the map grid. */
+export const SIM_MOVEMENT_SCALE = 6.0;
+
+const ROUND_MS = 2 * 60 * 1000;
 const CATCH_METERS = 85;
 const DEST_ARRIVAL_M = 150;
 const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
 /** ~45 m city blocks — vehicles move only on N/S/E/W grid lines. */
 const ROAD_GRID_STEP = 0.0004;
 const PURSUIT_ROUTE_REBUILD_M = 320;
-const MIN_FLEET_DISTANCE_M = 5200;
+const MIN_PERP_POLICE_SPAWN_M = 600;
+const MIN_PERP_DEST_DISTANCE_M = 6000;
+const MIN_VEHICLE_SPAWN_SEP_M = 2800;
 
 const PATROL_CRUISE_MPH = 52;
 const PERP_CRUISE_MPH = 62;
@@ -313,28 +322,131 @@ function randomPatrolRoute(start: SimLatLng): SimLatLng[] {
   return buildRoadRouteToDestination(start, dest);
 }
 
-function randomPerpDestination(): SimLatLng {
-  return randomPointInZone(38.868, 38.912, -94.798, -94.762);
+function shuffleInPlace<T>(items: T[]): T[] {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
+}
+
+function spreadAnchors(): SimLatLng[] {
+  const { latMin, latMax, lngMin, lngMax } = OlatheBounds;
+  const latMid = (latMin + latMax) / 2;
+  const lngMid = (lngMin + lngMax) / 2;
+  return [
+    { lat: latMin, lng: lngMin },
+    { lat: latMin, lng: lngMax },
+    { lat: latMax, lng: lngMin },
+    { lat: latMax, lng: lngMax },
+    { lat: latMid, lng: lngMin },
+    { lat: latMid, lng: lngMax },
+    { lat: latMin, lng: lngMid },
+    { lat: latMax, lng: lngMid },
+  ].map(snapToRoadGrid);
+}
+
+function mapCorners(): SimLatLng[] {
+  const { latMin, latMax, lngMin, lngMax } = OlatheBounds;
+  return [
+    { lat: latMin, lng: lngMin },
+    { lat: latMin, lng: lngMax },
+    { lat: latMax, lng: lngMin },
+    { lat: latMax, lng: lngMax },
+  ].map(snapToRoadGrid);
+}
+
+function pickSpreadAnchors(count: number, avoid: SimLatLng[] = []): SimLatLng[] {
+  const anchors = shuffleInPlace([...spreadAnchors()]);
+  const picked: SimLatLng[] = [];
+  for (const anchor of anchors) {
+    if (picked.length >= count) break;
+    const farFromAvoid = [...avoid, ...picked].every(
+      (p) => haversineMeters(anchor.lat, anchor.lng, p.lat, p.lng) >= MIN_VEHICLE_SPAWN_SEP_M
+    );
+    if (farFromAvoid) picked.push(anchor);
+  }
+  for (const anchor of anchors) {
+    if (picked.length >= count) break;
+    if (picked.some((p) => p.lat === anchor.lat && p.lng === anchor.lng)) continue;
+    picked.push(anchor);
+  }
+  return picked.slice(0, count);
+}
+
+/** Suspects always spawn on map corners so they start maximally apart. */
+function pickPerpSpreadSpawns(count: number): SimLatLng[] {
+  return shuffleInPlace([...mapCorners()]).slice(0, count);
+}
+
+function pickPerpDestination(from: SimLatLng, used: SimLatLng[] = []): SimLatLng {
+  const ranked = mapCorners()
+    .filter((c) => !used.some((u) => u.lat === c.lat && u.lng === c.lng))
+    .map((corner) => ({ corner, dist: haversineMeters(from.lat, from.lng, corner.lat, corner.lng) }))
+    .sort((a, b) => b.dist - a.dist);
+  if (ranked.length > 0) return ranked[0].corner;
+  return farthestMapCorner(from);
+}
+
+function assignPerpDestinations(spawns: SimLatLng[]): SimLatLng[] {
+  const used: SimLatLng[] = [];
+  return spawns.map((spawn) => {
+    const dest = pickPerpDestination(spawn, used);
+    used.push(dest);
+    return dest;
+  });
+}
+
+function farthestMapCorner(start: SimLatLng): SimLatLng {
+  const corners = [
+    { lat: OlatheBounds.latMin, lng: OlatheBounds.lngMin },
+    { lat: OlatheBounds.latMin, lng: OlatheBounds.lngMax },
+    { lat: OlatheBounds.latMax, lng: OlatheBounds.lngMin },
+    { lat: OlatheBounds.latMax, lng: OlatheBounds.lngMax },
+  ];
+  let best = corners[0];
+  let bestDist = 0;
+  for (const c of corners) {
+    const d = haversineMeters(start.lat, start.lng, c.lat, c.lng);
+    if (d > bestDist) {
+      bestDist = d;
+      best = c;
+    }
+  }
+  return snapToRoadGrid(best);
+}
+
+function routeHasMovement(route: SimLatLng[]): boolean {
+  for (let i = 1; i < route.length; i++) {
+    if (haversineMeters(route[i - 1].lat, route[i - 1].lng, route[i].lat, route[i].lng) > 40) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function ensurePerpReady(v: SimVehicle) {
+  if (v.role !== 'perp' || v.status === 'caught' || v.status === 'escaped') return;
+  if (v.status !== 'patrol') v.status = 'patrol';
+
+  const pos = { lat: v.lat, lng: v.lng };
+  const destDistance = v.destination
+    ? haversineMeters(pos.lat, pos.lng, v.destination.lat, v.destination.lng)
+    : 0;
+
+  if (!v.destination || destDistance < MIN_PERP_DEST_DISTANCE_M * 0.9 || destDistance <= DEST_ARRIVAL_M) {
+    v.destination = pickPerpDestination(pos);
+  }
+
+  if (v.route.length < 2 || !routeHasMovement(v.route)) {
+    v.route = buildRoadRouteToDestination(pos, v.destination!);
+    v.routeIndex = 0;
+    v.routeProgress = 0;
+  }
 }
 
 function randomPoliceSpawn(existing: SimLatLng[]): SimLatLng {
-  for (let i = 0; i < 80; i++) {
-    const p = randomPointInZone(38.858, 38.905, -94.872, -94.835);
-    if (existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 1100)) {
-      return p;
-    }
-  }
-  return randomPointInZone(38.858, 38.905, -94.872, -94.835);
-}
-
-function randomPerpSpawn(existing: SimLatLng[], police: SimLatLng[]): SimLatLng {
-  for (let i = 0; i < 80; i++) {
-    const p = randomPointInZone(38.868, 38.912, -94.798, -94.762);
-    const farFromPolice = police.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= MIN_FLEET_DISTANCE_M);
-    const farFromPerps = existing.every((e) => haversineMeters(p.lat, p.lng, e.lat, e.lng) >= 2200);
-    if (farFromPolice && farFromPerps) return p;
-  }
-  return randomPointInZone(38.868, 38.912, -94.798, -94.762);
+  return pickSpreadAnchors(1, existing)[0];
 }
 
 function advanceVehicle(v: SimVehicle, elapsedSec: number) {
@@ -354,7 +466,7 @@ function advanceVehicle(v: SimVehicle, elapsedSec: number) {
         v.routeIndex = 0;
         v.routeProgress = 0;
       } else if (v.role === 'perp') {
-        const dest = randomPerpDestination();
+        const dest = pickPerpDestination({ lat: v.lat, lng: v.lng });
         v.destination = dest;
         v.route = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, dest);
         v.routeIndex = 0;
@@ -365,6 +477,12 @@ function advanceVehicle(v: SimVehicle, elapsedSec: number) {
     const next = v.route[nextIdx];
     const segLen = haversineMeters(cur.lat, cur.lng, next.lat, next.lng);
     if (segLen < 1) {
+      if (v.role === 'perp' && v.destination) {
+        v.route = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, v.destination);
+        v.routeIndex = 0;
+        v.routeProgress = 0;
+        break;
+      }
       v.routeIndex = nextIdx;
       v.routeProgress = 0;
       continue;
@@ -401,8 +519,8 @@ const downReasons = [
 
 function schedulePoliceDowns(vehicles: SimVehicle[], roundStart: number) {
   const police = vehicles.filter((v) => v.role === 'police');
-  if (police.length < POLICE_COUNT_MIN) return;
-  const downCount = Math.min(randInt(1, 3), Math.max(1, police.length - 4));
+  if (police.length < 2) return;
+  const downCount = Math.min(randInt(1, 2), police.length - 1);
   const shuffled = [...police].sort(() => Math.random() - 0.5);
   for (let i = 0; i < downCount; i++) {
     const vehicle = vehicles.find((v) => v.id === shuffled[i].id);
@@ -426,14 +544,14 @@ function applyPoliceDowns(vehicles: SimVehicle[], now: number) {
 }
 
 export function createSimSession(userId: string, round = 1): SimSession {
-  const perpCount = randInt(5, 9);
-  const policeCount = randInt(POLICE_COUNT_MIN, POLICE_COUNT_MAX);
-  const policeSpawns: SimLatLng[] = [];
+  const { policeCount, perpCount } = randomFleetCounts();
+  const perpSpawns = pickPerpSpreadSpawns(perpCount);
+  const policeSpawns = pickSpreadAnchors(policeCount, perpSpawns);
+  const perpDestinations = assignPerpDestinations(perpSpawns);
   const vehicles: SimVehicle[] = [];
 
   for (let i = 0; i < policeCount; i++) {
-    const start = randomPoliceSpawn(policeSpawns);
-    policeSpawns.push(start);
+    const start = policeSpawns[i];
     const fleet = policeFleet[i % policeFleet.length];
     const profile = policeProfiles[i % policeProfiles.length];
     const route = randomPatrolRoute(start);
@@ -456,14 +574,12 @@ export function createSimSession(userId: string, round = 1): SimSession {
     });
   }
 
-  const perpSpawns: SimLatLng[] = [];
   for (let i = 0; i < perpCount; i++) {
-    const start = randomPerpSpawn(perpSpawns, policeSpawns);
-    perpSpawns.push(start);
-    const dest = randomPerpDestination();
+    const start = perpSpawns[i];
+    const dest = perpDestinations[i];
     const fleet = perpFleet[i % perpFleet.length];
     const route = buildRoadRouteToDestination(start, dest);
-    vehicles.push({
+    const perp: SimVehicle = {
       id: uid('perp'),
       role: 'perp',
       lat: start.lat,
@@ -479,7 +595,9 @@ export function createSimSession(userId: string, round = 1): SimSession {
       destination: dest,
       status: 'patrol',
       beingPursued: false,
-    });
+    };
+    ensurePerpReady(perp);
+    vehicles.push(perp);
   }
 
   const now = Date.now();
@@ -585,6 +703,7 @@ export function tickSimSession(session: SimSession, elapsedSec: number): SimSess
   const perpPositions: Record<string, SimLatLng> = {};
   for (const v of next.vehicles) {
     if (v.role === 'perp' && v.status !== 'caught' && v.status !== 'escaped') {
+      ensurePerpReady(v);
       advanceVehicle(v, elapsedSec);
       if (perpReachedDestination(v)) {
         markPerpEscaped(v, next.vehicles);
@@ -774,5 +893,6 @@ export function simSessionFromAPI(raw: Record<string, unknown>): SimSession {
 export function isStoredSessionUsable(session: SimSession): boolean {
   const perpN = session.vehicles.filter((v) => v.role === 'perp').length;
   const polN = session.vehicles.filter((v) => v.role === 'police').length;
-  return perpN >= 5 && perpN <= 9 && polN >= POLICE_COUNT_MIN && polN <= POLICE_COUNT_MAX;
+  const total = perpN + polN;
+  return total >= FLEET_TOTAL_MIN && total <= FLEET_TOTAL_MAX && polN >= 1 && perpN >= 1;
 }
