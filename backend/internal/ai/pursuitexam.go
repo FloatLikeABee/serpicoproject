@@ -20,8 +20,8 @@ const (
 	fleetTotalMin        = 3
 	fleetTotalMax        = 5
 	minPerpPoliceSpawnM  = 600.0
-	minPerpDestDistanceM = 7200.0
-	minVehicleSpawnSepM  = 1200.0
+	minPerpDestDistanceM = 6000.0
+	minVehicleSpawnSepM  = 2800.0
 	destArrivalM         = 150.0
 	roadGridStep         = 0.0004
 )
@@ -269,31 +269,20 @@ func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamS
 	now := time.Now()
 	policeCount, perpCount := randomFleetCounts()
 
-	mixedSpawns := pickMixedRandomSpawns(policeCount + perpCount)
-	roles := make([]string, 0, policeCount+perpCount)
-	for i := 0; i < policeCount; i++ {
-		roles = append(roles, "police")
-	}
-	for i := 0; i < perpCount; i++ {
-		roles = append(roles, "perp")
-	}
-	rand.Shuffle(len(roles), func(i, j int) { roles[i], roles[j] = roles[j], roles[i] })
+	perpSpawns := pickPerpSpreadSpawns(perpCount)
+	perpDestinations := assignPerpDestinations(perpSpawns)
+	policeSpawns := pickSpreadAnchors(policeCount, perpSpawns)
 
 	police := make([]PursuitVehicle, 0, policeCount)
 	perps := make([]PursuitVehicle, 0, perpCount)
-	policeIdx, perpIdx := 0, 0
 
-	for i, role := range roles {
-		start := mixedSpawns[i]
-		if role == "police" {
-			police = append(police, buildPoliceVehicle(policeIdx, start))
-			policeIdx++
-		} else {
-			perp := buildPerpVehicle(perpIdx, start)
-			ensurePerpReady(&perp)
-			perps = append(perps, perp)
-			perpIdx++
-		}
+	for i := 0; i < policeCount; i++ {
+		police = append(police, buildPoliceVehicle(i, policeSpawns[i]))
+	}
+	for i := 0; i < perpCount; i++ {
+		perp := buildPerpVehicleAt(i, perpSpawns[i], perpDestinations[i])
+		ensurePerpReady(&perp)
+		perps = append(perps, perp)
 	}
 
 	vehicles := append(police, perps...)
@@ -533,8 +522,8 @@ func (s *PursuitExamService) maybeAssignPerpDestination(v *PursuitVehicle) {
 	if v.Destination != nil {
 		destDist = haversineMeters(pos.Lat, pos.Lng, v.Destination.Lat, v.Destination.Lng)
 	}
-	if v.Destination == nil || destDist < minPerpDestDistanceM*0.85 || destDist <= destArrivalM {
-		dest := pickPerpDestination(pos)
+	if v.Destination == nil || destDist < minPerpDestDistanceM*0.9 || destDist <= destArrivalM {
+		dest := pickPerpDestination(pos, nil)
 		v.Destination = &dest
 		v.Route = buildRoadRouteToDestination(pos, dest)
 		v.RouteIndex = 0
@@ -626,31 +615,140 @@ func olatheMapBounds() (latMin, latMax, lngMin, lngMax float64) {
 	return 38.86, 38.91, -94.85, -94.78
 }
 
-func pickMixedRandomSpawns(count int) []LatLng {
+func snapToRoadGrid(p LatLng) LatLng {
+	return LatLng{
+		Lat: math.Round(p.Lat/roadGridStep) * roadGridStep,
+		Lng: math.Round(p.Lng/roadGridStep) * roadGridStep,
+	}
+}
+
+func spreadAnchors() []LatLng {
 	latMin, latMax, lngMin, lngMax := olatheMapBounds()
+	latMid := (latMin + latMax) / 2
+	lngMid := (lngMin + lngMax) / 2
+	anchors := []LatLng{
+		{Lat: latMin, Lng: lngMin},
+		{Lat: latMin, Lng: lngMax},
+		{Lat: latMax, Lng: lngMin},
+		{Lat: latMax, Lng: lngMax},
+		{Lat: latMid, Lng: lngMin},
+		{Lat: latMid, Lng: lngMax},
+		{Lat: latMin, Lng: lngMid},
+		{Lat: latMax, Lng: lngMid},
+	}
+	for i := range anchors {
+		anchors[i] = snapToRoadGrid(anchors[i])
+	}
+	return anchors
+}
+
+func mapCorners() []LatLng {
+	latMin, latMax, lngMin, lngMax := olatheMapBounds()
+	corners := []LatLng{
+		{Lat: latMin, Lng: lngMin},
+		{Lat: latMin, Lng: lngMax},
+		{Lat: latMax, Lng: lngMin},
+		{Lat: latMax, Lng: lngMax},
+	}
+	for i := range corners {
+		corners[i] = snapToRoadGrid(corners[i])
+	}
+	return corners
+}
+
+func pickSpreadAnchors(count int, avoid []LatLng) []LatLng {
+	anchors := spreadAnchors()
+	rand.Shuffle(len(anchors), func(i, j int) { anchors[i], anchors[j] = anchors[j], anchors[i] })
 	picked := make([]LatLng, 0, count)
-	for attempt := 0; len(picked) < count && attempt < count*150; attempt++ {
-		p := randomGridPoint(latMin, latMax, lngMin, lngMax)
+	for _, anchor := range anchors {
+		if len(picked) >= count {
+			break
+		}
 		ok := true
-		for _, e := range picked {
-			if haversineMeters(p.Lat, p.Lng, e.Lat, e.Lng) < minVehicleSpawnSepM {
+		for _, p := range append(avoid, picked...) {
+			if haversineMeters(anchor.Lat, anchor.Lng, p.Lat, p.Lng) < minVehicleSpawnSepM {
 				ok = false
 				break
 			}
 		}
 		if ok {
-			picked = append(picked, p)
+			picked = append(picked, anchor)
 		}
 	}
-	for len(picked) < count {
-		picked = append(picked, randomGridPoint(latMin, latMax, lngMin, lngMax))
+	for _, anchor := range anchors {
+		if len(picked) >= count {
+			break
+		}
+		duplicate := false
+		for _, p := range picked {
+			if p.Lat == anchor.Lat && p.Lng == anchor.Lng {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			picked = append(picked, anchor)
+		}
 	}
-	rand.Shuffle(len(picked), func(i, j int) { picked[i], picked[j] = picked[j], picked[i] })
+	if len(picked) > count {
+		picked = picked[:count]
+	}
 	return picked
 }
 
-func pickPerpDestination(from LatLng) LatLng {
+func pickPerpSpreadSpawns(count int) []LatLng {
+	corners := mapCorners()
+	rand.Shuffle(len(corners), func(i, j int) { corners[i], corners[j] = corners[j], corners[i] })
+	if count > len(corners) {
+		count = len(corners)
+	}
+	return corners[:count]
+}
+
+func pickPerpDestination(from LatLng, used []LatLng) LatLng {
+	corners := mapCorners()
+	type ranked struct {
+		corner LatLng
+		dist   float64
+	}
+	rankedCorners := make([]ranked, 0, len(corners))
+	for _, c := range corners {
+		skip := false
+		for _, u := range used {
+			if u.Lat == c.Lat && u.Lng == c.Lng {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+		rankedCorners = append(rankedCorners, ranked{
+			corner: c,
+			dist:   haversineMeters(from.Lat, from.Lng, c.Lat, c.Lng),
+		})
+	}
+	if len(rankedCorners) > 0 {
+		best := rankedCorners[0]
+		for _, r := range rankedCorners[1:] {
+			if r.dist > best.dist {
+				best = r
+			}
+		}
+		return best.corner
+	}
 	return farthestMapCorner(from)
+}
+
+func assignPerpDestinations(spawns []LatLng) []LatLng {
+	used := make([]LatLng, 0, len(spawns))
+	destinations := make([]LatLng, 0, len(spawns))
+	for _, spawn := range spawns {
+		dest := pickPerpDestination(spawn, used)
+		used = append(used, dest)
+		destinations = append(destinations, dest)
+	}
+	return destinations
 }
 
 func farthestMapCorner(start LatLng) LatLng {
@@ -694,8 +792,8 @@ func ensurePerpReady(v *PursuitVehicle) {
 	if v.Destination != nil {
 		destDist = haversineMeters(pos.Lat, pos.Lng, v.Destination.Lat, v.Destination.Lng)
 	}
-	if v.Destination == nil || destDist < minPerpDestDistanceM*0.85 || destDist <= destArrivalM {
-		dest := pickPerpDestination(pos)
+	if v.Destination == nil || destDist < minPerpDestDistanceM*0.9 || destDist <= destArrivalM {
+		dest := pickPerpDestination(pos, nil)
 		v.Destination = &dest
 	}
 	if len(v.Route) < 2 || !routeHasMovement(v.Route) {
@@ -712,15 +810,15 @@ func schedulePoliceDowns(vehicles []PursuitVehicle, roundStart time.Time) {
 			policeIDs = append(policeIDs, vehicles[i].ID)
 		}
 	}
-	if len(policeIDs) < 3 {
+	if len(policeIDs) < 2 {
 		return
 	}
 	downCount := 1 + rand.Intn(2)
-	if downCount > len(policeIDs)-2 {
-		downCount = len(policeIDs) - 2
+	if downCount > len(policeIDs)-1 {
+		downCount = len(policeIDs) - 1
 	}
 	if downCount < 1 {
-		downCount = 1
+		return
 	}
 	rand.Shuffle(len(policeIDs), func(i, j int) { policeIDs[i], policeIDs[j] = policeIDs[j], policeIDs[i] })
 	for i := 0; i < downCount; i++ {
@@ -802,8 +900,7 @@ func buildPoliceVehicle(index int, start LatLng) PursuitVehicle {
 	return v
 }
 
-func buildPerpVehicle(index int, start LatLng) PursuitVehicle {
-	dest := pickPerpDestination(start)
+func buildPerpVehicleAt(index int, start, dest LatLng) PursuitVehicle {
 	route := buildRoadRouteToDestination(start, dest)
 	fleet := perpFleet[index%len(perpFleet)]
 	v := PursuitVehicle{

@@ -13,7 +13,6 @@ import {
   tickSimSession,
   isPoliceAvailableForPursuit,
   isPerpPursuitTarget,
-  isStoredSessionUsable,
 } from '../../utils/pursuitSim';
 
 function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
@@ -92,27 +91,8 @@ const InPursue: React.FC = () => {
 
   // Server sync on init only; local sim drives movement
   useEffect(() => {
-    let cancelled = false;
-    const init = async () => {
-      try {
-        const { session: raw } = await pursuitExamAPI.getState(userId);
-        if (cancelled) return;
-        const serverSession = simSessionFromAPI(raw as unknown as Record<string, unknown>);
-        if (isStoredSessionUsable(serverSession)) {
-          setSession(serverSession);
-          setUseServer(true);
-          return;
-        }
-      } catch {
-        /* local sim fallback */
-      }
-      if (!cancelled) {
-        setSession(createSimSession(userId));
-        setUseServer(false);
-      }
-    };
-    init();
-    return () => { cancelled = true; };
+    setSession(createSimSession(userId));
+    setUseServer(false);
   }, [userId]);
 
   // Local simulation tick (~30fps)
