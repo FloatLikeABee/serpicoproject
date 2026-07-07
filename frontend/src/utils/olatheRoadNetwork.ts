@@ -224,8 +224,11 @@ export function buildOsmRoadRoute(network: RoadNetwork, start: RoadPoint, dest: 
 }
 
 export function headingAlongRoute(from: RoadPoint, to: RoadPoint): number {
-  const dLat = Math.abs(to.lat - from.lat);
-  const dLng = Math.abs(to.lng - from.lng);
-  if (dLng >= dLat) return to.lng > from.lng ? 90 : 270;
-  return to.lat > from.lat ? 0 : 180;
+  const rad = Math.PI / 180;
+  const dLng = (to.lng - from.lng) * rad;
+  const y = Math.sin(dLng) * Math.cos(to.lat * rad);
+  const x =
+    Math.cos(from.lat * rad) * Math.sin(to.lat * rad) -
+    Math.sin(from.lat * rad) * Math.cos(to.lat * rad) * Math.cos(dLng);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }

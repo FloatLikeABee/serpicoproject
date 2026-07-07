@@ -222,11 +222,61 @@ function snapToRoadGrid(p: SimLatLng): SimLatLng {
   };
 }
 
-function gridHeading(from: SimLatLng, to: SimLatLng): number {
-  const dLat = Math.abs(to.lat - from.lat);
-  const dLng = Math.abs(to.lng - from.lng);
-  if (dLng >= dLat) return to.lng > from.lng ? 90 : 270;
-  return to.lat > from.lat ? 0 : 180;
+function bearingHeading(from: SimLatLng, to: SimLatLng): number {
+  const rad = Math.PI / 180;
+  const dLng = (to.lng - from.lng) * rad;
+  const y = Math.sin(dLng) * Math.cos(to.lat * rad);
+  const x =
+    Math.cos(from.lat * rad) * Math.sin(to.lat * rad) -
+    Math.sin(from.lat * rad) * Math.cos(to.lat * rad) * Math.cos(dLng);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+function interpolateAlongSegment(cur: SimLatLng, next: SimLatLng, progress: number): SimLatLng {
+  return {
+    lat: cur.lat + (next.lat - cur.lat) * progress,
+    lng: cur.lng + (next.lng - cur.lng) * progress,
+  };
+}
+
+function projectOntoRoute(route: SimLatLng[], point: SimLatLng): {
+  index: number;
+  progress: number;
+  point: SimLatLng;
+} {
+  if (route.length < 2) {
+    return { index: 0, progress: 0, point: route[0] ?? point };
+  }
+
+  let bestIdx = 0;
+  let bestProgress = 0;
+  let bestPoint = route[0];
+  let bestDist = Infinity;
+
+  for (let i = 0; i < route.length - 1; i++) {
+    const cur = route[i];
+    const next = route[i + 1];
+    const dLat = next.lat - cur.lat;
+    const dLng = next.lng - cur.lng;
+    const segLenSq = dLat * dLat + dLng * dLng;
+    if (segLenSq < 1e-12) continue;
+
+    const t = clamp(
+      ((point.lat - cur.lat) * dLat + (point.lng - cur.lng) * dLng) / segLenSq,
+      0,
+      1
+    );
+    const proj = interpolateAlongSegment(cur, next, t);
+    const d = haversineMeters(point.lat, point.lng, proj.lat, proj.lng);
+    if (d < bestDist) {
+      bestDist = d;
+      bestIdx = i;
+      bestProgress = t;
+      bestPoint = proj;
+    }
+  }
+
+  return { index: bestIdx, progress: bestProgress, point: bestPoint };
 }
 
 function randomPointInZone(latMin: number, latMax: number, lngMin: number, lngMax: number): SimLatLng {
@@ -285,19 +335,19 @@ function buildRoadRouteToDestination(start: SimLatLng, dest: SimLatLng): SimLatL
   return buildGridRouteFallback(start, dest);
 }
 
-function lockToSegment(cur: SimLatLng, next: SimLatLng, progress: number): SimLatLng {
-  const dLat = Math.abs(next.lat - cur.lat);
-  const dLng = Math.abs(next.lng - cur.lng);
-  if (dLng > dLat) {
-    return {
-      lat: cur.lat,
-      lng: cur.lng + (next.lng - cur.lng) * progress,
-    };
+function applyRouteWithProgress(v: SimVehicle, route: SimLatLng[]) {
+  if (route.length < 2) {
+    v.route = route;
+    v.routeIndex = 0;
+    v.routeProgress = 0;
+    return;
   }
-  return {
-    lat: cur.lat + (next.lat - cur.lat) * progress,
-    lng: cur.lng,
-  };
+  const projected = projectOntoRoute(route, { lat: v.lat, lng: v.lng });
+  v.route = route;
+  v.routeIndex = projected.index;
+  v.routeProgress = projected.progress;
+  v.lat = projected.point.lat;
+  v.lng = projected.point.lng;
 }
 
 function ensurePursuitRoute(v: SimVehicle, target: SimLatLng) {
@@ -307,18 +357,17 @@ function ensurePursuitRoute(v: SimVehicle, target: SimLatLng) {
     !end ||
     haversineMeters(end.lat, end.lng, target.lat, target.lng) > PURSUIT_ROUTE_REBUILD_M;
   if (stale) {
-    v.route = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, target);
-    v.routeIndex = 0;
-    v.routeProgress = 0;
+    applyRouteWithProgress(
+      v,
+      buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, target)
+    );
   }
 }
 
 function releasePoliceForReassignment(v: SimVehicle) {
   v.status = 'patrol';
   v.pursuingPerpId = undefined;
-  v.route = randomPatrolRoute({ lat: v.lat, lng: v.lng });
-  v.routeIndex = 0;
-  v.routeProgress = 0;
+  applyRouteWithProgress(v, randomPatrolRoute({ lat: v.lat, lng: v.lng }));
 }
 
 function fleetSpecForVehicle(v: SimVehicle): FleetSpec | undefined {
@@ -477,9 +526,7 @@ function ensurePerpReady(v: SimVehicle) {
   }
 
   if (v.route.length < 2 || !routeHasMovement(v.route)) {
-    v.route = buildRoadRouteToDestination(pos, v.destination!);
-    v.routeIndex = 0;
-    v.routeProgress = 0;
+    applyRouteWithProgress(v, buildRoadRouteToDestination(pos, v.destination!));
   }
 }
 
@@ -500,15 +547,14 @@ function advanceVehicle(v: SimVehicle, elapsedSec: number) {
     const nextIdx = v.routeIndex + 1;
     if (nextIdx >= v.route.length) {
       if (v.role === 'police' && v.status === 'patrol') {
-        v.route = randomPatrolRoute({ lat: v.lat, lng: v.lng });
-        v.routeIndex = 0;
-        v.routeProgress = 0;
+        applyRouteWithProgress(v, randomPatrolRoute({ lat: v.lat, lng: v.lng }));
       } else if (v.role === 'perp') {
         const dest = pickPerpDestination({ lat: v.lat, lng: v.lng });
         v.destination = dest;
-        v.route = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, dest);
-        v.routeIndex = 0;
-        v.routeProgress = 0;
+        applyRouteWithProgress(
+          v,
+          buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, dest)
+        );
       }
       break;
     }
@@ -516,9 +562,10 @@ function advanceVehicle(v: SimVehicle, elapsedSec: number) {
     const segLen = haversineMeters(cur.lat, cur.lng, next.lat, next.lng);
     if (segLen < 1) {
       if (v.role === 'perp' && v.destination) {
-        v.route = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, v.destination);
-        v.routeIndex = 0;
-        v.routeProgress = 0;
+        applyRouteWithProgress(
+          v,
+          buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, v.destination)
+        );
         break;
       }
       v.routeIndex = nextIdx;
@@ -532,24 +579,19 @@ function advanceVehicle(v: SimVehicle, elapsedSec: number) {
       v.routeProgress = 0;
       v.lat = next.lat;
       v.lng = next.lng;
-      v.heading = gridHeading(cur, next);
+      v.heading = bearingHeading(cur, next);
       if (v.role === 'police' && v.status === 'patrol' && nextIdx >= v.route.length - 1) {
-        v.route = randomPatrolRoute({ lat: v.lat, lng: v.lng });
-        v.routeIndex = 0;
-        v.routeProgress = 0;
+        applyRouteWithProgress(v, randomPatrolRoute({ lat: v.lat, lng: v.lng }));
       }
     } else {
       v.routeProgress += remaining / segLen;
-      const pos = lockToSegment(cur, next, v.routeProgress);
+      const pos = interpolateAlongSegment(cur, next, v.routeProgress);
       v.lat = pos.lat;
       v.lng = pos.lng;
-      v.heading = gridHeading(cur, next);
+      v.heading = bearingHeading(cur, next);
       remaining = 0;
     }
   }
-  const snapped = snapToRoad({ lat: v.lat, lng: v.lng });
-  v.lat = snapped.lat;
-  v.lng = snapped.lng;
 }
 
 const downReasons = [
@@ -617,7 +659,7 @@ export function createSimSession(userId: string, round = 1): SimSession {
       role: 'police',
       lat: start.lat,
       lng: start.lng,
-      heading: route.length > 1 ? gridHeading(route[0], route[1]) : rand(0, 360),
+      heading: route.length > 1 ? bearingHeading(route[0], route[1]) : rand(0, 360),
       route,
       routeIndex: 0,
       routeProgress: 0,
@@ -641,7 +683,7 @@ export function createSimSession(userId: string, round = 1): SimSession {
       role: 'perp',
       lat: start.lat,
       lng: start.lng,
-      heading: route.length > 1 ? gridHeading(route[0], route[1]) : rand(0, 360),
+      heading: route.length > 1 ? bearingHeading(route[0], route[1]) : rand(0, 360),
       route,
       routeIndex: 0,
       routeProgress: 0,
@@ -863,15 +905,26 @@ export function startPursuit(session: SimSession, policeId: string, perpId: stri
   }
 
   const perpTarget = { lat: perp.lat, lng: perp.lng };
+  const pursuitRoute = buildRoadRouteToDestination({ lat: police.lat, lng: police.lng }, perpTarget);
+  const pursuitDraft: SimVehicle = {
+    ...police,
+    route: pursuitRoute,
+    routeIndex: 0,
+    routeProgress: 0,
+  };
+  applyRouteWithProgress(pursuitDraft, pursuitRoute);
+
   const vehicles = session.vehicles.map((v) => {
     if (v.id === policeId) {
       return {
         ...v,
         status: 'pursuing' as const,
         pursuingPerpId: perpId,
-        route: buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, perpTarget),
-        routeIndex: 0,
-        routeProgress: 0,
+        route: pursuitDraft.route,
+        routeIndex: pursuitDraft.routeIndex,
+        routeProgress: pursuitDraft.routeProgress,
+        lat: pursuitDraft.lat,
+        lng: pursuitDraft.lng,
       };
     }
     if (v.id === perpId) {
