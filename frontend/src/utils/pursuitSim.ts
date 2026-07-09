@@ -121,23 +121,26 @@ export const SIM_MOVEMENT_SCALE = 1.0;
 
 export const ROUND_MS = 12 * 60 * 60 * 1000;
 export const ROUND_RESET_AVAILABLE_MS = 3 * 60 * 1000;
-const CATCH_METERS = 35;
+const CATCH_METERS = 55;
+const CATCH_CLOSE_METERS = 120;
 const DEST_ARRIVAL_M = 40;
 const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
 /** Fallback grid step when OSM roads are still loading (~22 m). */
 const ROAD_GRID_STEP = 0.0002;
-const PURSUIT_ROUTE_REBUILD_M = 120;
-const PURSUIT_TARGET_LOOKAHEAD_M = 150;
-const MIN_PERP_POLICE_SPAWN_M = 600;
-const MIN_PERP_DEST_DISTANCE_M = 6000;
+const PURSUIT_ROUTE_REBUILD_M = 220;
+const PURSUIT_TARGET_LOOKAHEAD_M = 220;
+const PURSUIT_TAIL_JOIN_M = 450;
 const MIN_VEHICLE_SPAWN_SEP_M = 2800;
 
 const PATROL_CRUISE_MPH = 28;
 const PERP_CRUISE_MPH = 30;
-const POLICE_PURSUIT_BONUS_MPH = 5;
+/** Police stay clearly faster than fleeing suspects, still in real-world range. */
+const POLICE_PURSUIT_BONUS_MPH = 8;
+const POLICE_MIN_SPEED_OVER_PERP_MPH = 12;
+const POLICE_CLOSE_RANGE_BONUS_MPH = 10;
 const POLICE_PURSUIT_MULTIPLIER = 1.0;
 const PERP_FLEE_MULTIPLIER = 1.0;
-const PURSUIT_CLOSURE_BOOST = 1.0;
+const PURSUIT_CLOSURE_BOOST = 1.05;
 
 interface FleetSpec {
   model: string;
@@ -356,9 +359,8 @@ function applyRouteWithProgress(v: SimVehicle, route: SimLatLng[]) {
 }
 
 function getPerpRoadTarget(perp: SimVehicle, lookaheadM = PURSUIT_TARGET_LOOKAHEAD_M): SimLatLng {
-  const snapped = snapToRoad({ lat: perp.lat, lng: perp.lng });
   if (perp.route.length < 2 || perp.routeIndex >= perp.route.length - 1) {
-    return snapped;
+    return snapToRoad({ lat: perp.lat, lng: perp.lng });
   }
 
   let remaining = lookaheadM;
@@ -383,21 +385,78 @@ function getPerpRoadTarget(perp: SimVehicle, lookaheadM = PURSUIT_TARGET_LOOKAHE
     progress = 0;
   }
 
-  return perp.route[perp.route.length - 1];
+  return { ...perp.route[perp.route.length - 1] };
+}
+
+/** Remaining road path the suspect is already driving — keeps police on the same roads. */
+function buildPursuitTailRoute(police: SimVehicle, perp: SimVehicle): SimLatLng[] | null {
+  if (perp.route.length < 2 || perp.routeIndex >= perp.route.length - 1) return null;
+
+  const gap = haversineMeters(police.lat, police.lng, perp.lat, perp.lng);
+  if (gap > PURSUIT_TAIL_JOIN_M) return null;
+
+  const tail: SimLatLng[] = [{ lat: police.lat, lng: police.lng }];
+  const onPerp = projectOntoRoute(perp.route, { lat: perp.lat, lng: perp.lng });
+  const join = interpolateAlongSegment(
+    perp.route[onPerp.index],
+    perp.route[Math.min(onPerp.index + 1, perp.route.length - 1)],
+    onPerp.progress
+  );
+  tail.push(join);
+
+  for (let i = onPerp.index + 1; i < perp.route.length; i++) {
+    tail.push({ ...perp.route[i] });
+  }
+
+  // Extend a bit past the current perp position so police keep closing.
+  const ahead = getPerpRoadTarget(perp, Math.max(PURSUIT_TARGET_LOOKAHEAD_M, gap + 80));
+  const last = tail[tail.length - 1];
+  if (haversineMeters(last.lat, last.lng, ahead.lat, ahead.lng) > 25) {
+    tail.push(ahead);
+  }
+
+  return routeFollowsRoads(tail) || tail.length >= 3 ? tail : null;
+}
+
+function buildPursuitRoadRoute(police: SimVehicle, perp: SimVehicle): SimLatLng[] {
+  const tail = buildPursuitTailRoute(police, perp);
+  if (tail) return tail;
+
+  const target = getPerpRoadTarget(perp);
+  const routed = buildRoadRouteToDestination({ lat: police.lat, lng: police.lng }, target);
+  if (routeFollowsRoads(routed)) return routed;
+
+  // Last resort: route to the suspect's current road-snapped position, never a long chord.
+  const snappedPerp = snapToRoad({ lat: perp.lat, lng: perp.lng });
+  const fallback = buildRoadRouteToDestination({ lat: police.lat, lng: police.lng }, snappedPerp);
+  if (routeFollowsRoads(fallback)) return fallback;
+
+  // Stay on the current road-following route rather than drawing a straight line.
+  if (routeFollowsRoads(police.route)) return police.route;
+  return buildGridRouteFallback({ lat: police.lat, lng: police.lng }, snappedPerp);
 }
 
 function ensurePursuitRoute(v: SimVehicle, perp: SimVehicle) {
   const target = getPerpRoadTarget(perp);
   const end = v.route[v.route.length - 1];
-  const stale =
+  const atRouteEnd = v.routeIndex >= v.route.length - 1;
+  const gap = haversineMeters(v.lat, v.lng, perp.lat, perp.lng);
+  const endDrift = end
+    ? haversineMeters(end.lat, end.lng, target.lat, target.lng)
+    : Infinity;
+
+  const needsRebuild =
+    atRouteEnd ||
     v.route.length < 2 ||
     !end ||
     !routeFollowsRoads(v.route) ||
-    haversineMeters(end.lat, end.lng, target.lat, target.lng) > PURSUIT_ROUTE_REBUILD_M;
-  if (!stale) return;
+    endDrift > PURSUIT_ROUTE_REBUILD_M ||
+    (gap < PURSUIT_TAIL_JOIN_M && endDrift > 90);
 
-  const newRoute = buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, target);
-  if (!routeFollowsRoads(newRoute)) return;
+  if (!needsRebuild) return;
+
+  const newRoute = buildPursuitRoadRoute(v, perp);
+  if (!routeFollowsRoads(newRoute) && newRoute.length < 3) return;
   applyRouteWithProgress(v, newRoute);
 }
 
@@ -412,14 +471,28 @@ function fleetSpecForVehicle(v: SimVehicle): FleetSpec | undefined {
   return fleet.find((f) => f.model === v.vehicleModel);
 }
 
-export function getOperationalSpeedMph(v: SimVehicle): number {
+export function getOperationalSpeedMph(v: SimVehicle, pursuedPerp?: SimVehicle): number {
   if (v.status === 'caught' || v.status === 'escaped' || v.status === 'down') return 0;
   const spec = fleetSpecForVehicle(v);
   let mph = 0;
   if (v.role === 'police') {
-    mph = v.status === 'pursuing'
-      ? ((spec?.pursuitMph ?? v.maxSpeedMph * POLICE_PURSUIT_MULTIPLIER) + POLICE_PURSUIT_BONUS_MPH) * PURSUIT_CLOSURE_BOOST
-      : PATROL_CRUISE_MPH;
+    if (v.status === 'pursuing') {
+      mph =
+        ((spec?.pursuitMph ?? v.maxSpeedMph * POLICE_PURSUIT_MULTIPLIER) + POLICE_PURSUIT_BONUS_MPH) *
+        PURSUIT_CLOSURE_BOOST;
+      if (pursuedPerp) {
+        const perpFlee =
+          fleetSpecForVehicle(pursuedPerp)?.fleeMph ??
+          pursuedPerp.maxSpeedMph * PERP_FLEE_MULTIPLIER;
+        mph = Math.max(mph, perpFlee + POLICE_MIN_SPEED_OVER_PERP_MPH);
+        const gap = haversineMeters(v.lat, v.lng, pursuedPerp.lat, pursuedPerp.lng);
+        if (gap <= CATCH_CLOSE_METERS) {
+          mph += POLICE_CLOSE_RANGE_BONUS_MPH;
+        }
+      }
+    } else {
+      mph = PATROL_CRUISE_MPH;
+    }
   } else if (v.beingPursued) {
     mph = spec?.fleeMph ?? v.maxSpeedMph * PERP_FLEE_MULTIPLIER;
   } else {
@@ -558,12 +631,16 @@ function ensurePerpReady(v: SimVehicle) {
     ? haversineMeters(pos.lat, pos.lng, v.destination.lat, v.destination.lng)
     : 0;
 
-  if (!v.destination || destDistance < MIN_PERP_DEST_DISTANCE_M * 0.9 || destDistance <= DEST_ARRIVAL_M) {
+  // Only pick a new destination when none exists or the current one was reached.
+  // Mid-chase reassignment was collapsing police routes into straight lines.
+  if (!v.destination || destDistance <= DEST_ARRIVAL_M) {
     v.destination = pickPerpDestination(pos);
+    applyRouteWithProgress(v, buildRoadRouteToDestination(pos, v.destination));
+    return;
   }
 
   if (v.route.length < 2 || !routeHasMovement(v.route) || !routeFollowsRoads(v.route)) {
-    applyRouteWithProgress(v, buildRoadRouteToDestination(pos, v.destination!));
+    applyRouteWithProgress(v, buildRoadRouteToDestination(pos, v.destination));
   }
 }
 
@@ -571,10 +648,10 @@ function randomPoliceSpawn(existing: SimLatLng[]): SimLatLng {
   return pickSpreadAnchors(1, existing)[0];
 }
 
-function advanceVehicle(v: SimVehicle, elapsedSec: number) {
+function advanceVehicle(v: SimVehicle, elapsedSec: number, pursuedPerp?: SimVehicle) {
   if (v.route.length < 2 || elapsedSec <= 0 || v.status === 'caught' || v.status === 'escaped') return;
 
-  const speed = mphToMps(getOperationalSpeedMph(v));
+  const speed = mphToMps(getOperationalSpeedMph(v, pursuedPerp));
   if (speed <= 0) return;
 
   let remaining = speed * elapsedSec;
@@ -585,6 +662,9 @@ function advanceVehicle(v: SimVehicle, elapsedSec: number) {
     if (nextIdx >= v.route.length) {
       if (v.role === 'police' && v.status === 'patrol') {
         applyRouteWithProgress(v, randomPatrolRoute({ lat: v.lat, lng: v.lng }));
+      } else if (v.role === 'police' && v.status === 'pursuing' && pursuedPerp) {
+        const chaseRoute = buildPursuitRoadRoute(v, pursuedPerp);
+        applyRouteWithProgress(v, chaseRoute);
       } else if (v.role === 'perp') {
         const dest = pickPerpDestination({ lat: v.lat, lng: v.lng });
         v.destination = dest;
@@ -603,6 +683,10 @@ function advanceVehicle(v: SimVehicle, elapsedSec: number) {
           v,
           buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, v.destination)
         );
+        break;
+      }
+      if (v.role === 'police' && v.status === 'pursuing' && pursuedPerp) {
+        applyRouteWithProgress(v, buildPursuitRoadRoute(v, pursuedPerp));
         break;
       }
       v.routeIndex = nextIdx;
@@ -861,7 +945,7 @@ export function tickSimSession(session: SimSession, elapsedSec: number): SimSess
         continue;
       }
       ensurePursuitRoute(v, perp);
-      advanceVehicle(v, elapsedSec);
+      advanceVehicle(v, elapsedSec, perp);
       if (haversineMeters(v.lat, v.lng, perp.lat, perp.lng) <= CATCH_METERS) {
         perp.status = 'caught';
         perp.beingPursued = false;
@@ -940,8 +1024,7 @@ export function startPursuit(session: SimSession, policeId: string, perpId: stri
     return session;
   }
 
-  const perpTarget = getPerpRoadTarget(perp);
-  const pursuitRoute = buildRoadRouteToDestination({ lat: police.lat, lng: police.lng }, perpTarget);
+  const pursuitRoute = buildPursuitRoadRoute(police, perp);
   const pursuitDraft: SimVehicle = {
     ...police,
     route: pursuitRoute,

@@ -172,9 +172,22 @@ export function ensureRoadNetwork(): Promise<RoadNetwork> {
 /** True when a route has enough road waypoints (not a long straight-line shortcut). */
 export function routeFollowsRoads(route: RoadPoint[]): boolean {
   if (route.length < 2) return false;
-  if (route.length >= 3) return true;
-  const span = haversineMeters(route[0].lat, route[0].lng, route[1].lat, route[1].lng);
-  return span < 120;
+  // A single long chord is almost always a broken pathfinding fallback.
+  if (route.length === 2) {
+    const span = haversineMeters(route[0].lat, route[0].lng, route[1].lat, route[1].lng);
+    return span < 80;
+  }
+  // Reject routes that contain an unrealistically long jump between waypoints.
+  for (let i = 1; i < route.length; i++) {
+    const seg = haversineMeters(
+      route[i - 1].lat,
+      route[i - 1].lng,
+      route[i].lat,
+      route[i].lng
+    );
+    if (seg > 450) return false;
+  }
+  return true;
 }
 
 /** Nearest road node + distance in meters. */
@@ -257,8 +270,8 @@ function pathLengthMeters(network: RoadNetwork, path: number[]): number {
 }
 
 function findBestRoadPath(network: RoadNetwork, start: RoadPoint, dest: RoadPoint): RoadPoint[] | null {
-  const startCandidates = nearestRoadNodeCandidates(network, start, 5);
-  const destCandidates = nearestRoadNodeCandidates(network, dest, 5);
+  const startCandidates = nearestRoadNodeCandidates(network, start, 3);
+  const destCandidates = nearestRoadNodeCandidates(network, dest, 3);
 
   let bestPath: number[] | null = null;
   let bestScore = Infinity;
@@ -267,26 +280,18 @@ function findBestRoadPath(network: RoadNetwork, start: RoadPoint, dest: RoadPoin
     for (const d of destCandidates) {
       const path = dijkstra(network, s.index, d.index);
       if (!path || path.length < 2) continue;
-      const score = pathLengthMeters(network, path) + s.dist + d.dist;
+      const score = pathLengthMeters(network, path) + s.dist * 1.5 + d.dist * 1.5;
       if (score < bestScore) {
         bestScore = score;
         bestPath = path;
       }
     }
+    // Nearest start node already found a path — good enough for live pursuit rebuilds.
+    if (bestPath) break;
   }
 
   if (!bestPath) return null;
-
-  const route = bestPath.map((idx) => network.nodes[idx]);
-  const startSnap = snapToNearestRoad(network, start);
-  const destSnap = snapToNearestRoad(network, dest);
-  if (haversineMeters(route[0].lat, route[0].lng, start.lat, start.lng) > 3) {
-    route.unshift(startSnap);
-  }
-  if (haversineMeters(route[route.length - 1].lat, route[route.length - 1].lng, dest.lat, dest.lng) > 3) {
-    route.push(destSnap);
-  }
-  return route;
+  return bestPath.map((idx) => ({ ...network.nodes[idx] }));
 }
 
 /** Build a route along OSM road centerlines. */
