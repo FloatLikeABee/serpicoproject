@@ -46,8 +46,7 @@ const AIChat: React.FC = () => {
   const getContext = () => {
     const path = location.pathname;
     if (path.includes('/in-pursue')) return 'in-pursue';
-    if (path.includes('/perps-cases') || path.includes('/perps') || path.includes('/case-library')) return 'perps-cases';
-    if (path.includes('/mysteries') || path.includes('/leisure')) return 'mysteries';
+    if (path.includes('/board') || path.includes('/mysteries') || path.includes('/leisure')) return 'mysteries';
     if (path.includes('/chase-game')) return 'chase-game';
     if (path.includes('/nearby-officers')) return 'nearby-officers';
     if (path.includes('/nearby-perps')) return 'nearby-perps';

@@ -98,7 +98,7 @@ const Mysteries: React.FC = () => {
       setInsights(insightRes.insights || []);
     } catch (err) {
       console.error(err);
-      setError('Unable to reach the Mysteries desk. Check backend connection.');
+      setError('Unable to reach the Board desk. Check backend connection.');
     } finally {
       setLoading(false);
     }
@@ -178,7 +178,7 @@ const Mysteries: React.FC = () => {
                 Serpico Desk
               </p>
               <h1 className="font-display text-2xl font-bold tracking-wide text-serpico-red sm:text-3xl">
-                Mysteries
+                Board
               </h1>
               <p className={`mt-1 max-w-xl text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 Live US missing persons, cold cases, unsolved crimes, and suspects on the run —
@@ -243,7 +243,7 @@ const Mysteries: React.FC = () => {
 
           {loading && cases.length === 0 && briefings.length === 0 ? (
             <div className="flex h-48 items-center justify-center text-sm text-gray-400">
-              Loading Mysteries desk…
+              Loading Board desk…
             </div>
           ) : null}
 
