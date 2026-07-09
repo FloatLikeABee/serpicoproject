@@ -33,10 +33,10 @@ const Navigation: React.FC = () => {
     </svg>
   );
 
-  const MysteriesIcon = () => (
+  const BoardIcon = () => (
     <svg {...iconProps}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 6v6M8 10h8" />
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M3 9h18M9 4v16" />
     </svg>
   );
 
@@ -80,8 +80,7 @@ const Navigation: React.FC = () => {
   const policeNavItems: NavItem[] = [
     { path: '/in-pursue', label: 'Pursue', shortLabel: 'Go', icon: <PursueIcon /> },
     { path: '/chase-game', label: 'Chase', shortLabel: 'Game', icon: <ChaseGameIcon /> },
-    { path: '/perps-cases', label: 'Records', shortLabel: 'Rec', icon: <PerpsCasesIcon /> },
-    { path: '/mysteries', label: 'Mysteries', shortLabel: 'Myst', icon: <MysteriesIcon /> },
+    { path: '/board', label: 'Board', shortLabel: 'Board', icon: <BoardIcon /> },
   ];
 
   const civilianNavItems: NavItem[] = [

@@ -25,15 +25,15 @@ Go ahead with your question.`,
 
 What case intel do you need?`,
 
-  'mysteries': `### Officer Serpico — Missing Persons Desk
+  'mysteries': `### Officer Serpico — Board Desk
 
 **Copy.** US missing persons, cold cases, unsolved crimes, and fugitives on the run — recent news and case updates.
 
 What are you looking into?`,
 
-  'leisure': `### Officer Serpico — Missing Persons Desk
+  'leisure': `### Officer Serpico — Board Desk
 
-**10-4.** Same desk as Mysteries — missing persons, cold cases, and suspects still at large.
+**10-4.** Same desk as Board — missing persons, cold cases, and suspects still at large.
 
 What's on your mind?`,
 
