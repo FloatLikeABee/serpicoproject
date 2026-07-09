@@ -6,12 +6,17 @@ export interface RoadPoint {
 }
 
 const BOUNDS = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
-const CACHE_KEY = 'serpico-olathe-roads-v1';
+const CACHE_KEY = 'serpico-olathe-roads-v2';
 const NODE_PRECISION = 5;
 
 export interface RoadNetwork {
   nodes: RoadPoint[];
   adjacency: Map<number, Array<{ to: number; weight: number }>>;
+}
+
+interface SerializedRoadNetwork {
+  nodes: RoadPoint[];
+  adjacency: Array<[number, Array<{ to: number; weight: number }>]>;
 }
 
 let cachedNetwork: RoadNetwork | null = null;
@@ -39,6 +44,25 @@ function inBounds(p: RoadPoint) {
     p.lng >= BOUNDS.lngMin &&
     p.lng <= BOUNDS.lngMax
   );
+}
+
+function serializeNetwork(network: RoadNetwork): string {
+  return JSON.stringify({
+    nodes: network.nodes,
+    adjacency: Array.from(network.adjacency.entries()),
+  } satisfies SerializedRoadNetwork);
+}
+
+function deserializeNetwork(raw: string): RoadNetwork | null {
+  try {
+    const parsed = JSON.parse(raw) as SerializedRoadNetwork;
+    if (!parsed.nodes?.length || !parsed.adjacency?.length) return null;
+    const adjacency = new Map<number, Array<{ to: number; weight: number }>>(parsed.adjacency);
+    if (adjacency.size < 10) return null;
+    return { nodes: parsed.nodes, adjacency };
+  } catch {
+    return null;
+  }
 }
 
 function addEdge(
@@ -94,8 +118,8 @@ async function fetchRoadNetwork(): Promise<RoadNetwork> {
   try {
     const stored = sessionStorage.getItem(CACHE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored) as RoadNetwork;
-      if (parsed.nodes?.length > 50) return parsed;
+      const parsed = deserializeNetwork(stored);
+      if (parsed && parsed.nodes.length > 50) return parsed;
     }
   } catch {
     /* ignore bad cache */
@@ -118,7 +142,7 @@ async function fetchRoadNetwork(): Promise<RoadNetwork> {
   if (network.nodes.length < 50) throw new Error('insufficient road data');
 
   try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify(network));
+    sessionStorage.setItem(CACHE_KEY, serializeNetwork(network));
   } catch {
     /* quota */
   }
@@ -145,6 +169,27 @@ export function ensureRoadNetwork(): Promise<RoadNetwork> {
   return loadPromise;
 }
 
+/** True when a route has enough road waypoints (not a long straight-line shortcut). */
+export function routeFollowsRoads(route: RoadPoint[]): boolean {
+  if (route.length < 2) return false;
+  // A single long chord is almost always a broken pathfinding fallback.
+  if (route.length === 2) {
+    const span = haversineMeters(route[0].lat, route[0].lng, route[1].lat, route[1].lng);
+    return span < 80;
+  }
+  // Reject routes that contain an unrealistically long jump between waypoints.
+  for (let i = 1; i < route.length; i++) {
+    const seg = haversineMeters(
+      route[i - 1].lat,
+      route[i - 1].lng,
+      route[i].lat,
+      route[i].lng
+    );
+    if (seg > 450) return false;
+  }
+  return true;
+}
+
 /** Nearest road node + distance in meters. */
 export function nearestRoadNode(network: RoadNetwork, point: RoadPoint): { index: number; dist: number } {
   let bestIdx = 0;
@@ -158,6 +203,19 @@ export function nearestRoadNode(network: RoadNetwork, point: RoadPoint): { index
     }
   }
   return { index: bestIdx, dist: bestDist };
+}
+
+function nearestRoadNodeCandidates(
+  network: RoadNetwork,
+  point: RoadPoint,
+  limit: number
+): Array<{ index: number; dist: number }> {
+  const ranked = network.nodes.map((n, index) => ({
+    index,
+    dist: haversineMeters(point.lat, point.lng, n.lat, n.lng),
+  }));
+  ranked.sort((a, b) => a.dist - b.dist);
+  return ranked.slice(0, limit);
 }
 
 export function snapToNearestRoad(network: RoadNetwork, point: RoadPoint): RoadPoint {
@@ -201,31 +259,54 @@ function dijkstra(network: RoadNetwork, startIdx: number, endIdx: number): numbe
   return path.length > 0 ? path : null;
 }
 
+function pathLengthMeters(network: RoadNetwork, path: number[]): number {
+  let len = 0;
+  for (let i = 1; i < path.length; i++) {
+    const a = network.nodes[path[i - 1]];
+    const b = network.nodes[path[i]];
+    len += haversineMeters(a.lat, a.lng, b.lat, b.lng);
+  }
+  return len;
+}
+
+function findBestRoadPath(network: RoadNetwork, start: RoadPoint, dest: RoadPoint): RoadPoint[] | null {
+  const startCandidates = nearestRoadNodeCandidates(network, start, 3);
+  const destCandidates = nearestRoadNodeCandidates(network, dest, 3);
+
+  let bestPath: number[] | null = null;
+  let bestScore = Infinity;
+
+  for (const s of startCandidates) {
+    for (const d of destCandidates) {
+      const path = dijkstra(network, s.index, d.index);
+      if (!path || path.length < 2) continue;
+      const score = pathLengthMeters(network, path) + s.dist * 1.5 + d.dist * 1.5;
+      if (score < bestScore) {
+        bestScore = score;
+        bestPath = path;
+      }
+    }
+    // Nearest start node already found a path — good enough for live pursuit rebuilds.
+    if (bestPath) break;
+  }
+
+  if (!bestPath) return null;
+  return bestPath.map((idx) => ({ ...network.nodes[idx] }));
+}
+
 /** Build a route along OSM road centerlines. */
 export function buildOsmRoadRoute(network: RoadNetwork, start: RoadPoint, dest: RoadPoint): RoadPoint[] {
-  const startSnap = snapToNearestRoad(network, start);
-  const destSnap = snapToNearestRoad(network, dest);
-  const startNode = nearestRoadNode(network, startSnap);
-  const endNode = nearestRoadNode(network, destSnap);
-  const path = dijkstra(network, startNode.index, endNode.index);
-
-  if (!path || path.length < 2) {
-    return [startSnap, destSnap];
-  }
-
-  const route = path.map((idx) => network.nodes[idx]);
-  if (haversineMeters(route[0].lat, route[0].lng, start.lat, start.lng) > 3) {
-    route.unshift(startSnap);
-  }
-  if (haversineMeters(route[route.length - 1].lat, route[route.length - 1].lng, dest.lat, dest.lng) > 3) {
-    route.push(destSnap);
-  }
-  return route;
+  const route = findBestRoadPath(network, start, dest);
+  if (route && routeFollowsRoads(route)) return route;
+  return [];
 }
 
 export function headingAlongRoute(from: RoadPoint, to: RoadPoint): number {
-  const dLat = Math.abs(to.lat - from.lat);
-  const dLng = Math.abs(to.lng - from.lng);
-  if (dLng >= dLat) return to.lng > from.lng ? 90 : 270;
-  return to.lat > from.lat ? 0 : 180;
+  const rad = Math.PI / 180;
+  const dLng = (to.lng - from.lng) * rad;
+  const y = Math.sin(dLng) * Math.cos(to.lat * rad);
+  const x =
+    Math.cos(from.lat * rad) * Math.sin(to.lat * rad) -
+    Math.sin(from.lat * rad) * Math.cos(to.lat * rad) * Math.cos(dLng);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
