@@ -127,6 +127,37 @@ func createTables(db *sql.DB) error {
 			source TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS mystery_cases (
+			id TEXT PRIMARY KEY,
+			title TEXT NOT NULL,
+			category TEXT NOT NULL,
+			location TEXT NOT NULL,
+			date TEXT NOT NULL,
+			summary TEXT,
+			status TEXT,
+			source_url TEXT,
+			source_name TEXT,
+			last_update TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS mystery_briefings (
+			id TEXT PRIMARY KEY,
+			title TEXT NOT NULL,
+			body_md TEXT NOT NULL,
+			sources_json TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS mystery_insights (
+			id TEXT PRIMARY KEY,
+			author_name TEXT NOT NULL,
+			title TEXT NOT NULL,
+			body TEXT NOT NULL,
+			category TEXT,
+			fact_check_status TEXT NOT NULL,
+			fact_check_notes TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	for _, query := range queries {
