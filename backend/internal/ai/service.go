@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+
+	"database/sql"
 )
 
 // AIService coordinates all AI functionality
@@ -16,6 +18,7 @@ type AIService struct {
 	screener    *PromptScreener
 	ChaseGame   *ChaseGameService
 	PursuitExam *PursuitExamService
+	Mysteries   *MysteriesService
 }
 
 func NewAIService(config *Config) (*AIService, error) {
@@ -44,6 +47,11 @@ func NewAIService(config *Config) (*AIService, error) {
 	service.PursuitExam = NewPursuitExamService()
 
 	return service, nil
+}
+
+// AttachMysteries wires the mysteries desk after DB is available.
+func (s *AIService) AttachMysteries(db *sql.DB) {
+	s.Mysteries = NewMysteriesService(db, s)
 }
 
 // ProcessChat handles a chat message and returns AI response

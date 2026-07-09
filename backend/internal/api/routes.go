@@ -78,6 +78,18 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		pursuitExam.POST("/evaluate", func(c *gin.Context) { handlePursuitExamEvaluate(c, aiService) })
 	}
 
+	// Mysteries desk — missing persons, cold cases, briefings, insights
+	mysteries := r.Group("/mysteries")
+	{
+		mysteries.GET("/status", func(c *gin.Context) { handleMysteriesStatus(c, aiService) })
+		mysteries.GET("/cases", func(c *gin.Context) { handleMysteriesListCases(c, aiService) })
+		mysteries.POST("/cases/refresh", func(c *gin.Context) { handleMysteriesRefreshCases(c, aiService) })
+		mysteries.GET("/briefings", func(c *gin.Context) { handleMysteriesListBriefings(c, aiService) })
+		mysteries.POST("/briefings/refresh", func(c *gin.Context) { handleMysteriesRefreshBriefing(c, aiService) })
+		mysteries.GET("/insights", func(c *gin.Context) { handleMysteriesListInsights(c, aiService) })
+		mysteries.POST("/insights", func(c *gin.Context) { handleMysteriesSubmitInsight(c, aiService) })
+	}
+
 	// Recommendations routes
 	recommendations := r.Group("/recommendations")
 	{

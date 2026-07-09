@@ -235,5 +235,98 @@ export const pursuitExamAPI = {
   },
 };
 
+export type MysteryCaseCategory = 'missing_person' | 'cold_case' | 'unsolved_crime' | 'fugitive' | string;
+
+export interface MysteryCase {
+  id: string;
+  title: string;
+  category: MysteryCaseCategory;
+  location: string;
+  date: string;
+  summary: string;
+  status: string;
+  sourceUrl: string;
+  sourceName: string;
+  lastUpdate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MysteryBriefing {
+  id: string;
+  title: string;
+  bodyMd: string;
+  sources: string[];
+  createdAt: string;
+}
+
+export interface MysteryInsight {
+  id: string;
+  authorName: string;
+  title: string;
+  body: string;
+  category: string;
+  factCheckStatus: string;
+  factCheckNotes: string;
+  createdAt: string;
+}
+
+export interface MysteriesStatus {
+  caseCount: number;
+  insightCount: number;
+  briefingCount: number;
+  casesLastRefresh: string;
+  briefingLastRefresh: string;
+  casesNextRefresh: string;
+  briefingNextRefresh: string;
+  casesRefreshing: boolean;
+  briefingRefreshing: boolean;
+}
+
+export const mysteriesAPI = {
+  getStatus: async (): Promise<MysteriesStatus> => {
+    const response = await api.get<MysteriesStatus>('/mysteries/status');
+    return response.data;
+  },
+  listCases: async (category?: string): Promise<{ cases: MysteryCase[]; total: number; status: MysteriesStatus }> => {
+    const response = await api.get<{ cases: MysteryCase[]; total: number; status: MysteriesStatus }>(
+      '/mysteries/cases',
+      { params: category && category !== 'all' ? { category } : undefined }
+    );
+    return response.data;
+  },
+  refreshCases: async (): Promise<void> => {
+    await api.post('/mysteries/cases/refresh');
+  },
+  listBriefings: async (): Promise<{
+    briefings: MysteryBriefing[];
+    latest: MysteryBriefing | null;
+    status: MysteriesStatus;
+  }> => {
+    const response = await api.get<{
+      briefings: MysteryBriefing[];
+      latest: MysteryBriefing | null;
+      status: MysteriesStatus;
+    }>('/mysteries/briefings');
+    return response.data;
+  },
+  refreshBriefing: async (): Promise<void> => {
+    await api.post('/mysteries/briefings/refresh');
+  },
+  listInsights: async (): Promise<{ insights: MysteryInsight[]; total: number }> => {
+    const response = await api.get<{ insights: MysteryInsight[]; total: number }>('/mysteries/insights');
+    return response.data;
+  },
+  submitInsight: async (payload: {
+    authorName: string;
+    title: string;
+    body: string;
+    category: string;
+  }): Promise<{ insight: MysteryInsight }> => {
+    const response = await api.post<{ insight: MysteryInsight }>('/mysteries/insights', payload);
+    return response.data;
+  },
+};
+
 export default api;
 

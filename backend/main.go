@@ -43,6 +43,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize AI service: %v", err)
 	}
+	aiService.AttachMysteries(database.SQLite)
 	log.Println("AI service initialized successfully")
 
 	// Set up router

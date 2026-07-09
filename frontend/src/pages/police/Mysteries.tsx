@@ -1,426 +1,530 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import ChatMarkdown from '../../components/ChatMarkdown';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import {
+  mysteriesAPI,
+  MysteryBriefing,
+  MysteryCase,
+  MysteryInsight,
+  MysteriesStatus,
+} from '../../services/api';
 
-type MysteryCategory = 'all' | 'paranormal' | 'urban-legend' | 'conspiracy' | 'studies';
-type StudyType = 'forensic' | 'case-studies' | 'profiling';
+type MainTab = 'cases' | 'briefings' | 'insights';
+type CaseFilter = 'all' | 'missing_person' | 'cold_case' | 'unsolved_crime' | 'fugitive';
+
+const CASE_FILTERS: Array<{ id: CaseFilter; label: string; accent: string }> = [
+  { id: 'all', label: 'All', accent: '#00f5ff' },
+  { id: 'missing_person', label: 'Missing', accent: '#ff6b9d' },
+  { id: 'cold_case', label: 'Cold Cases', accent: '#a78bfa' },
+  { id: 'unsolved_crime', label: 'Unsolved', accent: '#fbbf24' },
+  { id: 'fugitive', label: 'On the Run', accent: '#fb7185' },
+];
+
+function categoryMeta(category: string) {
+  switch (category) {
+    case 'missing_person':
+      return { label: 'Missing Person', color: '#ff6b9d', bg: 'rgba(255,107,157,0.15)' };
+    case 'cold_case':
+      return { label: 'Cold Case', color: '#a78bfa', bg: 'rgba(167,139,250,0.15)' };
+    case 'fugitive':
+      return { label: 'Fugitive', color: '#fb7185', bg: 'rgba(251,113,133,0.15)' };
+    default:
+      return { label: 'Unsolved', color: '#fbbf24', bg: 'rgba(251,191,36,0.15)' };
+  }
+}
+
+function formatWhen(iso?: string) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function relativeRefresh(iso?: string) {
+  if (!iso) return 'pending';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'pending';
+  const diff = d.getTime() - Date.now();
+  if (diff <= 0) return 'due now';
+  const mins = Math.round(diff / 60000);
+  if (mins < 60) return `in ${mins}m`;
+  const hrs = Math.round(mins / 60);
+  return `in ${hrs}h`;
+}
 
 const Mysteries: React.FC = () => {
   const { theme } = useTheme();
-  const [selectedCategory, setSelectedCategory] = useState<MysteryCategory>('all');
-  const [selectedStudyType, setSelectedStudyType] = useState<StudyType>('forensic');
+  const { user } = useAuth();
+  const isDark = theme === 'dark';
 
-  const categories = [
-    { id: 'all' as MysteryCategory, icon: '🔍', title: 'All Mysteries', description: 'Browse all unexplained phenomena' },
-    { id: 'paranormal' as MysteryCategory, icon: '👻', title: 'Paranormal', description: 'Ghosts, spirits, and supernatural events' },
-    { id: 'urban-legend' as MysteryCategory, icon: '📖', title: 'Urban Legends', description: 'Famous stories and folklore' },
-    { id: 'conspiracy' as MysteryCategory, icon: '🕵️', title: 'Conspiracy Theories', description: 'Hidden truths and cover-ups' },
-    { id: 'studies' as MysteryCategory, icon: '📚', title: 'Studies', description: 'Forensic studies, case studies & profiling' },
-  ];
+  const [mainTab, setMainTab] = useState<MainTab>('cases');
+  const [caseFilter, setCaseFilter] = useState<CaseFilter>('all');
+  const [cases, setCases] = useState<MysteryCase[]>([]);
+  const [briefings, setBriefings] = useState<MysteryBriefing[]>([]);
+  const [latestBriefing, setLatestBriefing] = useState<MysteryBriefing | null>(null);
+  const [insights, setInsights] = useState<MysteryInsight[]>([]);
+  const [status, setStatus] = useState<MysteriesStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMsg, setSubmitMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // Mock mysteries data - will be replaced with API calls
-  const mockMysteries = [
-    {
-      id: '1',
-      title: 'The Mothman Sightings',
-      category: 'paranormal',
-      location: 'Point Pleasant, West Virginia',
-      date: '2024-01-15',
-      description: 'Multiple eyewitness reports of a large winged creature with glowing red eyes. First reported in 1966, sightings continue to this day.',
-      credibility: 'High',
-    },
-    {
-      id: '2',
-      title: 'The Philadelphia Experiment',
-      category: 'conspiracy',
-      location: 'Philadelphia, Pennsylvania',
-      date: '2024-01-10',
-      description: 'Alleged military experiment in 1943 that made a destroyer invisible. Classified documents suggest possible truth.',
-      credibility: 'Medium',
-    },
-    {
-      id: '3',
-      title: 'The Vanishing Hitchhiker',
-      category: 'urban-legend',
-      location: 'Various locations, North America',
-      date: '2024-01-08',
-      description: 'Classic urban legend of a hitchhiker who disappears from moving vehicles. Reported across multiple states.',
-      credibility: 'Low',
-    },
-    {
-      id: '4',
-      title: 'Skinwalker Ranch',
-      category: 'paranormal',
-      location: 'Ballard, Utah',
-      date: '2024-01-05',
-      description: 'Ranch with documented UFO sightings, strange creatures, and unexplained phenomena. Ongoing scientific investigation.',
-      credibility: 'High',
-    },
-    {
-      id: '5',
-      title: 'Area 51 Secrets',
-      category: 'conspiracy',
-      location: 'Groom Lake, Nevada',
-      date: '2024-01-03',
-      description: 'Alleged reverse engineering of alien technology. Multiple whistleblower testimonies suggest hidden programs.',
-      credibility: 'Medium',
-    },
-    {
-      id: '6',
-      title: 'The Bell Witch',
-      category: 'paranormal',
-      location: 'Adams, Tennessee',
-      date: '2023-12-28',
-      description: 'One of America\'s most documented poltergeist cases. Haunting of the Bell family in the early 1800s.',
-      credibility: 'High',
-    },
-  ];
+  const [form, setForm] = useState({
+    authorName: user?.name || '',
+    title: '',
+    body: '',
+    category: 'missing_person',
+  });
 
-  // Mock studies data
-  const mockForensicStudies = [
-    {
-      id: 'fs1',
-      title: 'DNA Analysis in Cold Cases',
-      type: 'forensic',
-      date: '2024-01-20',
-      description: 'How modern DNA techniques solved the 30-year-old Zodiac Killer case. Learn about genetic genealogy and familial DNA matching.',
-      difficulty: 'Advanced',
-      duration: '45 min read',
-    },
-    {
-      id: 'fs2',
-      title: 'Fingerprint Evolution',
-      type: 'forensic',
-      date: '2024-01-18',
-      description: 'From ink to digital: The fascinating history of fingerprinting and its role in catching serial killers like Ted Bundy.',
-      difficulty: 'Intermediate',
-      duration: '30 min read',
-    },
-    {
-      id: 'fs3',
-      title: 'Ballistics & Weapon Matching',
-      type: 'forensic',
-      date: '2024-01-15',
-      description: 'How ballistics experts linked multiple murders to the same weapon. Real techniques used in the BTK case.',
-      difficulty: 'Advanced',
-      duration: '50 min read',
-    },
-    {
-      id: 'fs4',
-      title: 'Toxicology in Serial Killings',
-      type: 'forensic',
-      date: '2024-01-12',
-      description: 'Detecting poisons and drugs in victims. How forensic toxicology helped solve the Harold Shipman case.',
-      difficulty: 'Intermediate',
-      duration: '35 min read',
-    },
-  ];
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [casesRes, briefRes, insightRes] = await Promise.all([
+        mysteriesAPI.listCases(caseFilter),
+        mysteriesAPI.listBriefings(),
+        mysteriesAPI.listInsights(),
+      ]);
+      setCases(casesRes.cases || []);
+      setStatus(casesRes.status || briefRes.status);
+      setBriefings(briefRes.briefings || []);
+      setLatestBriefing(briefRes.latest);
+      setInsights(insightRes.insights || []);
+    } catch (err) {
+      console.error(err);
+      setError('Unable to reach the Mysteries desk. Check backend connection.');
+    } finally {
+      setLoading(false);
+    }
+  }, [caseFilter]);
 
-  const mockCaseStudies = [
-    {
-      id: 'cs1',
-      title: 'The BTK Investigation',
-      type: 'case-studies',
-      date: '2024-01-22',
-      description: 'Deep dive into how Dennis Rader was caught after 30 years. Analysis of communication patterns, DNA evidence, and digital forensics.',
-      cases: '10 murders',
-      status: 'Solved',
-    },
-    {
-      id: 'cs2',
-      title: 'The Green River Killer',
-      type: 'case-studies',
-      date: '2024-01-19',
-      description: 'How Gary Ridgway evaded capture for 20 years. Study of victimology, geographic profiling, and the breakthrough DNA match.',
-      cases: '49+ murders',
-      status: 'Solved',
-    },
-    {
-      id: 'cs3',
-      title: 'The Golden State Killer',
-      type: 'case-studies',
-      date: '2024-01-16',
-      description: 'The first major case solved using genetic genealogy. Joseph DeAngelo\'s capture through familial DNA databases.',
-      cases: '13 murders, 50+ rapes',
-      status: 'Solved',
-    },
-    {
-      id: 'cs4',
-      title: 'The Zodiac Killer',
-      type: 'case-studies',
-      date: '2024-01-13',
-      description: 'The unsolved mystery that haunted California. Cryptography, handwriting analysis, and the letters that taunted police.',
-      cases: '5 confirmed, 37 claimed',
-      status: 'Unsolved',
-    },
-  ];
+  useEffect(() => {
+    loadAll();
+    const id = window.setInterval(loadAll, 5 * 60 * 1000);
+    return () => window.clearInterval(id);
+  }, [loadAll]);
 
-  const mockProfiling = [
-    {
-      id: 'cp1',
-      title: 'Behavioral Analysis of Serial Killers',
-      type: 'profiling',
-      date: '2024-01-21',
-      description: 'Understanding the psychology behind serial killers. Organized vs disorganized offenders, signature vs modus operandi.',
-      profileType: 'Psychological',
-      examples: 'Bundy, Dahmer, Gacy',
-    },
-    {
-      id: 'cp2',
-      title: 'Geographic Profiling Techniques',
-      type: 'profiling',
-      date: '2024-01-17',
-      description: 'How location data helps catch serial killers. The "circle theory" and how killers operate in comfort zones.',
-      profileType: 'Geographic',
-      examples: 'Ridgway, BTK, Green River',
-    },
-    {
-      id: 'cp3',
-      title: 'Victimology & Target Selection',
-      type: 'profiling',
-      date: '2024-01-14',
-      description: 'Why serial killers choose specific victims. Patterns in age, appearance, lifestyle, and vulnerability factors.',
-      profileType: 'Victimology',
-      examples: 'Multiple case studies',
-    },
-    {
-      id: 'cp4',
-      title: 'Digital Age Profiling',
-      type: 'profiling',
-      date: '2024-01-11',
-      description: 'Modern profiling using social media, digital footprints, and online behavior. How the internet changed criminal investigation.',
-      profileType: 'Digital',
-      examples: 'Recent cases',
-    },
-  ];
+  useEffect(() => {
+    if (user?.name && !form.authorName) {
+      setForm((f) => ({ ...f, authorName: user.name || '' }));
+    }
+  }, [user, form.authorName]);
 
-  const filteredMysteries = selectedCategory === 'all' 
-    ? mockMysteries 
-    : selectedCategory === 'studies'
-    ? []
-    : mockMysteries.filter(m => m.category === selectedCategory);
+  const filteredCases = useMemo(() => {
+    if (caseFilter === 'all') return cases;
+    return cases.filter((c) => c.category === caseFilter);
+  }, [cases, caseFilter]);
 
-  const getCredibilityColor = (credibility: string) => {
-    switch (credibility) {
-      case 'High':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'Medium':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+  const onSubmitInsight = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.body.trim()) return;
+    setSubmitting(true);
+    setSubmitMsg(null);
+    try {
+      const { insight } = await mysteriesAPI.submitInsight({
+        authorName: form.authorName.trim() || 'Anonymous Officer',
+        title: form.title.trim(),
+        body: form.body.trim(),
+        category: form.category,
+      });
+      if (insight.factCheckStatus === 'verified') {
+        setSubmitMsg({ ok: true, text: 'Verified and posted. Thank you for the tip.' });
+        setForm((f) => ({ ...f, title: '', body: '' }));
+        const refreshed = await mysteriesAPI.listInsights();
+        setInsights(refreshed.insights || []);
+      } else {
+        setSubmitMsg({
+          ok: false,
+          text: insight.factCheckNotes || 'AI fact-check rejected this tip. Please revise with verifiable details.',
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+        : undefined;
+      setSubmitMsg({ ok: false, text: msg || 'Fact-check failed. Try again shortly.' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'paranormal':
-        return '👻';
-      case 'urban-legend':
-        return '📖';
-      case 'conspiracy':
-        return '🕵️';
-      default:
-        return '🔍';
-    }
-  };
+  const tabs: Array<{ id: MainTab; label: string; hint: string }> = [
+    { id: 'cases', label: 'Case Feed', hint: 'Missing · Cold · Unsolved · Fugitives' },
+    { id: 'briefings', label: 'AI Briefings', hint: 'Auto-updated every hour' },
+    { id: 'insights', label: 'Officer Insights', hint: 'AI fact-checked tips' },
+  ];
 
   return (
-    <div className={`h-full flex flex-col ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className={`p-3 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light">Mysteries</h1>
-        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Unexplained phenomena, urban legends & conspiracy theories</p>
-      </div>
+    <div className={`page-fill relative overflow-hidden ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div
+        className="pointer-events-none absolute inset-0 opacity-90"
+        style={{
+          background:
+            'radial-gradient(ellipse at 10% -10%, rgba(255,43,214,0.22), transparent 45%), radial-gradient(ellipse at 90% 0%, rgba(0,245,255,0.16), transparent 40%), radial-gradient(ellipse at 50% 100%, rgba(123,47,247,0.18), transparent 50%)',
+        }}
+      />
 
-      {/* Category Filter */}
-      <div className={`p-2 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 -mx-2 sm:mx-0 px-2 sm:px-0 scrollbar-hide">
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-lg whitespace-nowrap transition-colors touch-manipulation flex-shrink-0 ${
-                selectedCategory === category.id
-                  ? 'bg-serpico-red text-white'
-                  : theme === 'dark'
-                  ? 'bg-gray-700 text-gray-300 active:bg-gray-600'
-                  : 'bg-gray-100 text-gray-700 active:bg-gray-200'
-              }`}
-              title={category.title}
-            >
-              <span className="text-xl sm:text-xl">{category.icon}</span>
-              <span className="font-medium text-xs sm:text-sm hidden sm:inline">{category.title}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Studies Mini Tabs */}
-      {selectedCategory === 'studies' && (
-        <div className={`p-2 sm:p-4 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            <button
-              onClick={() => setSelectedStudyType('forensic')}
-              className={`flex items-center justify-center px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap touch-manipulation flex-shrink-0 ${
-                selectedStudyType === 'forensic'
-                  ? 'bg-serpico-blue text-white'
-                  : theme === 'dark'
-                  ? 'bg-gray-700 text-gray-300 active:bg-gray-600'
-                  : 'bg-gray-100 text-gray-700 active:bg-gray-200'
-              }`}
-              title="Forensic Studies"
-            >
-              <span className="text-lg sm:text-lg">🔬</span>
-              <span className="hidden sm:inline ml-1.5">Forensic</span>
-            </button>
-            <button
-              onClick={() => setSelectedStudyType('case-studies')}
-              className={`flex items-center justify-center px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap touch-manipulation flex-shrink-0 ${
-                selectedStudyType === 'case-studies'
-                  ? 'bg-serpico-blue text-white'
-                  : theme === 'dark'
-                  ? 'bg-gray-700 text-gray-300 active:bg-gray-600'
-                  : 'bg-gray-100 text-gray-700 active:bg-gray-200'
-              }`}
-              title="Case Studies"
-            >
-              <span className="text-lg sm:text-lg">📋</span>
-              <span className="hidden sm:inline ml-1.5">Case Studies</span>
-            </button>
-            <button
-              onClick={() => setSelectedStudyType('profiling')}
-              className={`flex items-center justify-center px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap touch-manipulation flex-shrink-0 ${
-                selectedStudyType === 'profiling'
-                  ? 'bg-serpico-blue text-white'
-                  : theme === 'dark'
-                  ? 'bg-gray-700 text-gray-300 active:bg-gray-600'
-                  : 'bg-gray-100 text-gray-700 active:bg-gray-200'
-              }`}
-              title="Criminal Profiling"
-            >
-              <span className="text-lg sm:text-lg">🧠</span>
-              <span className="hidden sm:inline ml-1.5">Profiling</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Content List */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3 sm:space-y-4" style={{ minHeight: 0 }}>
-        {selectedCategory === 'studies' ? (
-          // Studies content
-          (() => {
-            const studies = selectedStudyType === 'forensic' 
-              ? mockForensicStudies 
-              : selectedStudyType === 'case-studies'
-              ? mockCaseStudies
-              : mockProfiling;
-            
-            return studies.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                No studies found
-              </div>
-            ) : (
-              studies.map((study) => (
-                <div
-                  key={study.id}
-                  className={`p-3 sm:p-4 sm:p-5 rounded-lg border-l-4 border-blue-500 ${
-                    theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-                  } shadow-sm hover:shadow-md transition-shadow`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-2 sm:gap-0 mb-2 sm:mb-3">
-                    <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                      <span className="text-xl sm:text-2xl sm:text-3xl flex-shrink-0">
-                        {selectedStudyType === 'forensic' ? '🔬' : selectedStudyType === 'case-studies' ? '📋' : '🧠'}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-bold text-sm sm:text-base sm:text-lg dark:text-white break-words">{study.title}</h3>
-                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 break-words">
-                          📅 {study.date}
-                          {selectedStudyType === 'forensic' && ' • ' + (study as any).duration}
-                          {selectedStudyType === 'case-studies' && ' • ' + (study as any).cases}
-                          {selectedStudyType === 'profiling' && ' • ' + (study as any).profileType}
-                        </p>
-                      </div>
-                    </div>
-                    {selectedStudyType === 'forensic' && (
-                      <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 self-start sm:self-auto ${
-                        (study as any).difficulty === 'Advanced'
-                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                      }`}>
-                        {(study as any).difficulty}
-                      </span>
-                    )}
-                    {selectedStudyType === 'case-studies' && (
-                      <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 self-start sm:self-auto ${
-                        (study as any).status === 'Solved'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                      }`}>
-                        {(study as any).status}
-                      </span>
-                    )}
-                    {selectedStudyType === 'profiling' && (
-                      <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 self-start sm:self-auto bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-                        {(study as any).profileType}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs sm:text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words mb-1 sm:mb-2">
-                    {study.description}
-                  </p>
-                  {selectedStudyType === 'profiling' && (
-                    <p className="text-[10px] sm:text-xs sm:text-sm text-gray-600 dark:text-gray-400 italic">
-                      Examples: {(study as any).examples}
-                    </p>
-                  )}
-                </div>
-              ))
-            );
-          })()
-        ) : filteredMysteries.length === 0 ? (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            No mysteries found in this category
-          </div>
-        ) : (
-          filteredMysteries.map((mystery) => (
-            <div
-              key={mystery.id}
-              className={`p-3 sm:p-4 sm:p-5 rounded-lg border-l-4 ${
-                mystery.category === 'paranormal'
-                  ? 'border-purple-500'
-                  : mystery.category === 'urban-legend'
-                  ? 'border-blue-500'
-                  : 'border-orange-500'
-              } ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-sm hover:shadow-md transition-shadow`}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-2 sm:gap-0 mb-2 sm:mb-3">
-                <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                  <span className="text-xl sm:text-2xl sm:text-3xl flex-shrink-0">{getCategoryIcon(mystery.category)}</span>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-sm sm:text-base sm:text-lg dark:text-white break-words">{mystery.title}</h3>
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 break-words">
-                      📍 {mystery.location} • 📅 {mystery.date}
-                    </p>
-                  </div>
-                </div>
-                <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 self-start sm:self-auto ${getCredibilityColor(mystery.credibility)}`}>
-                  {mystery.credibility}
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed break-words">{mystery.description}</p>
+      <div className="relative z-10 flex h-full flex-col">
+        <header className="game-header flex-shrink-0 border-b border-white/5 px-3 py-3 sm:px-5 sm:py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-serpico-blue/80">
+                Serpico Desk
+              </p>
+              <h1 className="font-display text-2xl font-bold tracking-wide text-serpico-red sm:text-3xl">
+                Mysteries
+              </h1>
+              <p className={`mt-1 max-w-xl text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Live US missing persons, cold cases, unsolved crimes, and suspects on the run —
+                AI-sourced from recent news.
+              </p>
             </div>
-          ))
-        )}
+            <button
+              type="button"
+              onClick={loadAll}
+              className="rounded-xl border border-serpico-blue/40 bg-serpico-blue/10 px-3 py-2 text-xs font-semibold text-serpico-blue transition hover:bg-serpico-blue/20"
+            >
+              Refresh
+            </button>
+          </div>
+
+          {status && (
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span className="rounded-full border border-white/10 bg-black/25 px-2.5 py-1 text-gray-300">
+                {status.caseCount}/50 cases · next {relativeRefresh(status.casesNextRefresh)}
+              </span>
+              <span className="rounded-full border border-white/10 bg-black/25 px-2.5 py-1 text-gray-300">
+                Briefing {relativeRefresh(status.briefingNextRefresh)}
+              </span>
+              {(status.casesRefreshing || status.briefingRefreshing) && (
+                <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-amber-200">
+                  AI scanning news…
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            {tabs.map((tab) => {
+              const active = mainTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setMainTab(tab.id)}
+                  className={`min-w-[7.5rem] flex-shrink-0 rounded-2xl border px-3 py-2.5 text-left transition ${
+                    active
+                      ? 'border-serpico-red/50 bg-serpico-red/15 shadow-[0_0_24px_rgba(255,43,214,0.25)]'
+                      : 'border-white/10 bg-black/20 hover:border-white/25'
+                  }`}
+                >
+                  <div className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-300'}`}>
+                    {tab.label}
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-gray-400">{tab.hint}</div>
+                </button>
+              );
+            })}
+          </div>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
+          {error && (
+            <div className="mb-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          {loading && cases.length === 0 && briefings.length === 0 ? (
+            <div className="flex h-48 items-center justify-center text-sm text-gray-400">
+              Loading Mysteries desk…
+            </div>
+          ) : null}
+
+          {mainTab === 'cases' && (
+            <div className="space-y-3">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {CASE_FILTERS.map((f) => {
+                  const active = caseFilter === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setCaseFilter(f.id)}
+                      className={`flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                        active ? 'text-black' : 'border border-white/10 bg-black/25 text-gray-300'
+                      }`}
+                      style={active ? { backgroundColor: f.accent } : undefined}
+                    >
+                      {f.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {filteredCases.length === 0 && !loading ? (
+                <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-center text-sm text-gray-400">
+                  No cases yet — AI is gathering recent US missing-person and cold-case news.
+                  This feed refreshes every 2 hours (max 50).
+                </div>
+              ) : (
+                filteredCases.map((item, idx) => {
+                  const meta = categoryMeta(item.category);
+                  return (
+                    <article
+                      key={item.id}
+                      className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-4 backdrop-blur-sm transition hover:border-serpico-blue/40"
+                      style={{
+                        animation: `mysteryFadeIn 420ms ease ${Math.min(idx, 8) * 40}ms both`,
+                      }}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 w-1"
+                        style={{ background: meta.color }}
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                          style={{ color: meta.color, background: meta.bg }}
+                        >
+                          {meta.label}
+                        </span>
+                        {item.status && (
+                          <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-gray-300">
+                            {item.status}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-gray-500">{item.date}</span>
+                      </div>
+                      <h2 className="mt-2 font-display text-base font-semibold leading-snug text-white sm:text-lg">
+                        {item.title}
+                      </h2>
+                      <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-gray-400">
+                        <span>📍 {item.location || 'United States'}</span>
+                        {item.sourceName && <span>📰 {item.sourceName}</span>}
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-gray-300">{item.summary}</p>
+                      {item.sourceUrl && (
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-3 inline-flex text-xs font-semibold text-serpico-blue hover:underline"
+                        >
+                          Open source →
+                        </a>
+                      )}
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {mainTab === 'briefings' && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-serpico-blue/25 bg-gradient-to-br from-serpico-blue/10 via-black/30 to-purple-900/20 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-serpico-blue">
+                      Read-only · AI authored
+                    </p>
+                    <h2 className="mt-1 font-display text-lg font-bold text-white">
+                      {latestBriefing?.title || 'Awaiting first briefing'}
+                    </h2>
+                  </div>
+                  <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-gray-400">
+                    {formatWhen(latestBriefing?.createdAt || status?.briefingLastRefresh)}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-gray-400">
+                  Users cannot edit this feed. AI web-searches cases and posts a new briefing every hour.
+                </p>
+              </div>
+
+              {!latestBriefing && !loading ? (
+                <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-center text-sm text-gray-400">
+                  No briefing yet. The desk will publish once news scan completes.
+                </div>
+              ) : null}
+
+              {(briefings.length ? briefings : latestBriefing ? [latestBriefing] : []).map((b) => (
+                <article
+                  key={b.id}
+                  className="rounded-2xl border border-white/10 bg-black/35 p-4 sm:p-5"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3 className="font-display text-base font-semibold text-white">{b.title}</h3>
+                    <span className="text-[10px] text-gray-500">{formatWhen(b.createdAt)}</span>
+                  </div>
+                  <ChatMarkdown content={b.bodyMd} size="sm" />
+                  {b.sources?.length > 0 && (
+                    <div className="mt-4 border-t border-white/10 pt-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                        Sources
+                      </p>
+                      <ul className="space-y-1">
+                        {b.sources.slice(0, 6).map((src) => (
+                          <li key={src}>
+                            <a
+                              href={src}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="break-all text-xs text-serpico-blue hover:underline"
+                            >
+                              {src}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+
+          {mainTab === 'insights' && (
+            <div className="space-y-4">
+              <form
+                onSubmit={onSubmitInsight}
+                className="rounded-2xl border border-serpico-red/25 bg-gradient-to-br from-serpico-red/10 via-black/35 to-black/20 p-4"
+              >
+                <h2 className="font-display text-lg font-bold text-white">Share an insight</h2>
+                <p className="mt-1 text-xs text-gray-400">
+                  Tips are AI fact-checked before posting. Paranormal claims, conspiracies, and unverifiable
+                  rumors are rejected.
+                </p>
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="block text-xs text-gray-400">
+                    Name
+                    <input
+                      value={form.authorName}
+                      onChange={(e) => setForm((f) => ({ ...f, authorName: e.target.value }))}
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-serpico-blue/50"
+                      placeholder="Officer name"
+                    />
+                  </label>
+                  <label className="block text-xs text-gray-400">
+                    Category
+                    <select
+                      value={form.category}
+                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-serpico-blue/50"
+                    >
+                      <option value="missing_person">Missing person</option>
+                      <option value="cold_case">Cold case</option>
+                      <option value="unsolved_crime">Unsolved crime</option>
+                      <option value="fugitive">Fugitive / on the run</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label className="mt-3 block text-xs text-gray-400">
+                  Title
+                  <input
+                    value={form.title}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-serpico-blue/50"
+                    placeholder="Short tip headline"
+                    maxLength={160}
+                    required
+                  />
+                </label>
+
+                <label className="mt-3 block text-xs text-gray-400">
+                  Insight
+                  <textarea
+                    value={form.body}
+                    onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
+                    className="mt-1 min-h-[110px] w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-serpico-blue/50"
+                    placeholder="Share a useful, verifiable lead or investigative note…"
+                    maxLength={2000}
+                    required
+                  />
+                </label>
+
+                {submitMsg && (
+                  <div
+                    className={`mt-3 rounded-xl border px-3 py-2 text-xs ${
+                      submitMsg.ok
+                        ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                        : 'border-amber-400/30 bg-amber-500/10 text-amber-100'
+                    }`}
+                  >
+                    {submitMsg.text}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="mt-3 rounded-xl bg-serpico-red px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(255,43,214,0.35)] transition hover:brightness-110 disabled:opacity-60"
+                >
+                  {submitting ? 'Fact-checking…' : 'Submit for AI fact-check'}
+                </button>
+              </form>
+
+              <div className="space-y-3">
+                {insights.length === 0 && !loading ? (
+                  <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-center text-sm text-gray-400">
+                    No verified insights yet. Be the first to share a useful tip.
+                  </div>
+                ) : (
+                  insights.map((insight) => {
+                    const meta = categoryMeta(insight.category);
+                    return (
+                      <article
+                        key={insight.id}
+                        className="rounded-2xl border border-white/10 bg-black/30 p-4"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
+                            style={{ color: meta.color, background: meta.bg }}
+                          >
+                            {meta.label}
+                          </span>
+                          <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-200">
+                            AI verified
+                          </span>
+                          <span className="text-[10px] text-gray-500">{formatWhen(insight.createdAt)}</span>
+                        </div>
+                        <h3 className="mt-2 font-display text-base font-semibold text-white">
+                          {insight.title}
+                        </h3>
+                        <p className="mt-1 text-xs text-gray-500">by {insight.authorName}</p>
+                        <p className="mt-2 text-sm leading-relaxed text-gray-300">{insight.body}</p>
+                        {insight.factCheckNotes && (
+                          <p className="mt-2 text-[11px] italic text-gray-500">
+                            Fact-check: {insight.factCheckNotes}
+                          </p>
+                        )}
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className={`p-2 sm:p-3 sm:p-4 border-t flex-shrink-0 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 text-center">
-          💬 Open AI Chat to explore mysteries and get detailed information
-        </p>
-      </div>
+      <style>{`
+        @keyframes mysteryFadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 };
 
 export default Mysteries;
-
