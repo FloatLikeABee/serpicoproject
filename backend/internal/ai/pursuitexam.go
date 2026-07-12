@@ -21,11 +21,11 @@ const (
 	policePursuitMultiplier = 1.0
 	pursuitClosureBoost  = 1.1
 	pursuitRouteRebuildM = 80.0
-	fleetTotalMin        = 3
-	fleetTotalMax        = 5
+	fleetTotalMin        = 8
+	fleetTotalMax        = 12
 	minPerpPoliceSpawnM  = 600.0
 	minPerpDestDistanceM = 6000.0
-	minVehicleSpawnSepM  = 2800.0
+	minVehicleSpawnSepM  = 900.0
 	destArrivalM         = 40.0
 	roadGridStep         = 0.0002
 )
@@ -250,7 +250,22 @@ func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSe
 
 func randomFleetCounts() (policeCount, perpCount int) {
 	total := fleetTotalMin + rand.Intn(fleetTotalMax-fleetTotalMin+1)
-	policeCount = 1 + rand.Intn(total-1)
+	minPolice := 3
+	if minPolice > total-2 {
+		minPolice = 1
+	}
+	maxPolice := int(math.Ceil(float64(total) * 0.6))
+	if maxPolice < minPolice {
+		maxPolice = minPolice
+	}
+	if maxPolice > total-2 {
+		maxPolice = total - 2
+	}
+	if maxPolice < minPolice {
+		policeCount = 1 + rand.Intn(total-1)
+	} else {
+		policeCount = minPolice + rand.Intn(maxPolice-minPolice+1)
+	}
 	perpCount = total - policeCount
 	return policeCount, perpCount
 }
@@ -630,6 +645,10 @@ func spreadAnchors() []LatLng {
 	latMin, latMax, lngMin, lngMax := olatheMapBounds()
 	latMid := (latMin + latMax) / 2
 	lngMid := (lngMin + lngMax) / 2
+	latQ1 := latMin + (latMax-latMin)*0.25
+	latQ3 := latMin + (latMax-latMin)*0.75
+	lngQ1 := lngMin + (lngMax-lngMin)*0.25
+	lngQ3 := lngMin + (lngMax-lngMin)*0.75
 	anchors := []LatLng{
 		{Lat: latMin, Lng: lngMin},
 		{Lat: latMin, Lng: lngMax},
@@ -639,6 +658,14 @@ func spreadAnchors() []LatLng {
 		{Lat: latMid, Lng: lngMax},
 		{Lat: latMin, Lng: lngMid},
 		{Lat: latMax, Lng: lngMid},
+		{Lat: latQ1, Lng: lngQ1},
+		{Lat: latQ1, Lng: lngQ3},
+		{Lat: latQ3, Lng: lngQ1},
+		{Lat: latQ3, Lng: lngQ3},
+		{Lat: latMid, Lng: lngMid},
+		{Lat: latQ1, Lng: lngMid},
+		{Lat: latQ3, Lng: lngMid},
+		{Lat: latMid, Lng: lngQ1},
 	}
 	for i := range anchors {
 		anchors[i] = snapToRoadGrid(anchors[i])

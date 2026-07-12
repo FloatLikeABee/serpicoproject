@@ -82,31 +82,57 @@ const Mysteries: React.FC = () => {
     category: 'missing_person',
   });
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
+  const applyPayload = useCallback((
+    casesRes: { cases: MysteryCase[]; status: MysteriesStatus },
+    briefRes: { briefings: MysteryBriefing[]; latest: MysteryBriefing | null; status: MysteriesStatus },
+    insightRes: { insights: MysteryInsight[] }
+  ) => {
+    setCases(casesRes.cases || []);
+    setStatus(casesRes.status || briefRes.status);
+    setBriefings(briefRes.briefings || []);
+    setLatestBriefing(briefRes.latest);
+    setInsights(insightRes.insights || []);
+  }, []);
+
+  const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setError('');
     try {
-      const [casesRes, briefRes, insightRes] = await Promise.all([
+      let [casesRes, briefRes, insightRes] = await Promise.all([
         mysteriesAPI.listCases(caseFilter),
         mysteriesAPI.listBriefings(),
         mysteriesAPI.listInsights(),
       ]);
-      setCases(casesRes.cases || []);
-      setStatus(casesRes.status || briefRes.status);
-      setBriefings(briefRes.briefings || []);
-      setLatestBriefing(briefRes.latest);
-      setInsights(insightRes.insights || []);
+
+      // If the desk is still empty (bootstrap / news scan), kick a refresh and poll briefly.
+      if ((casesRes.cases || []).length === 0) {
+        try {
+          await mysteriesAPI.refreshCases();
+        } catch {
+          /* ignore */
+        }
+        for (let i = 0; i < 6; i++) {
+          await new Promise((r) => setTimeout(r, 2500));
+          casesRes = await mysteriesAPI.listCases(caseFilter);
+          if ((casesRes.cases || []).length > 0) {
+            briefRes = await mysteriesAPI.listBriefings();
+            break;
+          }
+        }
+      }
+
+      applyPayload(casesRes, briefRes, insightRes);
     } catch (err) {
       console.error(err);
       setError('Unable to reach the Board desk. Check backend connection.');
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
-  }, [caseFilter]);
+  }, [applyPayload, caseFilter]);
 
   useEffect(() => {
     loadAll();
-    const id = window.setInterval(loadAll, 5 * 60 * 1000);
+    const id = window.setInterval(() => loadAll({ silent: true }), 5 * 60 * 1000);
     return () => window.clearInterval(id);
   }, [loadAll]);
 
@@ -120,6 +146,8 @@ const Mysteries: React.FC = () => {
     if (caseFilter === 'all') return cases;
     return cases.filter((c) => c.category === caseFilter);
   }, [cases, caseFilter]);
+
+  const showOverlay = loading;
 
   const onSubmitInsight = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,9 +183,9 @@ const Mysteries: React.FC = () => {
   };
 
   const tabs: Array<{ id: MainTab; label: string; hint: string }> = [
-    { id: 'cases', label: 'Case Feed', hint: 'Missing · Cold · Unsolved · Fugitives' },
-    { id: 'briefings', label: 'AI Briefings', hint: 'Auto-updated every hour' },
-    { id: 'insights', label: 'Officer Insights', hint: 'AI fact-checked tips' },
+    { id: 'cases', label: 'Case Feed', hint: 'Missing · Cold · Unsolved' },
+    { id: 'briefings', label: 'AI Briefings', hint: 'Updates hourly' },
+    { id: 'insights', label: 'Insights', hint: 'Fact-checked tips' },
   ];
 
   return (
@@ -169,6 +197,18 @@ const Mysteries: React.FC = () => {
             'radial-gradient(ellipse at 10% -10%, rgba(255,43,214,0.22), transparent 45%), radial-gradient(ellipse at 90% 0%, rgba(0,245,255,0.16), transparent 40%), radial-gradient(ellipse at 50% 100%, rgba(123,47,247,0.18), transparent 50%)',
         }}
       />
+
+      {showOverlay && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#07050f]/85 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-serpico-blue/30 bg-black/60 px-6 py-8 text-center shadow-[0_0_40px_rgba(0,245,255,0.15)]">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-serpico-blue/30 border-t-serpico-blue" />
+            <p className="font-display text-sm font-semibold tracking-wide text-white">Loading Board</p>
+            <p className="mt-2 text-xs text-gray-400">
+              Scanning recent US missing-person, cold-case, and fugitive news…
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10 flex h-full flex-col">
         <header className="game-header flex-shrink-0 border-b border-white/5 px-3 py-3 sm:px-5 sm:py-4">
@@ -187,7 +227,7 @@ const Mysteries: React.FC = () => {
             </div>
             <button
               type="button"
-              onClick={loadAll}
+              onClick={() => loadAll()}
               className="rounded-xl border border-serpico-blue/40 bg-serpico-blue/10 px-3 py-2 text-xs font-semibold text-serpico-blue transition hover:bg-serpico-blue/20"
             >
               Refresh
@@ -210,7 +250,7 @@ const Mysteries: React.FC = () => {
             </div>
           )}
 
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          <div className="mt-4 flex w-full gap-2">
             {tabs.map((tab) => {
               const active = mainTab === tab.id;
               return (
@@ -218,16 +258,16 @@ const Mysteries: React.FC = () => {
                   key={tab.id}
                   type="button"
                   onClick={() => setMainTab(tab.id)}
-                  className={`min-w-[7.5rem] flex-shrink-0 rounded-2xl border px-3 py-2.5 text-left transition ${
+                  className={`min-w-0 flex-1 rounded-2xl border px-2 py-2.5 text-center transition sm:px-3 ${
                     active
                       ? 'border-serpico-red/50 bg-serpico-red/15 shadow-[0_0_24px_rgba(255,43,214,0.25)]'
                       : 'border-white/10 bg-black/20 hover:border-white/25'
                   }`}
                 >
-                  <div className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-300'}`}>
+                  <div className={`truncate text-xs font-semibold sm:text-sm ${active ? 'text-white' : 'text-gray-300'}`}>
                     {tab.label}
                   </div>
-                  <div className="mt-0.5 text-[10px] text-gray-400">{tab.hint}</div>
+                  <div className="mt-0.5 truncate text-[9px] text-gray-400 sm:text-[10px]">{tab.hint}</div>
                 </button>
               );
             })}
@@ -241,15 +281,9 @@ const Mysteries: React.FC = () => {
             </div>
           )}
 
-          {loading && cases.length === 0 && briefings.length === 0 ? (
-            <div className="flex h-48 items-center justify-center text-sm text-gray-400">
-              Loading Board desk…
-            </div>
-          ) : null}
-
           {mainTab === 'cases' && (
             <div className="space-y-3">
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex w-full gap-1.5 sm:gap-2">
                 {CASE_FILTERS.map((f) => {
                   const active = caseFilter === f.id;
                   return (
@@ -257,7 +291,7 @@ const Mysteries: React.FC = () => {
                       key={f.id}
                       type="button"
                       onClick={() => setCaseFilter(f.id)}
-                      className={`flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      className={`min-w-0 flex-1 truncate rounded-full px-1.5 py-1.5 text-center text-[10px] font-semibold transition sm:px-3 sm:text-xs ${
                         active ? 'text-black' : 'border border-white/10 bg-black/25 text-gray-300'
                       }`}
                       style={active ? { backgroundColor: f.accent } : undefined}

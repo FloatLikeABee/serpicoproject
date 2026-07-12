@@ -108,12 +108,12 @@ export interface SimSession {
 }
 
 /** Total vehicles on the map each round (police + suspects), both factions present. */
-export const FLEET_TOTAL_MIN = 3;
-export const FLEET_TOTAL_MAX = 5;
+export const FLEET_TOTAL_MIN = 8;
+export const FLEET_TOTAL_MAX = 12;
 
 function randomFleetCounts(): { policeCount: number; perpCount: number } {
   const total = randInt(FLEET_TOTAL_MIN, FLEET_TOTAL_MAX);
-  const policeCount = randInt(1, total - 1);
+  const policeCount = randInt(Math.max(3, Math.floor(total / 3)), Math.min(total - 2, Math.ceil(total * 0.6)));
   return { policeCount, perpCount: total - policeCount };
 }
 /** Real mph on the map — no arcade speed multiplier. */
@@ -130,7 +130,7 @@ const ROAD_GRID_STEP = 0.0002;
 const PURSUIT_ROUTE_REBUILD_M = 220;
 const PURSUIT_TARGET_LOOKAHEAD_M = 220;
 const PURSUIT_TAIL_JOIN_M = 450;
-const MIN_VEHICLE_SPAWN_SEP_M = 2800;
+const MIN_VEHICLE_SPAWN_SEP_M = 900;
 
 const PATROL_CRUISE_MPH = 28;
 const PERP_CRUISE_MPH = 30;
@@ -169,6 +169,10 @@ const policeFleet: FleetSpec[] = [
   { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 78 },
   { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 85 },
   { model: 'Ram 1500 Special Service', ratedMaxMph: 115, pursuitMph: 80 },
+  { model: 'Chevy Caprice PPV', ratedMaxMph: 130, pursuitMph: 86 },
+  { model: 'Dodge Durango Pursuit', ratedMaxMph: 125, pursuitMph: 84 },
+  { model: 'Ford Explorer Hybrid PIU', ratedMaxMph: 136, pursuitMph: 87 },
+  { model: 'BMW R1250RT-P Motorcycle', ratedMaxMph: 120, pursuitMph: 90 },
 ];
 
 const perpFleet: FleetSpec[] = [
@@ -177,16 +181,23 @@ const perpFleet: FleetSpec[] = [
   { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 78 },
   { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 58 },
   { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 70 },
+  { model: 'Blue Nissan Altima', ratedMaxMph: 125, fleeMph: 71 },
+  { model: 'White Chevy Suburban', ratedMaxMph: 112, fleeMph: 65 },
+  { model: 'Silver Mazda CX-5', ratedMaxMph: 120, fleeMph: 69 },
+  { model: 'Black BMW 3 Series', ratedMaxMph: 145, fleeMph: 76 },
+  { model: 'Green Jeep Wrangler', ratedMaxMph: 105, fleeMph: 62 },
 ];
 
 const perpNames = [
   'Subject Alpha', 'Subject Bravo', 'Subject Charlie', 'Subject Delta',
   'Subject Echo', 'Subject Foxtrot', 'Subject Ghost', 'Subject Havoc', 'Subject Ion',
+  'Subject Joker', 'Subject Kilo', 'Subject Lynx',
 ];
 
 const officerNames = [
   'Martinez', 'Chen', 'Johnson', 'Williams', 'Patel', 'Garcia',
   'Thompson', 'Davis', 'Wilson', 'Anderson', 'Lee', 'Brown',
+  'Nguyen', 'Rivera', 'Kim', 'Foster',
 ];
 
 function rand(min: number, max: number) {
@@ -531,6 +542,10 @@ function spreadAnchors(): SimLatLng[] {
   const { latMin, latMax, lngMin, lngMax } = OlatheBounds;
   const latMid = (latMin + latMax) / 2;
   const lngMid = (lngMin + lngMax) / 2;
+  const latQ1 = latMin + (latMax - latMin) * 0.25;
+  const latQ3 = latMin + (latMax - latMin) * 0.75;
+  const lngQ1 = lngMin + (lngMax - lngMin) * 0.25;
+  const lngQ3 = lngMin + (lngMax - lngMin) * 0.75;
   return [
     { lat: latMin, lng: lngMin },
     { lat: latMin, lng: lngMax },
@@ -540,17 +555,19 @@ function spreadAnchors(): SimLatLng[] {
     { lat: latMid, lng: lngMax },
     { lat: latMin, lng: lngMid },
     { lat: latMax, lng: lngMid },
+    { lat: latQ1, lng: lngQ1 },
+    { lat: latQ1, lng: lngQ3 },
+    { lat: latQ3, lng: lngQ1 },
+    { lat: latQ3, lng: lngQ3 },
+    { lat: latMid, lng: lngMid },
+    { lat: latQ1, lng: lngMid },
+    { lat: latQ3, lng: lngMid },
+    { lat: latMid, lng: lngQ1 },
   ].map(snapToRoad);
 }
 
 function mapCorners(): SimLatLng[] {
-  const { latMin, latMax, lngMin, lngMax } = OlatheBounds;
-  return [
-    { lat: latMin, lng: lngMin },
-    { lat: latMin, lng: lngMax },
-    { lat: latMax, lng: lngMin },
-    { lat: latMax, lng: lngMax },
-  ].map(snapToRoad);
+  return spreadAnchors().slice(0, 8);
 }
 
 function pickSpreadAnchors(count: number, avoid: SimLatLng[] = []): SimLatLng[] {
@@ -568,12 +585,20 @@ function pickSpreadAnchors(count: number, avoid: SimLatLng[] = []): SimLatLng[] 
     if (picked.some((p) => p.lat === anchor.lat && p.lng === anchor.lng)) continue;
     picked.push(anchor);
   }
+  while (picked.length < count) {
+    picked.push(
+      snapToRoad({
+        lat: rand(OlatheBounds.latMin, OlatheBounds.latMax),
+        lng: rand(OlatheBounds.lngMin, OlatheBounds.lngMax),
+      })
+    );
+  }
   return picked.slice(0, count);
 }
 
-/** Suspects always spawn on map corners so they start maximally apart. */
+/** Suspects spawn across spread anchors so larger fleets stay apart. */
 function pickPerpSpreadSpawns(count: number): SimLatLng[] {
-  return shuffleInPlace([...mapCorners()]).slice(0, count);
+  return pickSpreadAnchors(count);
 }
 
 function pickPerpDestination(from: SimLatLng, used: SimLatLng[] = []): SimLatLng {

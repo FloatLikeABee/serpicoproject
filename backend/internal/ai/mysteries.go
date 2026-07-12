@@ -85,11 +85,19 @@ func NewMysteriesService(db *sql.DB, ai *AIService) *MysteriesService {
 }
 
 func (s *MysteriesService) bootstrap() {
-	time.Sleep(2 * time.Second)
-	if err := s.RefreshCases(false); err != nil {
-		log.Printf("mysteries: initial cases refresh: %v", err)
+	time.Sleep(1500 * time.Millisecond)
+	for attempt := 1; attempt <= 4; attempt++ {
+		if err := s.RefreshCases(true); err != nil {
+			log.Printf("mysteries: initial cases refresh attempt %d: %v", attempt, err)
+			if seedErr := s.ensureStarterCases(); seedErr != nil {
+				log.Printf("mysteries: starter seed: %v", seedErr)
+			}
+			time.Sleep(time.Duration(attempt*3) * time.Second)
+			continue
+		}
+		break
 	}
-	if err := s.RefreshBriefing(false); err != nil {
+	if err := s.RefreshBriefing(true); err != nil {
 		log.Printf("mysteries: initial briefing refresh: %v", err)
 	}
 }
@@ -188,7 +196,8 @@ func (s *MysteriesService) searchNews(query string, limit int) ([]newsHit, error
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "SerpicoMysteries/1.0")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; SerpicoBoard/1.0; +https://serpico.onrender.com)")
+	req.Header.Set("Accept", "application/rss+xml, application/xml, text/xml, */*")
 
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -239,11 +248,13 @@ func stripHTML(s string) string {
 
 func (s *MysteriesService) gatherCaseNews() ([]newsHit, error) {
 	queries := []string{
-		`missing person United States when:2y`,
-		`"missing persons" OR "still missing" America OR USA when:2y`,
-		`cold case unsolved murder United States when:2y`,
-		`fugitive "on the run" OR "wanted suspect" United States when:1y`,
-		`unsolved crime OR "person of interest" police United States when:1y`,
+		`missing person United States`,
+		`missing persons America police`,
+		`cold case unsolved murder United States`,
+		`fugitive wanted "at large" United States`,
+		`unsolved crime police United States`,
+		`"NamUs" missing`,
+		`FBI most wanted United States`,
 	}
 
 	seen := map[string]bool{}
@@ -329,12 +340,23 @@ func (s *MysteriesService) RefreshCases(force bool) error {
 
 	hits, err := s.gatherCaseNews()
 	if err != nil {
-		return err
+		log.Printf("mysteries: news gather failed: %v", err)
+		if seedErr := s.ensureStarterCases(); seedErr != nil {
+			return fmt.Errorf("%v; seed failed: %w", err, seedErr)
+		}
+		s.mu.Lock()
+		s.casesLastRefresh = time.Now()
+		s.mu.Unlock()
+		return nil
 	}
 
 	cases, err := s.structureCases(hits)
-	if err != nil {
-		log.Printf("mysteries: AI structure failed, using raw headlines: %v", err)
+	if err != nil || len(cases) == 0 {
+		if err != nil {
+			log.Printf("mysteries: AI structure failed, using raw headlines: %v", err)
+		} else {
+			log.Printf("mysteries: AI returned no cases, using raw headlines")
+		}
 		cases = fallbackCasesFromHits(hits)
 	}
 
@@ -343,7 +365,13 @@ func (s *MysteriesService) RefreshCases(force bool) error {
 		cases = cases[:mysteryCasesMax]
 	}
 	if len(cases) == 0 {
-		return fmt.Errorf("no cases after structuring")
+		if seedErr := s.ensureStarterCases(); seedErr != nil {
+			return fmt.Errorf("no cases after structuring: %w", seedErr)
+		}
+		s.mu.Lock()
+		s.casesLastRefresh = time.Now()
+		s.mu.Unlock()
+		return nil
 	}
 
 	tx, err := s.db.Begin()
@@ -476,6 +504,26 @@ func parseRSSDate(raw string) string {
 
 func (s *MysteriesService) ListCases(category string) ([]MysteryCase, error) {
 	s.EnsureFresh()
+	list, err := s.queryCases(category)
+	if err != nil {
+		return nil, err
+	}
+	// First visitors often hit an empty DB while bootstrap is still running.
+	if len(list) == 0 {
+		_ = s.RefreshCases(true)
+		list, err = s.queryCases(category)
+		if err != nil {
+			return nil, err
+		}
+		if len(list) == 0 {
+			_ = s.ensureStarterCases()
+			list, err = s.queryCases(category)
+		}
+	}
+	return list, err
+}
+
+func (s *MysteriesService) queryCases(category string) ([]MysteryCase, error) {
 	q := `SELECT id, title, category, location, date, COALESCE(summary,''), COALESCE(status,''),
 		COALESCE(source_url,''), COALESCE(source_name,''), COALESCE(last_update,''), created_at, updated_at
 		FROM mystery_cases`
@@ -505,6 +553,63 @@ func (s *MysteriesService) ListCases(category string) ([]MysteryCase, error) {
 		list = append(list, c)
 	}
 	return list, nil
+}
+
+func (s *MysteriesService) ensureStarterCases() error {
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM mystery_cases`).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	starters := []structuredCase{
+		{
+			Title: "Active missing-person reports tracked nationwide",
+			Category: "missing_person", Location: "United States", Date: time.Now().UTC().Format("2006-01-02"),
+			Summary: "Police desks continue working recent missing-person cases across multiple states. Check NamUs and local PD bulletins for the latest confirmed updates.",
+			Status: "Missing", SourceURL: "https://www.namus.gov/", SourceName: "NamUs",
+		},
+		{
+			Title: "Cold case units reopen unsolved homicide files",
+			Category: "cold_case", Location: "United States", Date: time.Now().UTC().AddDate(0, -1, 0).Format("2006-01-02"),
+			Summary: "Investigators are applying modern DNA and genealogy methods to older unsolved murders. Agencies periodically release new public tips as forensic work advances.",
+			Status: "Cold Case", SourceURL: "https://www.fbi.gov/wanted", SourceName: "FBI",
+		},
+		{
+			Title: "Fugitives remain on federal and state wanted lists",
+			Category: "fugitive", Location: "United States", Date: time.Now().UTC().AddDate(0, 0, -7).Format("2006-01-02"),
+			Summary: "Multiple suspects wanted for violent crimes remain at large. Officers should review current FBI Most Wanted and state fugitive bulletins before patrol briefings.",
+			Status: "Wanted", SourceURL: "https://www.fbi.gov/wanted/topten", SourceName: "FBI Most Wanted",
+		},
+		{
+			Title: "Unsolved violent crimes still seeking public tips",
+			Category: "unsolved_crime", Location: "United States", Date: time.Now().UTC().AddDate(0, -2, 0).Format("2006-01-02"),
+			Summary: "Departments continue soliciting information on recent unsolved assaults and robberies. Tip lines and Crime Stoppers remain primary intake channels.",
+			Status: "Unsolved", SourceURL: "https://crimestoppersusa.org/", SourceName: "Crime Stoppers",
+		},
+	}
+
+	stmt, err := s.db.Prepare(`INSERT INTO mystery_cases
+		(id, title, category, location, date, summary, status, source_url, source_name, last_update, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, c := range starters {
+		id := "mc-seed-" + uuid.New().String()[:8]
+		if _, err := stmt.Exec(
+			id, c.Title, c.Category, c.Location, c.Date, c.Summary, c.Status,
+			c.SourceURL, c.SourceName, now, now, now,
+		); err != nil {
+			return err
+		}
+	}
+	log.Printf("mysteries: seeded %d starter cases", len(starters))
+	return nil
 }
 
 // --- Briefings (hourly AI digests) ---
