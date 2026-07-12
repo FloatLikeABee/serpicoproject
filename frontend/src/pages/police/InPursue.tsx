@@ -11,6 +11,7 @@ import {
   createSimSession,
   ensureRoadNetwork,
   resetActiveRound,
+  startNextRound,
   simSessionFromAPI,
   startPursuit,
   tickSimSession,
@@ -277,6 +278,19 @@ const InPursue: React.FC = () => {
     evaluatedRoundRef.current = null;
   }, []);
 
+  const handleStartNextRound = useCallback(() => {
+    const cur = sessionRef.current;
+    if (!cur || (cur.phase !== 'completed' && cur.phase !== 'cooldown')) return;
+    const next = startNextRound(cur);
+    setSession(next);
+    sessionRef.current = next;
+    setSelectedPoliceId(null);
+    setPursueModePoliceId(null);
+    pursueModeRef.current = null;
+    setAiEvaluation(null);
+    evaluatedRoundRef.current = null;
+  }, []);
+
   const caughtCount = perpUnits.filter((v) => v.status === 'caught').length;
   const activePursuits = policeUnits.filter((v) => v.status === 'pursuing').length;
   const downCount = policeUnits.filter((v) => v.status === 'down').length;
@@ -465,11 +479,23 @@ const InPursue: React.FC = () => {
                 <span className="text-neon-cyan">Suspects: {session.result.totalPerps}</span>
               </div>
 
-              {cooldownSecondsLeft > 0 && (
+              {cooldownSecondsLeft > 0 ? (
                 <p className="mt-4 text-center text-[10px] text-synth-muted font-mono uppercase">
-                  Next round in {formatTime(cooldownSecondsLeft)}
+                  Auto next round in {formatTime(cooldownSecondsLeft)}
+                </p>
+              ) : (
+                <p className="mt-4 text-center text-[10px] text-neon-green font-mono uppercase">
+                  Ready for next round
                 </p>
               )}
+
+              <button
+                type="button"
+                onClick={handleStartNextRound}
+                className="mt-3 w-full rounded-xl border border-serpico-blue/50 bg-serpico-blue/20 px-4 py-2.5 text-sm font-display font-bold uppercase tracking-wide text-serpico-blue transition hover:bg-serpico-blue/30"
+              >
+                {cooldownSecondsLeft > 0 ? 'Start next round now' : 'Start next round'}
+              </button>
             </div>
           </div>
         )}

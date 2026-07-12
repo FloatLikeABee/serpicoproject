@@ -12,6 +12,7 @@ import (
 
 const (
 	pursuitRoundDuration = 12 * time.Hour
+	pursuitCooldownDuration = 5 * time.Minute
 	pursuitCatchMeters   = 35.0
 	simMovementScale     = 1.0
 	patrolCruiseMph      = 28.0
@@ -459,7 +460,7 @@ func (s *PursuitExamService) finishRound(session *PursuitExamSession) {
 	session.Result = result
 	session.Phase = "completed"
 
-	cooldown := time.Now().Add(20 * time.Second)
+	cooldown := time.Now().Add(pursuitCooldownDuration)
 	session.CooldownEndsAt = &cooldown
 }
 
