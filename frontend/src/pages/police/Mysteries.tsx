@@ -105,19 +105,26 @@ const Mysteries: React.FC = () => {
       ]);
 
       // If the desk is still empty (bootstrap / news scan), kick a refresh and poll briefly.
-      if ((casesRes.cases || []).length === 0) {
+      const needCases = (casesRes.cases || []).length === 0;
+      const needBriefs = (briefRes.briefings || []).length === 0 && !briefRes.latest;
+      if (needCases || needBriefs) {
         try {
-          await mysteriesAPI.refreshCases();
+          if (needCases) await mysteriesAPI.refreshCases();
+          if (needBriefs) await mysteriesAPI.refreshBriefing();
         } catch {
           /* ignore */
         }
-        for (let i = 0; i < 6; i++) {
-          await new Promise((r) => setTimeout(r, 2500));
-          casesRes = await mysteriesAPI.listCases(caseFilter);
-          if ((casesRes.cases || []).length > 0) {
-            briefRes = await mysteriesAPI.listBriefings();
-            break;
-          }
+        for (let i = 0; i < 8; i++) {
+          await new Promise((r) => setTimeout(r, 2000));
+          const [c2, b2] = await Promise.all([
+            mysteriesAPI.listCases(caseFilter),
+            mysteriesAPI.listBriefings(),
+          ]);
+          casesRes = c2;
+          briefRes = b2;
+          const casesReady = (casesRes.cases || []).length > 0;
+          const briefsReady = (briefRes.briefings || []).length > 0 || !!briefRes.latest;
+          if ((!needCases || casesReady) && (!needBriefs || briefsReady)) break;
         }
       }
 
@@ -382,9 +389,23 @@ const Mysteries: React.FC = () => {
                 </p>
               </div>
 
-              {!latestBriefing && !loading ? (
+              {!latestBriefing && briefings.length === 0 && !loading ? (
                 <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-center text-sm text-gray-400">
-                  No briefing yet. The desk will publish once news scan completes.
+                  No briefing yet — tapping refresh or waiting a few seconds usually loads the desk digest.
+                  <button
+                    type="button"
+                    className="mt-3 block w-full rounded-xl border border-serpico-blue/40 bg-serpico-blue/10 px-3 py-2 text-xs font-semibold text-serpico-blue"
+                    onClick={async () => {
+                      try {
+                        await mysteriesAPI.refreshBriefing();
+                      } catch {
+                        /* ignore */
+                      }
+                      await loadAll();
+                    }}
+                  >
+                    Generate briefing now
+                  </button>
                 </div>
               ) : null}
 

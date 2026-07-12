@@ -86,6 +86,20 @@ func NewMysteriesService(db *sql.DB, ai *AIService) *MysteriesService {
 
 func (s *MysteriesService) bootstrap() {
 	time.Sleep(1500 * time.Millisecond)
+	// Briefings and cases can load in parallel — don't block briefings on case retries.
+	go func() {
+		for attempt := 1; attempt <= 3; attempt++ {
+			if err := s.RefreshBriefing(true); err != nil {
+				log.Printf("mysteries: initial briefing refresh attempt %d: %v", attempt, err)
+				_ = s.ensureStarterBriefing()
+				time.Sleep(time.Duration(attempt*2) * time.Second)
+				continue
+			}
+			return
+		}
+		_ = s.ensureStarterBriefing()
+	}()
+
 	for attempt := 1; attempt <= 4; attempt++ {
 		if err := s.RefreshCases(true); err != nil {
 			log.Printf("mysteries: initial cases refresh attempt %d: %v", attempt, err)
@@ -96,9 +110,6 @@ func (s *MysteriesService) bootstrap() {
 			continue
 		}
 		break
-	}
-	if err := s.RefreshBriefing(true); err != nil {
-		log.Printf("mysteries: initial briefing refresh: %v", err)
 	}
 }
 
@@ -634,15 +645,18 @@ func (s *MysteriesService) RefreshBriefing(force bool) error {
 	}()
 
 	queries := []string{
-		`missing person update United States when:7d`,
-		`cold case breakthrough OR arrest United States when:30d`,
-		`fugitive captured OR "still at large" United States when:14d`,
+		`missing person update United States`,
+		`cold case breakthrough United States`,
+		`fugitive captured OR "still at large" United States`,
+		`NamUs missing person`,
+		`FBI most wanted United States`,
 	}
 	var hits []newsHit
 	seen := map[string]bool{}
 	for _, q := range queries {
 		batch, err := s.searchNews(q, 10)
 		if err != nil {
+			log.Printf("mysteries: briefing search %q: %v", q, err)
 			continue
 		}
 		for _, h := range batch {
@@ -654,15 +668,17 @@ func (s *MysteriesService) RefreshBriefing(force bool) error {
 			hits = append(hits, h)
 		}
 	}
-	if len(hits) == 0 {
-		return fmt.Errorf("no briefing news")
-	}
-	if len(hits) > 20 {
-		hits = hits[:20]
-	}
 
-	payload, _ := json.Marshal(hits)
-	system := `You are Officer Serpico writing a confidential case briefing for police training.
+	// Prefer live news; if RSS is empty, synthesize from stored case cards.
+	var body, title string
+	var sources []string
+
+	if len(hits) > 0 {
+		if len(hits) > 16 {
+			hits = hits[:16]
+		}
+		payload, _ := json.Marshal(hits)
+		system := `You are Officer Serpico writing a confidential case briefing for police training.
 Using ONLY the provided news items about US missing persons, cold cases, unsolved crimes, and fugitives:
 Write a Markdown briefing with:
 # title line
@@ -673,48 +689,184 @@ Rules: no fabrication; cite outlet names inline; factual tone; no paranormal/con
 Also return a JSON block AFTER the markdown, separated by a line containing only ---JSON---
 JSON shape: {"title":"...","sources":["url1","url2"]}`
 
-	user := fmt.Sprintf("Write this hour's briefing from:\n%s", string(payload))
-	raw, err := s.generate(system, user)
-	if err != nil {
-		return err
+		user := fmt.Sprintf("Write this hour's briefing from:\n%s", string(payload))
+		raw, err := s.generate(system, user)
+		if err != nil {
+			log.Printf("mysteries: briefing AI failed, using template: %v", err)
+			title, body, sources = templateBriefingFromHits(hits)
+		} else {
+			var meta briefingMeta
+			body, meta = splitBriefing(raw)
+			title = meta.Title
+			sources = meta.Sources
+			if strings.TrimSpace(body) == "" {
+				title, body, sources = templateBriefingFromHits(hits)
+			}
+		}
+		if len(sources) == 0 {
+			for _, h := range hits {
+				if h.Link != "" {
+					sources = append(sources, h.Link)
+				}
+				if len(sources) >= 8 {
+					break
+				}
+			}
+		}
+	} else {
+		cases, _ := s.queryCases("all")
+		if len(cases) > 0 {
+			title, body, sources = templateBriefingFromCases(cases)
+		} else {
+			return s.ensureStarterBriefing()
+		}
 	}
 
-	body, meta := splitBriefing(raw)
-	title := meta.Title
 	if title == "" {
 		title = "Case Briefing — " + time.Now().UTC().Format("Jan 2, 2006 15:04 UTC")
 	}
-	sources := meta.Sources
-	if len(sources) == 0 {
-		for _, h := range hits {
-			if h.Link != "" {
-				sources = append(sources, h.Link)
-			}
-			if len(sources) >= 8 {
-				break
-			}
-		}
-	}
-	sourcesJSON, _ := json.Marshal(sources)
-	id := "mb-" + uuid.New().String()[:8]
-	now := time.Now().UTC().Format(time.RFC3339)
-	_, err = s.db.Exec(
-		`INSERT INTO mystery_briefings (id, title, body_md, sources_json, created_at) VALUES (?, ?, ?, ?, ?)`,
-		id, title, body, string(sourcesJSON), now,
-	)
-	if err != nil {
-		return err
+	if strings.TrimSpace(body) == "" {
+		return s.ensureStarterBriefing()
 	}
 
-	// Keep last 24 briefings
-	_, _ = s.db.Exec(`DELETE FROM mystery_briefings WHERE id NOT IN (
-		SELECT id FROM mystery_briefings ORDER BY created_at DESC LIMIT 24
-	)`)
+	if err := s.insertBriefing(title, body, sources); err != nil {
+		return err
+	}
 
 	s.mu.Lock()
 	s.briefingLastRefresh = time.Now()
 	s.mu.Unlock()
+	return nil
+}
+
+func (s *MysteriesService) insertBriefing(title, body string, sources []string) error {
+	if sources == nil {
+		sources = []string{}
+	}
+	sourcesJSON, _ := json.Marshal(sources)
+	id := "mb-" + uuid.New().String()[:8]
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := s.db.Exec(
+		`INSERT INTO mystery_briefings (id, title, body_md, sources_json, created_at) VALUES (?, ?, ?, ?, ?)`,
+		id, trim(title, 200), body, string(sourcesJSON), now,
+	); err != nil {
+		return err
+	}
+
+	// SQLite-safe prune: keep newest 24 via nested select.
+	_, _ = s.db.Exec(`DELETE FROM mystery_briefings WHERE id NOT IN (
+		SELECT id FROM (
+			SELECT id FROM mystery_briefings ORDER BY created_at DESC LIMIT 24
+		)
+	)`)
 	log.Printf("mysteries: new briefing %s", id)
+	return nil
+}
+
+func templateBriefingFromHits(hits []newsHit) (title, body string, sources []string) {
+	title = "Case Briefing — " + time.Now().UTC().Format("Jan 2, 2006 15:04 UTC")
+	var b strings.Builder
+	b.WriteString("# ")
+	b.WriteString(title)
+	b.WriteString("\n\n## Key Developments\n")
+	limit := len(hits)
+	if limit > 6 {
+		limit = 6
+	}
+	for i := 0; i < limit; i++ {
+		src := hits[i].Source
+		if src == "" {
+			src = "News"
+		}
+		b.WriteString(fmt.Sprintf("- **%s** — %s\n", src, hits[i].Title))
+		if hits[i].Link != "" {
+			sources = append(sources, hits[i].Link)
+		}
+	}
+	b.WriteString("\n## Cases to Watch\n")
+	for i := 0; i < limit && i < 4; i++ {
+		snippet := hits[i].Snippet
+		if snippet == "" {
+			snippet = hits[i].Title
+		}
+		b.WriteString(fmt.Sprintf("**%s.** %s\n\n", hits[i].Title, trim(snippet, 280)))
+	}
+	b.WriteString("## Officer Notes\n")
+	b.WriteString("Monitor missing-person, cold-case, and fugitive bulletins this hour. Cross-check tips against NamUs and current wanted lists before acting.\n")
+	return title, b.String(), sources
+}
+
+func templateBriefingFromCases(cases []MysteryCase) (title, body string, sources []string) {
+	title = "Desk Briefing — " + time.Now().UTC().Format("Jan 2, 2006 15:04 UTC")
+	var b strings.Builder
+	b.WriteString("# ")
+	b.WriteString(title)
+	b.WriteString("\n\n## Key Developments\n")
+	limit := len(cases)
+	if limit > 6 {
+		limit = 6
+	}
+	for i := 0; i < limit; i++ {
+		c := cases[i]
+		b.WriteString(fmt.Sprintf("- **%s** (%s) — %s\n", c.Title, c.Status, c.Location))
+		if c.SourceURL != "" {
+			sources = append(sources, c.SourceURL)
+		}
+	}
+	b.WriteString("\n## Cases to Watch\n")
+	for i := 0; i < limit && i < 4; i++ {
+		c := cases[i]
+		b.WriteString(fmt.Sprintf("**%s.** %s\n\n", c.Title, trim(c.Summary, 280)))
+	}
+	b.WriteString("## Officer Notes\n")
+	b.WriteString("These items are drawn from the live Board case feed. Refresh the Case Feed tab for source links and status updates.\n")
+	return title, b.String(), sources
+}
+
+func (s *MysteriesService) ensureStarterBriefing() error {
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM mystery_briefings`).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		s.mu.Lock()
+		if s.briefingLastRefresh.IsZero() {
+			s.briefingLastRefresh = time.Now()
+		}
+		s.mu.Unlock()
+		return nil
+	}
+
+	title := "Board Desk Online — Initial Briefing"
+	body := `# Board Desk Online — Initial Briefing
+
+## Key Developments
+- Board is scanning US missing-person, cold-case, unsolved-crime, and fugitive news.
+- Public tip channels (NamUs, Crime Stoppers, FBI Wanted) remain primary intake for actionable leads.
+- Cold-case units continue applying DNA / genetic genealogy where samples exist.
+- Fugitive bulletins should be reviewed at shift briefings.
+
+## Cases to Watch
+**Missing persons.** Prioritize recent disappearances with confirmed last-known locations and time windows under 72 hours.
+
+**Cold cases.** Watch for forensic updates that reopen older unsolved homicides.
+
+**Fugitives.** Cross-check local BOLO traffic against federal and state wanted lists.
+
+## Officer Notes
+This starter briefing appears when live news digest is still warming up. A fuller AI briefing will replace it on the next successful scan.
+`
+	sources := []string{
+		"https://www.namus.gov/",
+		"https://www.fbi.gov/wanted",
+		"https://crimestoppersusa.org/",
+	}
+	if err := s.insertBriefing(title, body, sources); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.briefingLastRefresh = time.Now()
+	s.mu.Unlock()
 	return nil
 }
 
@@ -730,6 +882,16 @@ func splitBriefing(raw string) (string, briefingMeta) {
 	if len(parts) > 1 {
 		_ = json.Unmarshal([]byte(extractJSONObject(parts[1])), &meta)
 	}
+	// If the model put a markdown H1 first, use it as title when JSON title missing.
+	if meta.Title == "" {
+		for _, line := range strings.Split(body, "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "# ") {
+				meta.Title = strings.TrimSpace(strings.TrimPrefix(line, "# "))
+				break
+			}
+		}
+	}
 	return body, meta
 }
 
@@ -738,6 +900,25 @@ func (s *MysteriesService) ListBriefings(limit int) ([]MysteryBriefing, error) {
 	if limit <= 0 || limit > 24 {
 		limit = 12
 	}
+	list, err := s.queryBriefings(limit)
+	if err != nil {
+		return nil, err
+	}
+	if len(list) == 0 {
+		_ = s.RefreshBriefing(true)
+		list, err = s.queryBriefings(limit)
+		if err != nil {
+			return nil, err
+		}
+		if len(list) == 0 {
+			_ = s.ensureStarterBriefing()
+			list, err = s.queryBriefings(limit)
+		}
+	}
+	return list, err
+}
+
+func (s *MysteriesService) queryBriefings(limit int) ([]MysteryBriefing, error) {
 	rows, err := s.db.Query(
 		`SELECT id, title, body_md, COALESCE(sources_json,'[]'), created_at
 		 FROM mystery_briefings ORDER BY created_at DESC LIMIT ?`, limit,
@@ -764,7 +945,7 @@ func (s *MysteriesService) ListBriefings(limit int) ([]MysteryBriefing, error) {
 }
 
 func (s *MysteriesService) LatestBriefing() (*MysteryBriefing, error) {
-	list, err := s.ListBriefings(1)
+	list, err := s.queryBriefings(1)
 	if err != nil {
 		return nil, err
 	}
