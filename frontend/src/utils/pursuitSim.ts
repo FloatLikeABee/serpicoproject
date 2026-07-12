@@ -121,6 +121,8 @@ export const SIM_MOVEMENT_SCALE = 1.0;
 
 export const ROUND_MS = 12 * 60 * 60 * 1000;
 export const ROUND_RESET_AVAILABLE_MS = 3 * 60 * 1000;
+/** Gap after a round ends before auto-start; user can also start manually sooner. */
+export const ROUND_COOLDOWN_MS = 5 * 60 * 1000;
 const CATCH_METERS = 55;
 const CATCH_CLOSE_METERS = 120;
 const DEST_ARRIVAL_M = 40;
@@ -865,6 +867,12 @@ export function resetActiveRound(session: SimSession): SimSession {
   return createSimSession(session.userId, session.round);
 }
 
+/** Start the next round immediately (after completed/cooldown), skipping remaining wait. */
+export function startNextRound(session: SimSession): SimSession {
+  if (session.phase !== 'completed' && session.phase !== 'cooldown') return session;
+  return createSimSession(session.userId, session.round + 1);
+}
+
 export function createSimSession(userId: string, round = 1): SimSession {
   const { policeCount, perpCount } = randomFleetCounts();
   const perpSpawns = pickPerpSpreadSpawns(perpCount);
@@ -1104,7 +1112,7 @@ function finishSimRound(session: SimSession): SimSession {
   return {
     ...session,
     phase: 'completed',
-    cooldownEndsAt: Date.now() + 20 * 1000,
+    cooldownEndsAt: Date.now() + ROUND_COOLDOWN_MS,
     result: (() => {
       const result = { outcome, caught, escaped, totalPerps: total, score, message, grade };
       return { ...result, stats: buildRoundStats(session, result) };
