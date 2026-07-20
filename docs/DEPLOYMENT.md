@@ -34,9 +34,12 @@ This guide explains how to deploy Serpico to Render as static sites (frontends) 
 2. Connect your repository
 3. Configure:
    - **Name**: `serpico-frontend`
+   - **Branch**: `main`
    - **Root Directory**: `frontend`
    - **Build Command**: `npm install && npm run build`
    - **Publish Directory**: `build`
+   - **Auto-Deploy**: On
+   - **Build Filters → Included Paths**: `frontend/**`
 4. Add Environment Variable:
    - `REACT_APP_API_URL` - `https://your-backend-url.onrender.com/api/v1`
    - Replace `your-backend-url` with your actual backend URL from step 1
@@ -44,17 +47,22 @@ This guide explains how to deploy Serpico to Render as static sites (frontends) 
 
 ### 3. Admin Frontend Deployment (Static Site)
 
-1. In Render dashboard, create a new **Static Site**
-2. Connect your repository
+1. In Render dashboard, create a new **Static Site** (or use the Blueprint `serpico-admin` service)
+2. Connect this monorepo
 3. Configure:
    - **Name**: `serpico-admin`
-   - **Root Directory**: `admin-frontend`
-   - **Build Command**: `npm install && npm run build`
+   - **Branch**: `main`
+   - **Root Directory**: `admin-frontend` (required for monorepo auto-deploy)
+   - **Build Command**: `npm install && npm run build` (no `cd`; Root Directory already scopes the build)
    - **Publish Directory**: `build`
+   - **Auto-Deploy**: On
+   - **Build Filters → Included Paths**: `admin-frontend/**`
 4. Add Environment Variable:
    - `REACT_APP_API_URL` - `https://your-backend-url.onrender.com/api/v1`
    - Replace `your-backend-url` with your actual backend URL from step 1
 5. Deploy
+
+If auto-deploy never fires for admin only, Root Directory / Build Filters are usually wrong, or Auto-Deploy is off — see Troubleshooting below.
 
 ### 4. Update Backend CORS
 
@@ -89,13 +97,26 @@ If you prefer using `render.yaml`:
 
 - Main Frontend: `https://serpico-frontend.onrender.com`
 - Admin Frontend: `https://serpico-admin.onrender.com`
+  - Login: username `g@transfdr`, password `eight88` (see `admin-frontend/README.md`)
+
 - Backend API: `https://serpico-backend.onrender.com`
 - Swagger UI: `https://serpico-backend.onrender.com/swagger/index.html`
 
 ## Troubleshooting
 
-- **Build fails**: Check Node.js version (Render uses Node 18+ by default)
+- **Admin (or any service) does not auto-deploy**
+  1. Auto-deploy only runs on pushes to the service’s linked branch (usually `main`). Merging the PR is required.
+  2. In Render → `serpico-admin` → **Settings** → **Build & Deploy**, confirm:
+     - **Auto-Deploy** is On (on commit)
+     - **Branch** is `main`
+     - **Root Directory** is `admin-frontend`
+     - **Build Filters → Included Paths** includes `admin-frontend/**`
+     - **Build Command** does **not** start with `cd admin-frontend` (commands already run inside Root Directory)
+     - **Publish Directory** is `./build`
+  3. If the service is managed by a Blueprint, open **Blueprints** and **Sync** after `render.yaml` changes (this file now sets `rootDir`, `autoDeployTrigger`, and `buildFilter` for admin).
+  4. Manual deploy always works: **Manual Deploy → Deploy latest commit**.
+- **Build fails**: Check Node.js version (Render uses Node 18+ by default). If Root Directory is set, paths in build/publish must be relative to that folder.
 - **CORS errors**: Verify backend CORS allows your frontend URLs
 - **API not found**: Check `REACT_APP_API_URL` is set correctly
-- **Routing issues**: Ensure `_redirects` files are in `public/` directories
+- **Routing issues**: Ensure `_redirects` / `404.html` SPA fallback is present in the publish output
 

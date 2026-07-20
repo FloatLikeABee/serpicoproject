@@ -175,13 +175,13 @@ const DataCollection: React.FC = () => {
   };
 
   return (
-    <div className="data-collection">
-      <header className="collection-header">
-        <button onClick={() => navigate('/')} className="back-button">
-          ← Back to Dashboard
+    <div className="admin-page data-collection">
+      <header className="admin-header-bar">
+        <button type="button" onClick={() => navigate('/')} className="btn btn-ghost">
+          ← Back
         </button>
-        <h1>Data Collection</h1>
-        <p>Collect data from web pages, APIs, or files and convert to RAG format</p>
+        <h1 className="neon-title">Data Collection</h1>
+        <p className="muted">Ingest from web, APIs, or files into RAG</p>
       </header>
 
       {message && (
@@ -192,32 +192,35 @@ const DataCollection: React.FC = () => {
 
       <div className="collection-tabs">
         <button
+          type="button"
           className={method === 'url' ? 'active' : ''}
           onClick={() => setMethod('url')}
         >
-          🌐 Web Crawling
+          Web
         </button>
         <button
+          type="button"
           className={method === 'api' ? 'active' : ''}
           onClick={() => setMethod('api')}
         >
-          🔌 API Collection
+          API
         </button>
         <button
+          type="button"
           className={method === 'file' ? 'active' : ''}
           onClick={() => setMethod('file')}
         >
-          📄 File Import
+          File
         </button>
       </div>
 
-      <div className="collection-content">
+      <div className="collection-content admin-panel">
         {method === 'url' && (
           <form onSubmit={handleUrlSubmit} className="collection-form">
-            <h2>Web Crawling</h2>
-            <p className="form-description">Enter a URL to crawl and extract content</p>
+            <h2>Web crawl</h2>
+            <p className="form-description muted">Enter a URL to extract content</p>
 
-            <div className="form-group">
+            <div className="field">
               <label>URL *</label>
               <input
                 type="url"
@@ -228,7 +231,7 @@ const DataCollection: React.FC = () => {
               />
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>Category</label>
               <input
                 type="text"
@@ -238,38 +241,37 @@ const DataCollection: React.FC = () => {
               />
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>Location (optional)</label>
               <input
                 type="text"
                 value={urlData.location}
                 onChange={(e) => setUrlData({ ...urlData, location: e.target.value })}
-                placeholder="e.g., Point Pleasant, WV"
               />
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>Tags (comma-separated)</label>
               <input
                 type="text"
                 value={urlData.tags}
                 onChange={(e) => setUrlData({ ...urlData, tags: e.target.value })}
-                placeholder="crime, statistics, news"
+                placeholder="crime, news"
               />
             </div>
 
-            <button type="submit" disabled={loading} className="submit-button">
-              {loading ? 'Collecting...' : 'Collect Data'}
+            <button type="submit" disabled={loading} className="btn btn-primary submit-button">
+              {loading ? 'Collecting…' : 'Collect'}
             </button>
           </form>
         )}
 
         {method === 'api' && (
           <form onSubmit={handleApiSubmit} className="collection-form">
-            <h2>API Collection</h2>
-            <p className="form-description">Configure API endpoint to fetch data</p>
+            <h2>API collection</h2>
+            <p className="form-description muted">Fetch data from an API endpoint</p>
 
-            <div className="form-group">
+            <div className="field">
               <label>API URL *</label>
               <input
                 type="url"
@@ -280,7 +282,7 @@ const DataCollection: React.FC = () => {
               />
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>HTTP Method</label>
               <select
                 value={apiData.method}
@@ -293,28 +295,28 @@ const DataCollection: React.FC = () => {
               </select>
             </div>
 
-            <div className="form-group">
-              <label>Headers (one per line, format: Key: Value)</label>
+            <div className="field">
+              <label>Headers (one per line: Key: Value)</label>
               <textarea
                 value={apiData.headers}
                 onChange={(e) => setApiData({ ...apiData, headers: e.target.value })}
-                placeholder="Authorization: Bearer token&#10;Content-Type: application/json"
+                placeholder="Authorization: Bearer token"
                 rows={4}
               />
             </div>
 
-            <div className="form-group">
-              <label>Query Parameters (one per line, format: key=value)</label>
+            <div className="field">
+              <label>Query params (one per line: key=value)</label>
               <textarea
                 value={apiData.queryParams}
                 onChange={(e) => setApiData({ ...apiData, queryParams: e.target.value })}
-                placeholder="page=1&#10;limit=100"
+                placeholder="page=1"
                 rows={3}
               />
             </div>
 
-            <div className="form-group">
-              <label>Data Path (JSON path to extract data, e.g., "data.items")</label>
+            <div className="field">
+              <label>Data path (e.g. data.items)</label>
               <input
                 type="text"
                 value={apiData.dataPath}
@@ -323,7 +325,7 @@ const DataCollection: React.FC = () => {
               />
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>Category</label>
               <input
                 type="text"
@@ -333,38 +335,36 @@ const DataCollection: React.FC = () => {
               />
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>Location (optional)</label>
               <input
                 type="text"
                 value={apiData.location}
                 onChange={(e) => setApiData({ ...apiData, location: e.target.value })}
-                placeholder="e.g., Point Pleasant, WV"
               />
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>Tags (comma-separated)</label>
               <input
                 type="text"
                 value={apiData.tags}
                 onChange={(e) => setApiData({ ...apiData, tags: e.target.value })}
-                placeholder="api, data, external"
               />
             </div>
 
-            <button type="submit" disabled={loading} className="submit-button">
-              {loading ? 'Collecting...' : 'Collect Data'}
+            <button type="submit" disabled={loading} className="btn btn-primary submit-button">
+              {loading ? 'Collecting…' : 'Collect'}
             </button>
           </form>
         )}
 
         {method === 'file' && (
           <form onSubmit={handleFileSubmit} className="collection-form">
-            <h2>File Import</h2>
-            <p className="form-description">Upload JSON, CSV, or TXT file to import data</p>
+            <h2>File import</h2>
+            <p className="form-description muted">Upload JSON, CSV, or TXT</p>
 
-            <div className="form-group">
+            <div className="field">
               <label>File *</label>
               <input
                 type="file"
@@ -372,10 +372,10 @@ const DataCollection: React.FC = () => {
                 onChange={(e) => setFileData({ ...fileData, file: e.target.files?.[0] || null })}
                 required
               />
-              <small>Supported formats: JSON, CSV, TXT</small>
+              <small className="muted">Supported: JSON, CSV, TXT</small>
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>Category</label>
               <input
                 type="text"
@@ -385,28 +385,26 @@ const DataCollection: React.FC = () => {
               />
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>Location (optional)</label>
               <input
                 type="text"
                 value={fileData.location}
                 onChange={(e) => setFileData({ ...fileData, location: e.target.value })}
-                placeholder="e.g., Point Pleasant, WV"
               />
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>Tags (comma-separated)</label>
               <input
                 type="text"
                 value={fileData.tags}
                 onChange={(e) => setFileData({ ...fileData, tags: e.target.value })}
-                placeholder="import, file, data"
               />
             </div>
 
-            <button type="submit" disabled={loading || !fileData.file} className="submit-button">
-              {loading ? 'Importing...' : 'Import File'}
+            <button type="submit" disabled={loading || !fileData.file} className="btn btn-primary submit-button">
+              {loading ? 'Importing…' : 'Import'}
             </button>
           </form>
         )}

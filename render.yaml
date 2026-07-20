@@ -1,37 +1,59 @@
+# Render Blueprint — monorepo services
+# After changing this file: Dashboard → Blueprints → Sync, or recreate from Blueprint.
+# Production auto-deploys only from the linked branch (usually `main`) after merge.
+
 services:
   # Main Frontend - Static Site
   - type: web
     name: serpico-frontend
     runtime: static
-    buildCommand: cd frontend && npm config set registry https://registry.npmjs.org/ && sed -i 's|https://r2\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && sed -i 's|https://r\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && npm install --registry=https://registry.npmjs.org/ && npm run build
-    staticPublishPath: ./frontend/build
+    rootDir: frontend
+    branch: main
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - frontend/**
+    buildCommand: npm config set registry https://registry.npmjs.org/ && sed -i 's|https://r2\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && sed -i 's|https://r\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && npm install --registry=https://registry.npmjs.org/ && npm run build
+    staticPublishPath: ./build
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
       - key: REACT_APP_API_URL
-        sync: false  # Set this in Render dashboard to your backend URL
+        sync: false  # Set in Render dashboard to your backend URL
 
   # Admin Frontend - Static Site
   - type: web
     name: serpico-admin
     runtime: static
-    buildCommand: cd admin-frontend && npm config set registry https://registry.npmjs.org/ && sed -i 's|https://r2\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && sed -i 's|https://r\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && npm install --registry=https://registry.npmjs.org/ && npm run build
-    staticPublishPath: ./admin-frontend/build
+    rootDir: admin-frontend
+    branch: main
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - admin-frontend/**
+    buildCommand: npm config set registry https://registry.npmjs.org/ && sed -i 's|https://r2\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && sed -i 's|https://r\.cnpmjs\.org|https://registry.npmjs.org|g' package-lock.json && npm install --registry=https://registry.npmjs.org/ && npm run build
+    staticPublishPath: ./build
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
       - key: REACT_APP_API_URL
-        sync: false  # Set this in Render dashboard to your backend URL
+        sync: false  # Set in Render dashboard to your backend URL
 
   # Backend - Web Service
   - type: web
     name: serpico-backend
-    env: go
-    buildCommand: cd backend && go mod download && go build -o serpico .
+    runtime: go
+    rootDir: backend
+    branch: main
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - backend/**
+    buildCommand: go mod download && go build -o serpico .
     startCommand: ./serpico
     envVars:
       - key: PORT
@@ -56,4 +78,3 @@ services:
         sync: false
       - key: REPLICATE_API_TOKEN
         sync: false
-
