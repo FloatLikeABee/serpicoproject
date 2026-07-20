@@ -16,7 +16,6 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      // Try backend login first
       const response = await adminAPI.login(username, password);
       if (response.data.success) {
         localStorage.setItem('adminAuth', 'true');
@@ -24,7 +23,6 @@ const Login: React.FC = () => {
         navigate('/');
       }
     } catch (err: any) {
-      // Fallback to client-side validation if backend fails
       if (username === 'g@transfdr' && password === 'eight88') {
         localStorage.setItem('adminAuth', 'true');
         localStorage.setItem('adminUser', username);
@@ -38,17 +36,18 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-box">
+    <div className="admin-page login-page">
+      <div className="login-box admin-panel">
         <div className="login-header">
-          <h1>Serpico Admin</h1>
-          <p>Backstage Management</p>
+          <p className="eyebrow">Serpico</p>
+          <h1 className="neon-title">Admin</h1>
+          <p className="muted">Sign in to continue</p>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="error-message">{error}</div>}
-          
-          <div className="form-group">
+
+          <div className="field">
             <label htmlFor="username">Username</label>
             <input
               id="username"
@@ -58,10 +57,11 @@ const Login: React.FC = () => {
               placeholder="Enter username"
               required
               autoFocus
+              autoComplete="username"
             />
           </div>
-          
-          <div className="form-group">
+
+          <div className="field">
             <label htmlFor="password">Password</label>
             <input
               id="password"
@@ -70,11 +70,12 @@ const Login: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
               required
+              autoComplete="current-password"
             />
           </div>
-          
-          <button type="submit" className="login-button" disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+
+          <button type="submit" className="btn btn-primary login-button" disabled={loading}>
+            {loading ? 'Signing in…' : 'Login'}
           </button>
         </form>
       </div>
@@ -83,4 +84,3 @@ const Login: React.FC = () => {
 };
 
 export default Login;
-

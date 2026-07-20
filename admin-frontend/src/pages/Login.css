@@ -1,23 +1,13 @@
-.login-container {
-  min-height: 100vh;
-  min-height: 100dvh;
+.login-page {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 1.25rem;
-  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
-  box-sizing: border-box;
 }
 
 .login-box {
-  background: white;
-  border-radius: 12px;
-  padding: 1.75rem 1.5rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   width: 100%;
   max-width: 400px;
-  box-sizing: border-box;
+  padding: 1.75rem 1.5rem;
 }
 
 .login-header {
@@ -25,16 +15,22 @@
   margin-bottom: 1.75rem;
 }
 
-.login-header h1 {
-  font-size: clamp(1.5rem, 5vw, 2rem);
-  color: #333;
+.login-header .eyebrow {
   margin: 0 0 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--magenta);
 }
 
-.login-header p {
-  color: #666;
+.login-header .neon-title {
+  font-size: clamp(1.6rem, 5vw, 2rem);
+}
+
+.login-header .muted {
+  margin: 0.4rem 0 0;
   font-size: 0.95rem;
-  margin: 0;
 }
 
 .login-form {
@@ -42,73 +38,23 @@
   flex-direction: column;
 }
 
-.form-group {
-  margin-bottom: 1.25rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.45rem;
-  color: #333;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 0.8rem 0.75rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 16px;
-  transition: border-color 0.3s;
-  box-sizing: border-box;
-  min-height: 48px;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
 .error-message {
-  background: #fee;
-  color: #c33;
+  background: rgba(255, 43, 214, 0.12);
+  color: #ff9ae6;
   padding: 0.75rem;
   border-radius: 6px;
   margin-bottom: 1rem;
   font-size: 0.9rem;
-  border: 1px solid #fcc;
+  border: 1px solid rgba(255, 43, 214, 0.35);
 }
 
 .login-button {
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 0.85rem 1.5rem;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.3s;
-  margin-top: 0.35rem;
-  min-height: 48px;
-}
-
-.login-button:hover:not(:disabled) {
-  background: #5568d3;
-}
-
-.login-button:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.login-button:disabled {
-  opacity: 0.7;
-  cursor: wait;
+  width: 100%;
+  margin-top: 0.25rem;
 }
 
 @media (min-width: 480px) {
   .login-box {
-    padding: 2.5rem 3rem;
+    padding: 2.25rem 2.5rem;
   }
 }

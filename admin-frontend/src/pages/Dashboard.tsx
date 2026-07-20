@@ -6,7 +6,6 @@ type Module = {
   id: string;
   name: string;
   description: string;
-  special?: boolean;
 };
 
 const Dashboard: React.FC = () => {
@@ -19,13 +18,9 @@ const Dashboard: React.FC = () => {
   };
 
   const modules: Module[] = [
-    { id: 'cases', name: 'Cases', description: 'Open and closed case records' },
-    { id: 'perps', name: 'Suspects', description: 'Suspect and fugitive records' },
-    { id: 'officers', name: 'Officers', description: 'Officer roster and status' },
-    { id: 'emergencies', name: 'Emergencies', description: 'Active and past emergency calls' },
     { id: 'users', name: 'Users', description: 'App user accounts' },
-    { id: 'data-collection', name: 'Data Collection', description: 'Ingest from web, APIs, or files', special: true },
-    { id: 'rag-training', name: 'RAG Training', description: 'AI training documents', special: true },
+    { id: 'data-collection', name: 'Data Collection', description: 'Ingest from web, APIs, or files' },
+    { id: 'rag-training', name: 'RAG Training', description: 'AI training documents' },
   ];
 
   const openModule = (module: Module) => {
@@ -35,14 +30,15 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
+    <div className="admin-page dashboard">
+      <header className="admin-header-bar dashboard-header">
         <div className="header-content">
           <div>
-            <h1>Serpico Admin</h1>
-            <p>Backend data and AI training</p>
+            <p className="eyebrow">Serpico</p>
+            <h1 className="neon-title">Admin</h1>
+            <p className="muted">Users, collection, and RAG</p>
           </div>
-          <button type="button" onClick={handleLogout} className="logout-button">
+          <button type="button" onClick={handleLogout} className="btn btn-ghost">
             Logout
           </button>
         </div>
@@ -54,11 +50,11 @@ const Dashboard: React.FC = () => {
             <button
               key={module.id}
               type="button"
-              className={`module-card ${module.special ? 'special' : ''}`}
+              className="module-card admin-panel"
               onClick={() => openModule(module)}
             >
               <h2>{module.name}</h2>
-              <p>{module.description}</p>
+              <p className="muted">{module.description}</p>
             </button>
           ))}
         </div>

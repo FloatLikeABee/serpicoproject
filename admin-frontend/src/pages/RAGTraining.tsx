@@ -34,11 +34,9 @@ const RAGTraining: React.FC = () => {
   const fetchDocuments = async () => {
     setLoading(true);
     try {
-      // Try to get summaries first (with abstracted descriptions)
       try {
         const summariesResponse = await adminAPI.getRAGSummaries();
         if (summariesResponse.data.summaries && summariesResponse.data.summaries.length > 0) {
-          // Convert summaries to documents format for display
           const summaries = summariesResponse.data.summaries;
           setDocuments(summaries.map((s: any) => ({
             id: s.id,
@@ -49,16 +47,18 @@ const RAGTraining: React.FC = () => {
             tags: s.tags || [],
             summary: s.summary,
           })));
+          setLoading(false);
           return;
         }
-      } catch (e) {
-        // Fallback to regular documents if summaries endpoint fails
+      } catch {
+        // Fall through to full documents
       }
-      
+
       const response = await adminAPI.getRAGDocuments();
       setDocuments(response.data.documents || []);
-    } catch (error: any) {
-      console.error('Failed to fetch documents:', error);
+    } catch (error) {
+      console.error('Failed to fetch RAG documents:', error);
+      setDocuments([]);
     } finally {
       setLoading(false);
     }
@@ -67,8 +67,8 @@ const RAGTraining: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const tags = formData.tags.split(',').map(t => t.trim()).filter(t => t);
-      const data = {
+      const tags = formData.tags.split(',').map((t) => t.trim()).filter(Boolean);
+      const payload = {
         title: formData.title,
         content: formData.content,
         category: formData.category,
@@ -77,9 +77,9 @@ const RAGTraining: React.FC = () => {
       };
 
       if (editingDoc) {
-        await adminAPI.updateRAGDocument(editingDoc.id, data);
+        await adminAPI.updateRAGDocument(editingDoc.id, payload);
       } else {
-        await adminAPI.createRAGDocument(data);
+        await adminAPI.createRAGDocument(payload);
       }
 
       setShowForm(false);
@@ -87,8 +87,7 @@ const RAGTraining: React.FC = () => {
       setFormData({ title: '', content: '', category: '', location: '', tags: '' });
       fetchDocuments();
     } catch (error: any) {
-      console.error('Failed to save document:', error);
-      alert('Failed to save document: ' + (error.response?.data?.error || error.message));
+      alert(error.response?.data?.error || 'Failed to save document');
     }
   };
 
@@ -105,15 +104,12 @@ const RAGTraining: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) {
-      return;
-    }
+    if (!window.confirm('Delete this document?')) return;
     try {
       await adminAPI.deleteRAGDocument(id);
       fetchDocuments();
     } catch (error: any) {
-      console.error('Failed to delete document:', error);
-      alert('Failed to delete document: ' + (error.response?.data?.error || error.message));
+      alert(error.response?.data?.error || 'Failed to delete document');
     }
   };
 
@@ -121,35 +117,45 @@ const RAGTraining: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="rag-training">
-        <div className="loading">Loading RAG documents...</div>
+      <div className="admin-page rag-training">
+        <div className="status-message muted">Loading RAG documents…</div>
       </div>
     );
   }
 
   return (
-    <div className="rag-training">
-      <header className="rag-header">
-        <button type="button" onClick={() => navigate('/')} className="back-button">
+    <div className="admin-page rag-training">
+      <header className="admin-header-bar">
+        <button type="button" onClick={() => navigate('/')} className="btn btn-ghost">
           ← Back
         </button>
-        <h1>RAG Training</h1>
-        <p>AI training documents</p>
+        <h1 className="neon-title">RAG Training</h1>
+        <p className="muted">AI training documents</p>
         <button
           type="button"
-          onClick={() => { setShowForm(true); setEditingDoc(null); setFormData({ title: '', content: '', category: '', location: '', tags: '' }); }}
-          className="add-button"
+          onClick={() => {
+            setShowForm(true);
+            setEditingDoc(null);
+            setFormData({ title: '', content: '', category: '', location: '', tags: '' });
+          }}
+          className="btn btn-primary add-btn"
         >
           + Add document
         </button>
       </header>
 
       {showForm && (
-        <div className="form-overlay">
-          <div className="form-container">
-            <h2>{editingDoc ? 'Edit Document' : 'Create New Document'}</h2>
+        <div
+          className="form-overlay"
+          onClick={() => {
+            setShowForm(false);
+            setEditingDoc(null);
+          }}
+        >
+          <div className="form-container admin-panel" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingDoc ? 'Edit Document' : 'New Document'}</h2>
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
+              <div className="field">
                 <label>Title</label>
                 <input
                   type="text"
@@ -158,16 +164,16 @@ const RAGTraining: React.FC = () => {
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="field">
                 <label>Content</label>
                 <textarea
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  rows={10}
+                  rows={8}
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="field">
                 <label>Category</label>
                 <select
                   value={formData.category}
@@ -175,34 +181,40 @@ const RAGTraining: React.FC = () => {
                   required
                 >
                   <option value="">Select category</option>
-                  {categories.map(cat => (
+                  {categories.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>
-              <div className="form-group">
+              <div className="field">
                 <label>Location (optional)</label>
                 <input
                   type="text"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="e.g., Point Pleasant, WV"
                 />
               </div>
-              <div className="form-group">
+              <div className="field">
                 <label>Tags (comma-separated)</label>
                 <input
                   type="text"
                   value={formData.tags}
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  placeholder="e.g., cold case, fugitive, missing person"
+                  placeholder="e.g., cold case, fugitive"
                 />
               </div>
               <div className="form-actions">
-                <button type="submit" className="save-button">
-                  {editingDoc ? 'Update' : 'Create'} Document
+                <button type="submit" className="btn btn-primary">
+                  {editingDoc ? 'Update' : 'Create'}
                 </button>
-                <button type="button" onClick={() => { setShowForm(false); setEditingDoc(null); }} className="cancel-button">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingDoc(null);
+                  }}
+                  className="btn btn-ghost"
+                >
                   Cancel
                 </button>
               </div>
@@ -213,24 +225,29 @@ const RAGTraining: React.FC = () => {
 
       <div className="documents-list">
         {documents.length === 0 ? (
-          <div className="no-data">No RAG documents found. Create your first document!</div>
+          <div className="admin-panel status-message muted">No RAG documents yet</div>
         ) : (
           documents.map((doc) => (
-            <div key={doc.id} className="document-card">
+            <article key={doc.id} className="document-card admin-panel">
               <div className="document-header">
                 <h3>{doc.title}</h3>
                 <div className="document-actions">
-                  <button onClick={() => handleEdit(doc)} className="edit-button">Edit</button>
-                  <button onClick={() => handleDelete(doc.id)} className="delete-button">Delete</button>
+                  <button type="button" onClick={() => handleEdit(doc)} className="btn btn-ghost">
+                    Edit
+                  </button>
+                  <button type="button" onClick={() => handleDelete(doc.id)} className="btn btn-danger">
+                    Delete
+                  </button>
                 </div>
               </div>
               <div className="document-meta">
                 <span className="category">{doc.category}</span>
-                {doc.location && <span className="location">📍 {doc.location}</span>}
+                {doc.location && <span className="location muted">{doc.location}</span>}
               </div>
               {doc.summary && (
                 <div className="document-summary">
-                  <strong>Summary:</strong> {doc.summary}
+                  <strong>Summary</strong>
+                  <p>{doc.summary}</p>
                 </div>
               )}
               <p className="document-content">{doc.content}</p>
@@ -239,7 +256,7 @@ const RAGTraining: React.FC = () => {
                   <span key={idx} className="tag">{tag}</span>
                 ))}
               </div>
-            </div>
+            </article>
           ))
         )}
       </div>
@@ -248,4 +265,3 @@ const RAGTraining: React.FC = () => {
 };
 
 export default RAGTraining;
-
