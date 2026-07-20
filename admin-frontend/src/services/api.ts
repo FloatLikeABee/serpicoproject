@@ -22,7 +22,6 @@ export const adminAPI = {
   // Admin data viewing
   getAllCases: () => api.get('/admin/cases'),
   getAllPerps: () => api.get('/admin/perps'),
-  getAllMysteries: () => api.get('/admin/mysteries'),
   getAllOfficers: () => api.get('/admin/officers'),
   getAllEmergencies: () => api.get('/admin/emergencies'),
   getAllUsers: () => api.get('/admin/users'),
@@ -30,7 +29,6 @@ export const adminAPI = {
   // Admin data creation
   createCase: (data: any) => api.post('/admin/cases', data),
   createPerp: (data: any) => api.post('/admin/perps', data),
-  createMystery: (data: any) => api.post('/admin/mysteries', data),
   createOfficer: (data: any) => api.post('/admin/officers', data),
   createEmergency: (data: any) => api.post('/admin/emergencies', data),
 

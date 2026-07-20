@@ -89,6 +89,8 @@ If you prefer using `render.yaml`:
 
 - Main Frontend: `https://serpico-frontend.onrender.com`
 - Admin Frontend: `https://serpico-admin.onrender.com`
+  - Login: username `g@transfdr`, password `eight88` (see `admin-frontend/README.md`)
+
 - Backend API: `https://serpico-backend.onrender.com`
 - Swagger UI: `https://serpico-backend.onrender.com/swagger/index.html`
 

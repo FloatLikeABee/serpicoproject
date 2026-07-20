@@ -130,13 +130,17 @@ const RAGTraining: React.FC = () => {
   return (
     <div className="rag-training">
       <header className="rag-header">
-        <button onClick={() => navigate('/')} className="back-button">
-          ← Back to Dashboard
+        <button type="button" onClick={() => navigate('/')} className="back-button">
+          ← Back
         </button>
-        <h1>RAG Data Training</h1>
-        <p>Format and manage RAG documents for AI training</p>
-        <button onClick={() => { setShowForm(true); setEditingDoc(null); setFormData({ title: '', content: '', category: '', location: '', tags: '' }); }} className="add-button">
-          + Add New Document
+        <h1>RAG Training</h1>
+        <p>AI training documents</p>
+        <button
+          type="button"
+          onClick={() => { setShowForm(true); setEditingDoc(null); setFormData({ title: '', content: '', category: '', location: '', tags: '' }); }}
+          className="add-button"
+        >
+          + Add document
         </button>
       </header>
 
@@ -191,7 +195,7 @@ const RAGTraining: React.FC = () => {
                   type="text"
                   value={formData.tags}
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  placeholder="e.g., serial killer, paranormal, conspiracy"
+                  placeholder="e.g., cold case, fugitive, missing person"
                 />
               </div>
               <div className="form-actions">

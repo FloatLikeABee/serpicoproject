@@ -1,32 +1,38 @@
 .data-viewer {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f5f5f5;
-  padding: 2rem;
+  padding: 1rem;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
 .viewer-header {
   background: white;
-  padding: 1.5rem;
+  padding: 1rem;
   border-radius: 8px;
-  margin-bottom: 2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .header-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
-.back-button, .add-button {
+.back-button,
+.add-button {
   background: #667eea;
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
+  padding: 0.65rem 1rem;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  min-height: 44px;
 }
 
 .add-button {
@@ -42,20 +48,85 @@
 }
 
 .viewer-header h1 {
-  margin: 0.5rem 0;
+  margin: 0.25rem 0;
   color: #333;
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
 }
 
 .viewer-header p {
   color: #666;
   margin: 0;
+  font-size: 0.95rem;
 }
 
 .table-container {
   background: white;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.desktop-only {
+  display: none;
+}
+
+.mobile-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.data-card {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.data-card h3 {
+  margin: 0 0 0.75rem;
+  color: #333;
+  font-size: 1.05rem;
+  word-break: break-word;
+}
+
+.data-card dl {
+  margin: 0;
+}
+
+.data-card-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 35%) 1fr;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.9rem;
+}
+
+.data-card-row dt {
+  color: #888;
+  text-transform: capitalize;
+  margin: 0;
+}
+
+.data-card-row dd {
+  margin: 0;
+  color: #333;
+  word-break: break-word;
+}
+
+.data-card-more {
+  margin-top: 0.5rem;
+}
+
+.data-card-more summary {
+  cursor: pointer;
+  color: #667eea;
+  font-size: 0.9rem;
+  padding: 0.35rem 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
 }
 
 .data-table {
@@ -72,21 +143,27 @@
   padding: 1rem;
   text-align: left;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .data-table td {
   padding: 1rem;
   border-bottom: 1px solid #eee;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .data-table tbody tr:hover {
   background: #f9f9f9;
 }
 
-.loading, .error, .no-data {
+.loading,
+.error,
+.no-data {
   text-align: center;
-  padding: 3rem;
-  font-size: 1.2rem;
+  padding: 2.5rem 1rem;
+  font-size: 1.1rem;
   color: #666;
 }
 
@@ -96,41 +173,42 @@
 
 .form-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   z-index: 1000;
+  padding: 0;
 }
 
 .form-container {
   background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  max-width: 600px;
-  width: 90%;
-  max-height: 90vh;
+  padding: 1.25rem;
+  border-radius: 12px 12px 0 0;
+  width: 100%;
+  max-height: 92vh;
+  max-height: 92dvh;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .form-container h2 {
   margin-top: 0;
   color: #333;
+  font-size: 1.25rem;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.15rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
   color: #333;
   font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .form-group input,
@@ -140,8 +218,9 @@
   padding: 0.75rem;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 1rem;
+  font-size: 16px;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
 .form-group textarea {
@@ -150,19 +229,25 @@
 
 .form-actions {
   display: flex;
-  gap: 1rem;
-  margin-top: 2rem;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.save-button,
+.cancel-button {
+  border: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  flex: 1;
+  min-height: 48px;
 }
 
 .save-button {
   background: #667eea;
   color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  flex: 1;
 }
 
 .save-button:hover {
@@ -172,15 +257,41 @@
 .cancel-button {
   background: #ccc;
   color: #333;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  flex: 1;
 }
 
 .cancel-button:hover {
   background: #bbb;
 }
 
+@media (min-width: 768px) {
+  .data-viewer {
+    padding: 2rem;
+  }
+
+  .viewer-header {
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .mobile-cards {
+    display: none;
+  }
+
+  .desktop-only {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .form-overlay {
+    align-items: center;
+    padding: 1rem;
+  }
+
+  .form-container {
+    border-radius: 8px;
+    max-width: 600px;
+    width: 90%;
+    padding: 2rem;
+  }
+}

@@ -7,6 +7,16 @@ interface DataItem {
   [key: string]: any;
 }
 
+const MODULE_TITLES: Record<string, string> = {
+  cases: 'Cases',
+  perps: 'Suspects',
+  officers: 'Officers',
+  emergencies: 'Emergencies',
+  users: 'Users',
+};
+
+const ALLOWED_MODULES = new Set(Object.keys(MODULE_TITLES));
+
 const DataViewer: React.FC = () => {
   const { module } = useParams<{ module: string }>();
   const navigate = useNavigate();
@@ -16,13 +26,14 @@ const DataViewer: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetchData();
-  }, [module]);
-
   const fetchData = async () => {
     setLoading(true);
     setError(null);
+    if (!module || !ALLOWED_MODULES.has(module)) {
+      setError('Invalid module');
+      setLoading(false);
+      return;
+    }
     try {
       let response;
       switch (module) {
@@ -31,9 +42,6 @@ const DataViewer: React.FC = () => {
           break;
         case 'perps':
           response = await adminAPI.getAllPerps();
-          break;
-        case 'mysteries':
-          response = await adminAPI.getAllMysteries();
           break;
         case 'officers':
           response = await adminAPI.getAllOfficers();
@@ -48,11 +56,16 @@ const DataViewer: React.FC = () => {
           setError('Invalid module');
           return;
       }
-      const dataKey = module === 'cases' ? 'cases' : 
-                     module === 'perps' ? 'perps' :
-                     module === 'mysteries' ? 'mysteries' :
-                     module === 'officers' ? 'officers' :
-                     module === 'emergencies' ? 'emergencies' : 'users';
+      const dataKey =
+        module === 'cases'
+          ? 'cases'
+          : module === 'perps'
+            ? 'perps'
+            : module === 'officers'
+              ? 'officers'
+              : module === 'emergencies'
+                ? 'emergencies'
+                : 'users';
       setData(response.data[dataKey] || []);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to fetch data');
@@ -60,6 +73,19 @@ const DataViewer: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    void fetchData();
+    // Reload when the route module changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [module]);
+
+  const title = module ? MODULE_TITLES[module] || module : 'Unknown';
+  const canAdd =
+    module === 'cases' ||
+    module === 'perps' ||
+    module === 'officers' ||
+    module === 'emergencies';
 
   if (loading) {
     return (
@@ -72,6 +98,9 @@ const DataViewer: React.FC = () => {
   if (error) {
     return (
       <div className="data-viewer">
+        <button type="button" onClick={() => navigate('/')} className="back-button">
+          ← Back
+        </button>
         <div className="error">Error: {error}</div>
       </div>
     );
@@ -82,8 +111,13 @@ const DataViewer: React.FC = () => {
     return Object.keys(data[0]);
   };
 
+  const formatValue = (value: unknown) => {
+    if (value == null) return '—';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  };
+
   const handleAdd = () => {
-    // Initialize form data based on module type
     const initialData: Record<string, string> = {};
     if (module === 'cases') {
       initialData.type = '';
@@ -110,14 +144,6 @@ const DataViewer: React.FC = () => {
       initialData.category = '';
       initialData.assigned_officer_id = '';
       initialData.status = 'Open';
-    } else if (module === 'mysteries') {
-      initialData.title = '';
-      initialData.category = 'paranormal';
-      initialData.location = '';
-      initialData.date = new Date().toISOString().split('T')[0];
-      initialData.description = '';
-      initialData.credibility = 'Medium';
-      initialData.source = '';
     }
     setFormData(initialData);
     setShowForm(true);
@@ -126,29 +152,25 @@ const DataViewer: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      let response;
       switch (module) {
         case 'cases':
-          response = await adminAPI.createCase(formData);
+          await adminAPI.createCase(formData);
           break;
         case 'perps':
-          response = await adminAPI.createPerp(formData);
+          await adminAPI.createPerp(formData);
           break;
         case 'officers':
-          response = await adminAPI.createOfficer(formData);
+          await adminAPI.createOfficer(formData);
           break;
         case 'emergencies':
-          response = await adminAPI.createEmergency(formData);
-          break;
-        case 'mysteries':
-          response = await adminAPI.createMystery(formData);
+          await adminAPI.createEmergency(formData);
           break;
         default:
           return;
       }
       setShowForm(false);
       setFormData({});
-      fetchData(); // Refresh data
+      fetchData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create record');
     }
@@ -206,7 +228,8 @@ const DataViewer: React.FC = () => {
           </div>
         </>
       );
-    } else if (module === 'perps') {
+    }
+    if (module === 'perps') {
       return (
         <>
           <div className="form-group">
@@ -247,7 +270,8 @@ const DataViewer: React.FC = () => {
           </div>
         </>
       );
-    } else if (module === 'officers') {
+    }
+    if (module === 'officers') {
       return (
         <>
           <div className="form-group">
@@ -305,7 +329,8 @@ const DataViewer: React.FC = () => {
           </div>
         </>
       );
-    } else if (module === 'emergencies') {
+    }
+    if (module === 'emergencies') {
       return (
         <>
           <div className="form-group">
@@ -367,108 +392,44 @@ const DataViewer: React.FC = () => {
           </div>
         </>
       );
-    } else if (module === 'mysteries') {
-      return (
-        <>
-          <div className="form-group">
-            <label>Title *</label>
-            <input
-              type="text"
-              value={formData.title || ''}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Category *</label>
-            <select
-              value={formData.category || 'paranormal'}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              required
-            >
-              <option value="paranormal">Paranormal</option>
-              <option value="urban-legend">Urban Legend</option>
-              <option value="conspiracy">Conspiracy Theory</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Location *</label>
-            <input
-              type="text"
-              value={formData.location || ''}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Date *</label>
-            <input
-              type="date"
-              value={formData.date || ''}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Description</label>
-            <textarea
-              value={formData.description || ''}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={4}
-            />
-          </div>
-          <div className="form-group">
-            <label>Credibility</label>
-            <select
-              value={formData.credibility || 'Medium'}
-              onChange={(e) => setFormData({ ...formData, credibility: e.target.value })}
-            >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Source</label>
-            <input
-              type="text"
-              value={formData.source || ''}
-              onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-              placeholder="e.g., Eyewitness reports, declassified documents"
-            />
-          </div>
-        </>
-      );
     }
     return null;
   };
+
+  const headers = getHeaders();
+  const primaryKey = headers[0];
+  const secondaryKeys = headers.slice(1, 5);
 
   return (
     <div className="data-viewer">
       <header className="viewer-header">
         <div className="header-top">
-          <button onClick={() => navigate('/')} className="back-button">
-            ← Back to Dashboard
+          <button type="button" onClick={() => navigate('/')} className="back-button">
+            ← Back
           </button>
-          {(module === 'cases' || module === 'perps' || module === 'mysteries' || module === 'officers' || module === 'emergencies') && (
-            <button onClick={handleAdd} className="add-button">
-              + Add New
+          {canAdd && (
+            <button type="button" onClick={handleAdd} className="add-button">
+              + Add
             </button>
           )}
         </div>
-        <h1>{(module ? module.charAt(0).toUpperCase() + module.slice(1) : 'Unknown')} Data</h1>
-        <p>Total Records: {data.length}</p>
+        <h1>{title}</h1>
+        <p>{data.length} record{data.length === 1 ? '' : 's'}</p>
       </header>
 
       {showForm && (
-        <div className="form-overlay">
-          <div className="form-container">
-            <h2>Add New {(module ? module.charAt(0).toUpperCase() + module.slice(1) : '')}</h2>
+        <div className="form-overlay" onClick={() => { setShowForm(false); setFormData({}); }}>
+          <div className="form-container" onClick={(e) => e.stopPropagation()}>
+            <h2>Add {title}</h2>
             <form onSubmit={handleSubmit}>
               {getFormFields()}
               <div className="form-actions">
                 <button type="submit" className="save-button">Create</button>
-                <button type="button" onClick={() => { setShowForm(false); setFormData({}); }} className="cancel-button">
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); setFormData({}); }}
+                  className="cancel-button"
+                >
                   Cancel
                 </button>
               </div>
@@ -477,37 +438,61 @@ const DataViewer: React.FC = () => {
         </div>
       )}
 
-      <div className="table-container">
-        {data.length === 0 ? (
-          <div className="no-data">No data available</div>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                {getHeaders().map((header) => (
-                  <th key={header}>{header.replace(/_/g, ' ').toUpperCase()}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((item, index) => (
-                <tr key={index}>
-                  {getHeaders().map((header) => (
-                    <td key={header}>
-                      {typeof item[header] === 'object'
-                        ? JSON.stringify(item[header])
-                        : String(item[header])}
-                    </td>
+      {data.length === 0 ? (
+        <div className="no-data">No data available</div>
+      ) : (
+        <>
+          <div className="mobile-cards">
+            {data.map((item, index) => (
+              <article key={index} className="data-card">
+                <h3>{formatValue(item[primaryKey])}</h3>
+                <dl>
+                  {secondaryKeys.map((header) => (
+                    <div key={header} className="data-card-row">
+                      <dt>{header.replace(/_/g, ' ')}</dt>
+                      <dd>{formatValue(item[header])}</dd>
+                    </div>
+                  ))}
+                  {headers.length > 5 && (
+                    <details className="data-card-more">
+                      <summary>More fields</summary>
+                      {headers.slice(5).map((header) => (
+                        <div key={header} className="data-card-row">
+                          <dt>{header.replace(/_/g, ' ')}</dt>
+                          <dd>{formatValue(item[header])}</dd>
+                        </div>
+                      ))}
+                    </details>
+                  )}
+                </dl>
+              </article>
+            ))}
+          </div>
+
+          <div className="table-container desktop-only">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  {headers.map((header) => (
+                    <th key={header}>{header.replace(/_/g, ' ').toUpperCase()}</th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {data.map((item, index) => (
+                  <tr key={index}>
+                    {headers.map((header) => (
+                      <td key={header}>{formatValue(item[header])}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 };
 
 export default DataViewer;
-
