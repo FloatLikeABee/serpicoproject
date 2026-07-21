@@ -23,7 +23,13 @@ FORMATTING:
 CONTENT:
 - Ground answers in provided department records and live intel when available.
 - If intel is insufficient, say so plainly and recommend next steps.
-- Never fabricate case numbers, arrests, or live incident details.`
+- Never fabricate case numbers, arrests, or live incident details.
+
+INTEL SOURCE PRIORITY (strict):
+1. Admin-curated knowledge (RAG / department records) — highest authority.
+2. Admin-collected news digests (Markdown briefs from backstage collection) — highest authority for recent crime news/cases.
+3. Supplemental web search — use ONLY to fill gaps. Never override or contradict admin-curated RAG or digest material when they cover the topic.
+- Prefer citing admin sources. If admin intel answers the query, lead with that and treat web search as optional backup.`
 
 var crimeDataKeywords = []string{
 	"crime", "criminal", "arrest", "arrests", "suspect", "suspects", "perp", "perps",
@@ -106,11 +112,22 @@ func buildRAGContextString(ragDocs []RAGDocument) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("### Department records (RAG)\n")
+	b.WriteString("### PRIORITY 1 — Admin knowledge base (RAG)\n")
+	b.WriteString("Use these records first. Docs tagged auto_intel came from backstage AI collection.\n")
 	for i, doc := range ragDocs {
-		b.WriteString(fmt.Sprintf("\n**[%d] %s** — %s\n", i+1, doc.Title, doc.Category))
+		origin := "department"
+		for _, tag := range doc.Tags {
+			if strings.EqualFold(tag, "auto_intel") {
+				origin = "admin-collection"
+				break
+			}
+		}
+		b.WriteString(fmt.Sprintf("\n**[%d] %s** — %s · %s\n", i+1, doc.Title, doc.Category, origin))
 		if doc.Location != "" {
 			b.WriteString(fmt.Sprintf("- Location: %s\n", doc.Location))
+		}
+		if len(doc.Tags) > 0 {
+			b.WriteString(fmt.Sprintf("- Tags: %s\n", strings.Join(doc.Tags, ", ")))
 		}
 		b.WriteString(fmt.Sprintf("- %s\n", doc.Content))
 	}
@@ -140,6 +157,7 @@ func buildHistoryContextString(history []ChatHistoryMessage) string {
 }
 
 // BuildChatPrompt assembles the full prompt for Gemini/Mistral chat generation.
+// Source order is intentional: admin RAG + admin MD digests first, web search last.
 func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, ragDocs []RAGDocument, webSearchResult, newsDigests string) string {
 	var b strings.Builder
 	b.WriteString(officerChatSystemPrompt)
@@ -154,25 +172,29 @@ func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, 
 		b.WriteString("\n\n")
 	}
 
+	// Priority 1a — admin RAG (includes backstage-collected knowledge)
 	if ragStr := buildRAGContextString(ragDocs); ragStr != "" {
 		b.WriteString(ragStr)
 		b.WriteString("\n\n")
 	}
 
+	// Priority 1b — admin MD news digests from backstage collection
 	if newsDigests != "" {
 		b.WriteString(newsDigests)
 		b.WriteString("\n\n")
 	}
 
+	// Priority 2 — supplemental web search only
 	if webSearchResult != "" {
-		b.WriteString("### Live intel (web search — crime data)\n")
+		b.WriteString("### PRIORITY 2 — Supplemental web search (secondary)\n")
+		b.WriteString("Use only if admin RAG/digests do not already cover the question. Do not override admin intel.\n")
 		b.WriteString(webSearchResult)
 		b.WriteString("\n\n")
 	}
 
 	b.WriteString("**Officer query:** ")
 	b.WriteString(userMessage)
-	b.WriteString("\n\nRespond in Markdown as Officer Serpico.")
+	b.WriteString("\n\nRespond in Markdown as Officer Serpico. Prefer admin-curated RAG and digests over web search.")
 
 	return b.String()
 }
