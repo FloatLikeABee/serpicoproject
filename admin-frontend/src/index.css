@@ -22,6 +22,8 @@
 
 html {
   color-scheme: dark;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 body {
@@ -34,6 +36,13 @@ body {
   color: var(--text);
   min-height: 100vh;
   min-height: 100dvh;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+#root {
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 h1,
@@ -57,6 +66,10 @@ textarea {
 
 /* Shared page shell */
 .admin-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
   min-height: 100vh;
   min-height: 100dvh;
   padding: 1rem;
@@ -68,6 +81,7 @@ textarea {
     radial-gradient(ellipse at 50% 0%, rgba(123, 47, 247, 0.28) 0%, transparent 55%),
     radial-gradient(ellipse at 85% 85%, rgba(0, 255, 136, 0.06) 0%, transparent 45%);
   background-size: 40px 40px, 40px 40px, 100% 100%, 100% 100%;
+  box-sizing: border-box;
 }
 
 .admin-panel {
@@ -76,6 +90,9 @@ textarea {
   border-radius: 12px;
   box-shadow: 0 0 20px rgba(123, 47, 247, 0.15), inset 0 0 30px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .admin-header-bar {
@@ -85,12 +102,17 @@ textarea {
   box-shadow: 0 4px 24px rgba(123, 47, 247, 0.12);
   padding: 1rem 1.15rem;
   margin-bottom: 1rem;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .neon-title {
   color: var(--cyan);
   text-shadow: 0 0 8px rgba(0, 245, 255, 0.55), 0 0 20px rgba(0, 245, 255, 0.25);
   margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .muted {
@@ -110,6 +132,8 @@ textarea {
   padding: 0.65rem 1.1rem;
   transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
   -webkit-tap-highlight-color: transparent;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .btn:active:not(:disabled) {
