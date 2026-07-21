@@ -1,12 +1,21 @@
+.rag-training {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .rag-training .neon-title {
-  font-size: clamp(1.3rem, 4vw, 1.75rem);
+  font-size: clamp(1.3rem, 5vw, 1.75rem);
 }
 
 .rag-training .muted {
   margin: 0.25rem 0 0.85rem;
+  overflow-wrap: anywhere;
 }
 
 .rag-training .add-btn {
+  display: block;
+  width: 100%;
   margin-top: 0.25rem;
 }
 
@@ -30,15 +39,19 @@
   padding: 1.25rem;
   border-radius: 12px 12px 0 0;
   width: 100%;
+  max-width: 100%;
   max-height: 92vh;
   max-height: 92dvh;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .form-container h2 {
   margin: 0 0 1rem;
   color: var(--cyan);
   font-size: 1.15rem;
+  overflow-wrap: anywhere;
 }
 
 .form-actions {
@@ -50,15 +63,24 @@
 
 .form-actions .btn {
   flex: 1;
+  min-width: 0;
 }
 
 .documents-list {
   display: grid;
   gap: 0.85rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .document-card {
-  padding: 1.15rem;
+  padding: 1rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .document-header {
@@ -66,33 +88,53 @@
   flex-direction: column;
   gap: 0.75rem;
   margin-bottom: 0.85rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .document-header h3 {
   margin: 0;
   color: var(--text);
-  font-size: 1.05rem;
+  font-size: clamp(0.95rem, 4vw, 1.05rem);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
   word-break: break-word;
+  white-space: normal;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .document-actions {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
 }
 
 .document-actions .btn {
+  flex: 1 1 calc(50% - 0.25rem);
+  min-width: 0;
   min-height: 40px;
-  padding: 0.5rem 0.9rem;
+  padding: 0.5rem 0.75rem;
   font-size: 0.7rem;
 }
 
 .document-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 0.5rem;
   margin-bottom: 0.85rem;
   align-items: center;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.category,
+.location {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .category {
@@ -112,6 +154,9 @@
   padding: 0.85rem;
   border-radius: 0 6px 6px 0;
   margin-bottom: 0.85rem;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .document-summary strong {
@@ -128,6 +173,9 @@
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .document-content {
@@ -135,12 +183,19 @@
   line-height: 1.55;
   margin: 0 0 0.85rem;
   opacity: 0.9;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .document-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .tag {
@@ -150,9 +205,16 @@
   border-radius: 4px;
   font-size: 0.75rem;
   color: var(--muted);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 @media (min-width: 768px) {
+  .rag-training .add-btn {
+    width: auto;
+  }
+
   .form-overlay {
     align-items: center;
     padding: 1rem;
@@ -165,9 +227,28 @@
     padding: 1.75rem;
   }
 
+  .document-card {
+    padding: 1.15rem;
+  }
+
   .document-header {
     flex-direction: row;
     justify-content: space-between;
     align-items: flex-start;
+  }
+
+  .document-header h3 {
+    flex: 1;
+    min-width: 0;
+    margin-right: 0.75rem;
+  }
+
+  .document-actions {
+    width: auto;
+    flex-wrap: nowrap;
+  }
+
+  .document-actions .btn {
+    flex: 0 0 auto;
   }
 }
