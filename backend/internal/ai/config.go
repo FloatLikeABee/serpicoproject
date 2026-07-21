@@ -12,7 +12,11 @@ type Config struct {
 	MistralAPIKey       string
 	MistralModel        string
 	RAGDataPath         string
+	IntelDataPath       string
 	EnableWebSearch     bool
+	EnableDailyIntel    bool
+	IntelIntervalHours  float64
+	IntelPiecesPerRun   int
 	ChaseGameMaxRounds  int
 	ImageProvider       string
 	OpenAIAPIKey        string
@@ -55,6 +59,18 @@ func envInt(key string, fallback int) int {
 	return parsed
 }
 
+func envFloat(key string, fallback float64) float64 {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
 func LoadConfig() *Config {
 	geminiKey := os.Getenv("GEMINI_API_KEY")
 	if geminiKey == "" {
@@ -72,7 +88,11 @@ func LoadConfig() *Config {
 		MistralAPIKey:       mistralKey,
 		MistralModel:        envOrDefault("MISTRAL_MODEL", "mistral-large-latest"),
 		RAGDataPath:         envOrDefault("RAG_DATA_PATH", "data/rag"),
+		IntelDataPath:       envOrDefault("INTEL_DATA_PATH", "data/intel"),
 		EnableWebSearch:     envBool("ENABLE_WEB_SEARCH", true),
+		EnableDailyIntel:    envBool("ENABLE_DAILY_INTEL", true),
+		IntelIntervalHours:  envFloat("INTEL_INTERVAL_HOURS", 12),
+		IntelPiecesPerRun:   envInt("INTEL_PIECES_PER_RUN", 2),
 		ChaseGameMaxRounds:  envInt("CHASE_GAME_MAX_ROUNDS", 4),
 		ImageProvider:       envOrDefault("IMAGE_PROVIDER", "placeholder"),
 		OpenAIAPIKey:        os.Getenv("OPENAI_API_KEY"),

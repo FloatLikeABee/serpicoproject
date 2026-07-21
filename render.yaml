@@ -66,6 +66,14 @@ services:
         value: ./data/rag
       - key: ENABLE_WEB_SEARCH
         value: "true"
+      - key: ENABLE_DAILY_INTEL
+        value: "true"
+      - key: INTEL_DATA_PATH
+        value: ./data/intel
+      - key: INTEL_INTERVAL_HOURS
+        value: "12"
+      - key: INTEL_PIECES_PER_RUN
+        value: "2"
       - key: CHASE_GAME_MAX_ROUNDS
         value: "4"
       - key: IMAGE_PROVIDER

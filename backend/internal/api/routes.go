@@ -159,6 +159,30 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 			}
 			handleCollectFromFile(c, service)
 		})
+		collection.GET("/intel/status", func(c *gin.Context) {
+			service, ok := aiService.(*ai.AIService)
+			if !ok {
+				c.JSON(500, gin.H{"error": "AI service type assertion failed"})
+				return
+			}
+			handleDailyIntelStatus(c, service)
+		})
+		collection.GET("/intel/news", func(c *gin.Context) {
+			service, ok := aiService.(*ai.AIService)
+			if !ok {
+				c.JSON(500, gin.H{"error": "AI service type assertion failed"})
+				return
+			}
+			handleDailyIntelNews(c, service)
+		})
+		collection.POST("/intel/run", func(c *gin.Context) {
+			service, ok := aiService.(*ai.AIService)
+			if !ok {
+				c.JSON(500, gin.H{"error": "AI service type assertion failed"})
+				return
+			}
+			handleDailyIntelRun(c, service)
+		})
 	}
 }
 
