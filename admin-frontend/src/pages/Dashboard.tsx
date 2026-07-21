@@ -19,7 +19,7 @@ const Dashboard: React.FC = () => {
 
   const modules: Module[] = [
     { id: 'users', name: 'Users', description: 'App user accounts' },
-    { id: 'data-collection', name: 'Data Collection', description: 'Ingest from web, APIs, or files' },
+    { id: 'data-collection', name: 'Data Collection', description: 'AI twice-daily crime intel for frontline' },
     { id: 'rag-training', name: 'RAG Training', description: 'AI training documents' },
   ];
 
