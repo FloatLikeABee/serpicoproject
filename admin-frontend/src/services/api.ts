@@ -58,6 +58,10 @@ export const adminAPI = {
       'Content-Type': 'multipart/form-data',
     },
   }),
+
+  getDailyIntelStatus: () => api.get('/admin/collection/intel/status'),
+  getDailyIntelNews: (limit = 20) => api.get('/admin/collection/intel/news', { params: { limit } }),
+  runDailyIntel: (force = true) => api.post('/admin/collection/intel/run', { force }),
 };
 
 export default api;

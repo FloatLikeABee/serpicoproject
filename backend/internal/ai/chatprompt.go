@@ -140,7 +140,7 @@ func buildHistoryContextString(history []ChatHistoryMessage) string {
 }
 
 // BuildChatPrompt assembles the full prompt for Gemini/Mistral chat generation.
-func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, ragDocs []RAGDocument, webSearchResult string) string {
+func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, ragDocs []RAGDocument, webSearchResult, newsDigests string) string {
 	var b strings.Builder
 	b.WriteString(officerChatSystemPrompt)
 	b.WriteString("\n\n")
@@ -156,6 +156,11 @@ func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, 
 
 	if ragStr := buildRAGContextString(ragDocs); ragStr != "" {
 		b.WriteString(ragStr)
+		b.WriteString("\n\n")
+	}
+
+	if newsDigests != "" {
+		b.WriteString(newsDigests)
 		b.WriteString("\n\n")
 	}
 

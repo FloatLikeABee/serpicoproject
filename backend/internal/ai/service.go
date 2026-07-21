@@ -19,6 +19,7 @@ type AIService struct {
 	ChaseGame   *ChaseGameService
 	PursuitExam *PursuitExamService
 	Mysteries   *MysteriesService
+	DailyIntel  *DailyIntelService
 }
 
 func NewAIService(config *Config) (*AIService, error) {
@@ -45,6 +46,13 @@ func NewAIService(config *Config) (*AIService, error) {
 	}
 	service.ChaseGame = NewChaseGameService(service, imageGen, config.ChaseGameMaxRounds)
 	service.PursuitExam = NewPursuitExamService()
+	service.DailyIntel = NewDailyIntelService(
+		service,
+		config.IntelDataPath,
+		config.EnableDailyIntel,
+		config.IntelIntervalHours,
+		config.IntelPiecesPerRun,
+	)
 
 	return service, nil
 }
@@ -79,15 +87,21 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 		}
 	}
 
+	// Step 3b: Recent auto-collected news digests for frontline context
+	var newsDigests string
+	if s.DailyIntel != nil {
+		newsDigests = s.DailyIntel.RecentNewsContext(3)
+	}
+
 	// Step 4: Generate response using Gemini, fallback to Mistral if unavailable
-	response, err := s.gemini.GenerateResponse(userMessage, context, history, ragResults, webResult)
+	response, err := s.gemini.GenerateResponse(userMessage, context, history, ragResults, webResult, newsDigests)
 	if err != nil {
 		log.Printf("Gemini API error: %v", err)
-		
+
 		// Check if it's a service unavailable error (503, 429, etc.) and try Mistral
 		if s.isServiceUnavailable(err) {
 			log.Printf("Gemini unavailable, trying Mistral as fallback")
-			mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, history, ragResults, webResult)
+			mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, history, ragResults, webResult, newsDigests)
 			if mistralErr != nil {
 				log.Printf("Mistral API error: %v", mistralErr)
 				// Fallback response
@@ -95,10 +109,10 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 			}
 			return mistralResponse, nil
 		}
-		
+
 		// For other errors, try Mistral anyway
 		log.Printf("Trying Mistral as fallback")
-		mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, history, ragResults, webResult)
+		mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, history, ragResults, webResult, newsDigests)
 		if mistralErr != nil {
 			log.Printf("Mistral API error: %v", mistralErr)
 			// Fallback response

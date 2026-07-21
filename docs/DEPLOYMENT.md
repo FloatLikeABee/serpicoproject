@@ -91,6 +91,7 @@ If you prefer using `render.yaml`:
 - **Environment Variables**: Must be set in Render dashboard (not just in code)
 - **CORS**: Backend CORS is configured to allow all origins, but verify it works with your Render URLs
 - **Database**: SQLite database is stored in `backend/data/` - this persists on Render's filesystem
+- **Daily intel**: Backend auto-collects crime news / case studies twice daily (`ENABLE_DAILY_INTEL`, `INTEL_INTERVAL_HOURS=12`, max 3 pieces/day). Knowledge → RAG; news digests → `data/intel/news/*.md` and frontline chat context. Trigger manually via admin Data Collection or `POST /api/v1/admin/collection/intel/run`.
 - **Health Checks**: Both frontends will ping `/health` every 2 minutes
 
 ## URLs After Deployment
