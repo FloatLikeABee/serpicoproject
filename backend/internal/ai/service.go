@@ -70,14 +70,26 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 		return "**Copy that** — I didn't catch that transmission. Please rephrase your question in a full sentence.", nil
 	}
 
-	// Step 2: Search RAG database (optional - for relevant context)
-	ragResults := s.rag.Search(userMessage+" "+context, 5)
-	log.Printf("RAG search returned %d results", len(ragResults))
+	// Step 2: Admin knowledge base (RAG) — includes backstage auto_intel docs.
+	// Prefer these over web search.
+	ragResults := s.rag.Search(userMessage+" "+context, 8)
+	log.Printf("RAG search returned %d results (admin knowledge preferred)", len(ragResults))
 
-	// Step 3: Web search only when the prompt needs live crime data
+	// Step 3: Admin MD digests from backstage collection (priority with RAG).
+	var newsDigests string
+	if s.DailyIntel != nil {
+		newsDigests = s.DailyIntel.NewsContextForQuery(userMessage+" "+context, 4)
+		if newsDigests != "" {
+			log.Printf("Admin news digests injected for frontline chat")
+		}
+	}
+
+	// Step 4: Supplemental web search only — never replaces admin intel.
 	var webResult string
-	if s.config.EnableWebSearch && NeedsCrimeDataWebSearch(userMessage, context) {
-		log.Printf("Crime-data web search triggered for query")
+	needsLive := NeedsCrimeDataWebSearch(userMessage, context)
+	adminCovered := len(ragResults) > 0 || (s.DailyIntel != nil && s.DailyIntel.HasDigestCoverage(userMessage+" "+context))
+	if s.config.EnableWebSearch && needsLive {
+		log.Printf("Supplemental web search triggered (adminCovered=%v)", adminCovered)
 		result, err := s.webSearch.Search(userMessage + " " + context)
 		if err != nil {
 			log.Printf("Web search error: %v", err)
@@ -85,12 +97,6 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 		} else {
 			webResult = result
 		}
-	}
-
-	// Step 3b: Recent auto-collected news digests for frontline context
-	var newsDigests string
-	if s.DailyIntel != nil {
-		newsDigests = s.DailyIntel.RecentNewsContext(3)
 	}
 
 	// Step 4: Generate response using Gemini, fallback to Mistral if unavailable

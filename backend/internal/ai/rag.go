@@ -264,10 +264,20 @@ func (r *RAGDatabase) Search(query string, limit int) []RAGDocument {
 		}
 
 		// Check tag matches
+		adminCollected := false
 		for _, tag := range doc.Tags {
-			if strings.Contains(queryLower, strings.ToLower(tag)) {
+			tagLower := strings.ToLower(tag)
+			if tagLower == "auto_intel" || tagLower == "knowledge" {
+				adminCollected = true
+			}
+			if strings.Contains(queryLower, tagLower) {
 				score += 2.0
 			}
+		}
+
+		// Prefer backstage/admin-collected knowledge for frontline answers.
+		if adminCollected {
+			score += 2.5
 		}
 
 		// Check location matches

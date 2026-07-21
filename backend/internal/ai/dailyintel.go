@@ -227,15 +227,57 @@ func (s *DailyIntelService) ListNews(limit int) []NewsDigestMeta {
 	return out
 }
 
-// RecentNewsContext builds markdown for frontline chat injection.
+// RecentNewsContext builds markdown for frontline chat injection (newest first).
 func (s *DailyIntelService) RecentNewsContext(limit int) string {
-	items := s.ListNews(limit)
+	return s.NewsContextForQuery("", limit)
+}
+
+// NewsContextForQuery ranks admin MD digests by query relevance, falling back to newest.
+func (s *DailyIntelService) NewsContextForQuery(query string, limit int) string {
+	if limit <= 0 {
+		limit = 3
+	}
+	items := s.ListNews(maxNewsRetain)
 	if len(items) == 0 {
 		return ""
 	}
+
+	type scored struct {
+		item  NewsDigestMeta
+		score int
+	}
+	queryWords := strings.Fields(strings.ToLower(strings.TrimSpace(query)))
+	ranked := make([]scored, 0, len(items))
+	for _, item := range items {
+		score := 1 // keep recent items eligible even without keyword hits
+		hay := strings.ToLower(item.Title + " " + item.Summary + " " + item.Location)
+		for _, w := range queryWords {
+			if len(w) < 3 {
+				continue
+			}
+			if strings.Contains(hay, w) {
+				score += 3
+			}
+		}
+		ranked = append(ranked, scored{item: item, score: score})
+	}
+	for i := 0; i < len(ranked)-1; i++ {
+		for j := i + 1; j < len(ranked); j++ {
+			// Higher score first; for ties prefer newer (earlier in ListNews).
+			if ranked[i].score < ranked[j].score {
+				ranked[i], ranked[j] = ranked[j], ranked[i]
+			}
+		}
+	}
+	if len(ranked) > limit {
+		ranked = ranked[:limit]
+	}
+
 	var b strings.Builder
-	b.WriteString("### Recent crime intel digests (auto-collected)\n")
-	for i, item := range items {
+	b.WriteString("### PRIORITY 1 — Admin news digests (Markdown from backstage collection)\n")
+	b.WriteString("These are curated for frontline AI. Prefer them over supplemental web search.\n")
+	for i, entry := range ranked {
+		item := entry.item
 		body := s.readNewsFile(item.File)
 		if body == "" {
 			body = item.Summary
@@ -251,6 +293,33 @@ func (s *DailyIntelService) RecentNewsContext(limit int) string {
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+// HasDigestCoverage reports whether any admin digest looks relevant to the query.
+func (s *DailyIntelService) HasDigestCoverage(query string) bool {
+	if s == nil {
+		return false
+	}
+	queryWords := strings.Fields(strings.ToLower(strings.TrimSpace(query)))
+	if len(queryWords) == 0 {
+		return len(s.ListNews(1)) > 0
+	}
+	for _, item := range s.ListNews(20) {
+		hay := strings.ToLower(item.Title + " " + item.Summary + " " + item.Location)
+		hits := 0
+		for _, w := range queryWords {
+			if len(w) < 3 {
+				continue
+			}
+			if strings.Contains(hay, w) {
+				hits++
+			}
+		}
+		if hits >= 2 {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *DailyIntelService) readNewsFile(name string) string {
