@@ -620,12 +620,15 @@ Rules:
 - Prefer: solved cold cases, new case studies with investigative lessons, significant crime news with operational value.
 - Skip celebrity gossip, politics-only stories, and weak or duplicate blurbs.
 - kind=knowledge when the piece teaches durable investigative knowledge (methods, solved-case lessons, profiles, forensic takeaways). Put a concise factual paragraph in rag_content suitable for a RAG knowledge base.
-- kind=news for timely crime reporting. Put a short Markdown brief in summary_md (3-6 bullets or short paragraphs, no hype).
+- kind=news for timely crime reporting. Put a short Markdown brief in summary_md (use " - " bullets separated by "\n", no hype).
 - Always fill summary_md. For knowledge, also fill rag_content.
 - category one of: history, strategy, perps, crime_stats, locations.
 - location should be city/region/country when known, else "".
-Return ONLY valid JSON:
-{"items":[{"source_index":0,"kind":"news|knowledge","title":"...","location":"...","category":"history","summary_md":"...","rag_content":"..."}]}`
+Output rules (critical):
+- Return ONLY a single JSON object. No markdown fences. No commentary.
+- Every string value MUST be one JSON line: escape newlines as \n, tabs as \t, and quotes as \".
+Example shape:
+{"items":[{"source_index":0,"kind":"news","title":"...","location":"...","category":"history","summary_md":"- point one\\n- point two","rag_content":""}]}`
 
 	user := fmt.Sprintf("TARGET=%d\n\nCANDIDATES:\n%s", target, listing.String())
 	raw, err := s.generate(system, user)
@@ -633,10 +636,20 @@ Return ONLY valid JSON:
 		return nil, err
 	}
 
-	jsonStr := extractJSONObject(raw)
-	var parsed intelPickResponse
-	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
-		return nil, fmt.Errorf("parse AI picks: %w (%s)", err, trimRunes(raw, 240))
+	parsed, err := parseIntelPicks(raw)
+	if err != nil {
+		// One repair pass: ask model to rewrite as strict single-line JSON.
+		repairSystem := `Rewrite the following model output as STRICT valid JSON only.
+No markdown fences. No commentary. Escape all newlines inside strings as \n.
+Keep the same items/fields. Shape: {"items":[...]}`
+		repaired, repairErr := s.generate(repairSystem, raw)
+		if repairErr != nil {
+			return nil, fmt.Errorf("parse AI picks: %w (%s)", err, trimRunes(raw, 240))
+		}
+		parsed, err = parseIntelPicks(repaired)
+		if err != nil {
+			return nil, fmt.Errorf("parse AI picks: %w (%s)", err, trimRunes(repaired, 240))
+		}
 	}
 
 	// Clamp
@@ -644,6 +657,80 @@ Return ONLY valid JSON:
 		parsed.Items = parsed.Items[:target]
 	}
 	return parsed.Items, nil
+}
+
+func parseIntelPicks(raw string) (intelPickResponse, error) {
+	var parsed intelPickResponse
+	jsonStr := sanitizeModelJSON(raw)
+	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
+		return parsed, err
+	}
+	return parsed, nil
+}
+
+// sanitizeModelJSON extracts a JSON object from model output and repairs common LLM mistakes
+// like markdown fences and raw newlines inside string literals.
+func sanitizeModelJSON(raw string) string {
+	s := strings.TrimSpace(raw)
+	// Strip fenced blocks: ```json ... ``` or ``` ... ```
+	if i := strings.Index(s, "```"); i >= 0 {
+		rest := s[i+3:]
+		rest = strings.TrimSpace(rest)
+		if strings.HasPrefix(strings.ToLower(rest), "json") {
+			rest = strings.TrimSpace(rest[4:])
+		}
+		if j := strings.Index(rest, "```"); j >= 0 {
+			rest = rest[:j]
+		}
+		s = strings.TrimSpace(rest)
+	}
+	s = extractJSONObject(s)
+	return escapeRawControlsInJSONStrings(s)
+}
+
+// escapeRawControlsInJSONStrings escapes bare newline/tab/CR characters that appear inside
+// JSON double-quoted strings (common LLM output that encoding/json rejects).
+func escapeRawControlsInJSONStrings(s string) string {
+	var b strings.Builder
+	b.Grow(len(s) + 32)
+	inString := false
+	escaped := false
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if inString {
+			if escaped {
+				b.WriteByte(ch)
+				escaped = false
+				continue
+			}
+			if ch == '\\' {
+				b.WriteByte(ch)
+				escaped = true
+				continue
+			}
+			if ch == '"' {
+				b.WriteByte(ch)
+				inString = false
+				continue
+			}
+			switch ch {
+			case '\n':
+				b.WriteString(`\n`)
+			case '\r':
+				b.WriteString(`\r`)
+			case '\t':
+				b.WriteString(`\t`)
+			default:
+				b.WriteByte(ch)
+			}
+			continue
+		}
+		if ch == '"' {
+			inString = true
+		}
+		b.WriteByte(ch)
+	}
+	return b.String()
 }
 
 func (s *DailyIntelService) generate(system, user string) (string, error) {
