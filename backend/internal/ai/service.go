@@ -99,7 +99,7 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 		}
 	}
 
-	// Step 4: Generate response using Gemini, fallback to Mistral if unavailable
+	// Step 5: Generate response using Gemini, fallback to Mistral if unavailable
 	response, err := s.gemini.GenerateResponse(userMessage, context, history, ragResults, webResult, newsDigests)
 	if err != nil {
 		log.Printf("Gemini API error: %v", err)
