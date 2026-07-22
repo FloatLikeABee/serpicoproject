@@ -172,10 +172,10 @@ export function ensureRoadNetwork(): Promise<RoadNetwork> {
 /** True when a route has enough road waypoints (not a long straight-line shortcut). */
 export function routeFollowsRoads(route: RoadPoint[]): boolean {
   if (route.length < 2) return false;
-  // A single long chord is almost always a broken pathfinding fallback.
+  // A single segment is only OK as a short on-road hop — long 2-point chords are broken.
   if (route.length === 2) {
     const span = haversineMeters(route[0].lat, route[0].lng, route[1].lat, route[1].lng);
-    return span < 80;
+    return span > 8 && span < 80;
   }
   // Reject routes that contain an unrealistically long jump between waypoints.
   for (let i = 1; i < route.length; i++) {
