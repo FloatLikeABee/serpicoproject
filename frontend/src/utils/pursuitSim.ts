@@ -108,13 +108,13 @@ export interface SimSession {
 }
 
 /** Total vehicles on the map each round (police + suspects), both factions present. */
-export const FLEET_TOTAL_MIN = 4;
-export const FLEET_TOTAL_MAX = 6;
+export const FLEET_TOTAL_MIN = 3;
+export const FLEET_TOTAL_MAX = 4;
 
 function randomFleetCounts(): { policeCount: number; perpCount: number } {
   const total = randInt(FLEET_TOTAL_MIN, FLEET_TOTAL_MAX);
-  // Keep both sides present without overcrowding the map.
-  const policeCount = randInt(2, Math.max(2, total - 2));
+  // Prefer 2 police when possible; always leave at least one suspect.
+  const policeCount = total <= 3 ? 2 : randInt(2, 2);
   return { policeCount, perpCount: total - policeCount };
 }
 /** Real mph on the map — no arcade speed multiplier. */
@@ -130,19 +130,21 @@ const DEST_ARRIVAL_M = 40;
 const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
 /** Fallback grid step when OSM roads are still loading (~22 m). */
 const ROAD_GRID_STEP = 0.0002;
-const PURSUIT_ROUTE_REBUILD_M = 420;
-const PURSUIT_TARGET_LOOKAHEAD_M = 320;
-const PURSUIT_TAIL_JOIN_M = 450;
-const MIN_ROUTE_REBUILD_MS = 4500;
+const PURSUIT_ROUTE_REBUILD_M = 700;
+const PURSUIT_TARGET_LOOKAHEAD_M = 400;
+const PURSUIT_TAIL_JOIN_M = 380;
+const MIN_ROUTE_REBUILD_MS = 8000;
 const MIN_SEGMENT_M = 4;
 /** Only hard-snap position when this far off the rebuilt polyline (reduces chase jumps). */
-const ROUTE_SNAP_M = 55;
+const ROUTE_SNAP_M = 120;
+/** Never move a pursuing unit's lat/lng on route refresh unless beyond this. */
+const PURSUIT_FORCE_SNAP_M = 180;
 /** Reject tiny chase stubs that cause loop/appear-disappear thrash. */
-const MIN_PURSUIT_ROUTE_M = 180;
+const MIN_PURSUIT_ROUTE_M = 250;
 
 /** Throttle route rebuilds per vehicle to prevent shake/teleport loops. */
 const lastRouteRebuildAt = new Map<string, number>();
-const MIN_VEHICLE_SPAWN_SEP_M = 1100;
+const MIN_VEHICLE_SPAWN_SEP_M = 1200;
 
 const PATROL_CRUISE_MPH = 28;
 const PERP_CRUISE_MPH = 30;
@@ -442,10 +444,11 @@ function applyRouteWithProgress(v: SimVehicle, route: SimLatLng[], forceSnap = f
 
   const projected = projectOntoRoute(clean, { lat: v.lat, lng: v.lng }, v.routeIndex);
   const snapDist = haversineMeters(v.lat, v.lng, projected.point.lat, projected.point.lng);
+  const pursuing = v.role === 'police' && v.status === 'pursuing';
 
   v.route = clean;
   // Keep forward progress when the new polyline is nearby — avoids jump-backs along the line.
-  if (!forceSnap && snapDist < ROUTE_SNAP_M * 1.5 && projected.index < v.routeIndex - 1) {
+  if (!forceSnap && snapDist < ROUTE_SNAP_M && projected.index < v.routeIndex - 1) {
     v.routeIndex = Math.min(Math.max(v.routeIndex, 0), clean.length - 2);
     v.routeProgress = clamp(v.routeProgress, 0, 0.99);
   } else {
@@ -453,8 +456,9 @@ function applyRouteWithProgress(v: SimVehicle, route: SimLatLng[], forceSnap = f
     v.routeProgress = projected.progress;
   }
 
-  // Soft snap only when meaningfully off the polyline — stops rebuild shake/teleports.
-  if (forceSnap || snapDist > ROUTE_SNAP_M) {
+  // Mid-chase: never teleport along the line unless badly desynced.
+  const snapThreshold = pursuing ? PURSUIT_FORCE_SNAP_M : ROUTE_SNAP_M;
+  if ((!pursuing && forceSnap) || snapDist > snapThreshold) {
     v.lat = projected.point.lat;
     v.lng = projected.point.lng;
   }
@@ -522,7 +526,8 @@ function buildPursuitTailRoute(police: SimVehicle, perp: SimVehicle): SimLatLng[
   }
 
   const clean = dedupeRoute(tail);
-  return routeFollowsRoads(clean) || clean.length >= 3 ? clean : null;
+  const gapAfter = haversineMeters(police.lat, police.lng, perp.lat, perp.lng);
+  return isUsablePursuitRoute(clean, gapAfter) ? clean : null;
 }
 
 function buildPursuitRoadRoute(police: SimVehicle, perp: SimVehicle): SimLatLng[] {
@@ -569,22 +574,20 @@ function ensurePursuitRoute(v: SimVehicle, perp: SimVehicle) {
     routeFollowsRoads(v.route) &&
     isUsablePursuitRoute(v.route, gap);
 
-  // Keep riding a good route — retarget only when exhausted or badly stale.
-  if (currentOk && endDrift <= PURSUIT_ROUTE_REBUILD_M) return;
+  // Keep riding a good route. Ignore moderate end-drift — replacing mid-chase causes jumps.
+  if (currentOk && !atRouteEnd && endDrift <= PURSUIT_ROUTE_REBUILD_M) return;
+  if (currentOk && !atRouteEnd && endDrift > PURSUIT_ROUTE_REBUILD_M) {
+    // Soft extend: append lookahead ahead of current remaining path instead of full replace.
+    if (!canRebuildRoute(v)) return;
+    const extended = extendPursuitRoute(v, perp);
+    if (extended && isUsablePursuitRoute(extended, gap)) {
+      applyRouteWithProgress(v, extended, false);
+    }
+    return;
+  }
 
-  const needsRebuild =
-    atRouteEnd ||
-    v.route.length < 2 ||
-    !end ||
-    !routeFollowsRoads(v.route) ||
-    !isUsablePursuitRoute(v.route, gap) ||
-    endDrift > PURSUIT_ROUTE_REBUILD_M;
-
-  // Close-range tail join: only when path is exhausted (prevents shake).
-  const shouldJoinTail = gap < PURSUIT_TAIL_JOIN_M && atRouteEnd;
-
-  if (!needsRebuild && !shouldJoinTail) return;
-  if (!canRebuildRoute(v, atRouteEnd && gap <= CATCH_CLOSE_METERS)) return;
+  if (!atRouteEnd && !canRebuildRoute(v)) return;
+  if (atRouteEnd && !canRebuildRoute(v, gap <= CATCH_CLOSE_METERS)) return;
 
   const newRoute = buildPursuitRoadRoute(v, perp);
   if (!isUsablePursuitRoute(newRoute, gap)) return;
@@ -599,6 +602,22 @@ function ensurePursuitRoute(v: SimVehicle, perp: SimVehicle) {
   }
 
   applyRouteWithProgress(v, newRoute, false);
+}
+
+/** Append a farther chase target onto the remaining current route (no teleport). */
+function extendPursuitRoute(v: SimVehicle, perp: SimVehicle): SimLatLng[] | null {
+  if (v.route.length < 2 || v.routeIndex >= v.route.length - 1) return null;
+  const remaining = v.route.slice(v.routeIndex).map((p) => ({ ...p }));
+  remaining[0] = { lat: v.lat, lng: v.lng };
+  const ahead = getPerpRoadTarget(perp, Math.max(PURSUIT_TARGET_LOOKAHEAD_M, 500));
+  const last = remaining[remaining.length - 1];
+  if (haversineMeters(last.lat, last.lng, ahead.lat, ahead.lng) > 40) {
+    const bridge = buildRoadRouteToDestination(last, ahead);
+    for (let i = 1; i < bridge.length; i++) {
+      remaining.push(bridge[i]);
+    }
+  }
+  return dedupeRoute(remaining);
 }
 
 function releasePoliceForReassignment(v: SimVehicle) {
@@ -1197,11 +1216,23 @@ export function startPursuit(session: SimSession, policeId: string, perpId: stri
   const pursuitRoute = buildPursuitRoadRoute(police, perp);
   const pursuitDraft: SimVehicle = {
     ...police,
-    route: pursuitRoute,
-    routeIndex: 0,
-    routeProgress: 0,
+    status: 'pursuing',
+    pursuingPerpId: perpId,
+    // Keep current position; only attach a chase polyline.
+    route: police.route,
+    routeIndex: police.routeIndex,
+    routeProgress: police.routeProgress,
   };
-  applyRouteWithProgress(pursuitDraft, pursuitRoute);
+  if (isUsablePursuitRoute(pursuitRoute, haversineMeters(police.lat, police.lng, perp.lat, perp.lng))) {
+    applyRouteWithProgress(pursuitDraft, pursuitRoute, false);
+  } else if (police.route.length >= 2 && hasForwardPath(police)) {
+    // Keep existing road route rather than snapping onto a bad stub.
+    pursuitDraft.route = police.route;
+    pursuitDraft.routeIndex = police.routeIndex;
+    pursuitDraft.routeProgress = police.routeProgress;
+  } else {
+    applyRouteWithProgress(pursuitDraft, pursuitRoute, false);
+  }
 
   const vehicles = session.vehicles.map((v) => {
     if (v.id === policeId) {
@@ -1212,8 +1243,9 @@ export function startPursuit(session: SimSession, policeId: string, perpId: stri
         route: pursuitDraft.route,
         routeIndex: pursuitDraft.routeIndex,
         routeProgress: pursuitDraft.routeProgress,
-        lat: pursuitDraft.lat,
-        lng: pursuitDraft.lng,
+        // Preserve live map position — never teleport on pursue start.
+        lat: v.lat,
+        lng: v.lng,
       };
     }
     if (v.id === perpId) {
