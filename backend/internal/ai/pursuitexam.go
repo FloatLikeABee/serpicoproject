@@ -22,11 +22,11 @@ const (
 	policePursuitMultiplier = 1.0
 	pursuitClosureBoost  = 1.1
 	pursuitRouteRebuildM = 80.0
-	fleetTotalMin        = 4
-	fleetTotalMax        = 6
+	fleetTotalMin        = 3
+	fleetTotalMax        = 4
 	minPerpPoliceSpawnM  = 600.0
 	minPerpDestDistanceM = 6000.0
-	minVehicleSpawnSepM  = 1100.0
+	minVehicleSpawnSepM  = 1200.0
 	destArrivalM         = 40.0
 	roadGridStep         = 0.0002
 )
@@ -251,18 +251,11 @@ func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSe
 
 func randomFleetCounts() (policeCount, perpCount int) {
 	total := fleetTotalMin + rand.Intn(fleetTotalMax-fleetTotalMin+1)
-	minPolice := 2
-	if minPolice > total-2 {
-		minPolice = 1
+	// Prefer 2 police + 1–2 suspects for a clearer chase map.
+	if total <= 3 {
+		return 2, 1
 	}
-	maxPolice := total - 2
-	if maxPolice < minPolice {
-		policeCount = 1 + rand.Intn(total-1)
-	} else {
-		policeCount = minPolice + rand.Intn(maxPolice-minPolice+1)
-	}
-	perpCount = total - policeCount
-	return policeCount, perpCount
+	return 2, total - 2
 }
 
 func sessionFleetUsable(session *PursuitExamSession) bool {

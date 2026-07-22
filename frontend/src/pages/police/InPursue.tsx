@@ -68,6 +68,8 @@ function toMapVehicle(v: SimVehicle): PursuitMapVehicle {
     beingPursued: v.beingPursued,
     pursuingPerpId: v.pursuingPerpId,
     route: v.route,
+    routeIndex: v.routeIndex,
+    routeProgress: v.routeProgress,
     destination: v.destination,
   };
 }

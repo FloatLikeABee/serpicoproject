@@ -13,6 +13,8 @@ export interface PursuitMapVehicle {
   beingPursued?: boolean;
   pursuingPerpId?: string;
   route?: Array<{ lat: number; lng: number }>;
+  routeIndex?: number;
+  routeProgress?: number;
   destination?: { lat: number; lng: number };
 }
 
@@ -253,12 +255,26 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
 
   const routeLines = useMemo(() => {
     const lines: Array<{ id: string; positions: [number, number][]; color: string; dashed?: boolean }> = [];
+    const remainingRoute = (v: PursuitMapVehicle): [number, number][] => {
+      if (!v.route || v.route.length < 2) return [];
+      const startIdx = Math.min(Math.max(v.routeIndex ?? 0, 0), v.route.length - 1);
+      const pts: [number, number][] = [[v.lat, v.lng]];
+      for (let i = startIdx + ((v.routeProgress ?? 0) > 0.05 ? 1 : 0); i < v.route.length; i++) {
+        const p = v.route[i];
+        pts.push([p.lat, p.lng]);
+      }
+      return pts.length >= 2 ? pts : [];
+    };
+
     if (selectedVehicle?.route && selectedVehicle.route.length > 1) {
-      lines.push({
-        id: selectedVehicle.id,
-        positions: selectedVehicle.route.map((p) => [p.lat, p.lng]),
-        color: '#00f5ff',
-      });
+      const positions = remainingRoute(selectedVehicle);
+      if (positions.length >= 2) {
+        lines.push({
+          id: selectedVehicle.id,
+          positions,
+          color: '#00f5ff',
+        });
+      }
     }
     vehicles
       .filter((v) => v.route && v.route.length > 1 && v.status !== 'caught')
@@ -266,9 +282,11 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         const isPursuit = v.role === 'police' && v.status === 'pursuing';
         const isPerp = v.role === 'perp';
         if (!isPursuit && !isPerp) return;
+        const positions = remainingRoute(v);
+        if (positions.length < 2) return;
         lines.push({
           id: `${v.id}-route`,
-          positions: v.route!.map((p) => [p.lat, p.lng]),
+          positions,
           color: isPursuit ? '#00f5ff' : v.beingPursued ? '#ff6b6b' : '#ff2bd6',
           dashed: isPerp && !v.beingPursued,
         });
