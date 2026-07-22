@@ -297,10 +297,36 @@ const InPursue: React.FC = () => {
 
   if (!session || !roadsReady) {
     return (
-      <div className="page-fill items-center justify-center">
-        <p className="text-neon-cyan font-display text-sm animate-pulse">
-          {roadsError ? 'Loading road fallback grid…' : 'Loading Olathe road network…'}
-        </p>
+      <div className="page-fill items-center justify-center px-4">
+        <div className="w-full max-w-sm space-y-4 text-center">
+          <p className="text-neon-cyan font-display text-sm animate-pulse tracking-wide">
+            {roadsError ? 'Loading road fallback grid…' : 'Loading Olathe map…'}
+          </p>
+
+          <div className="game-panel p-4 text-left space-y-3">
+            <h2 className="font-display text-xs uppercase tracking-widest text-serpico-red text-center">
+              How to play
+            </h2>
+            <ol className="space-y-2.5 text-[12px] sm:text-sm text-synth-text leading-snug">
+              <li className="flex gap-2.5">
+                <span className="font-mono text-neon-cyan flex-shrink-0 w-4">1</span>
+                <span><span className="text-serpico-blue font-semibold">Tap a police</span> unit on the map to select it.</span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="font-mono text-neon-cyan flex-shrink-0 w-4">2</span>
+                <span>Hit <span className="text-neon-cyan font-semibold">Pursue</span>, then <span className="text-serpico-red font-semibold">tap a suspect</span> to lock the chase.</span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="font-mono text-neon-cyan flex-shrink-0 w-4">3</span>
+                <span>Catch as many as you can before the round timer ends.</span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="font-mono text-neon-cyan flex-shrink-0 w-4">4</span>
+                <span className="text-synth-muted">Units can go down mid-round — switch to another police and keep hunting.</span>
+              </li>
+            </ol>
+          </div>
+        </div>
       </div>
     );
   }
