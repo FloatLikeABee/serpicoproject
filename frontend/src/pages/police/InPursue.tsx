@@ -208,7 +208,27 @@ const InPursue: React.FC = () => {
 
     if (vehicle.role === 'police' && vehicle.status !== 'caught') {
       setSelectedPoliceId(vehicle.id);
-      if (vehicle.status !== 'down') {
+
+      // One tap: select + arm targeting so Pursue does not require a second button press.
+      if (isPoliceAvailableForPursuit(vehicle as SimVehicle)) {
+        const policeId = vehicle.id;
+        pursueModeRef.current = policeId;
+        setPursueModePoliceId(policeId);
+        let next = armPursuit(cur, policeId);
+        setSession(next);
+        sessionRef.current = next;
+
+        if (useServer) {
+          try {
+            const { session: raw } = await pursuitExamAPI.armPursuit(userId, policeId);
+            next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
+            setSession(next);
+            sessionRef.current = next;
+          } catch {
+            setUseServer(false);
+          }
+        }
+      } else {
         setPursueModePoliceId(null);
         pursueModeRef.current = null;
       }
@@ -310,11 +330,15 @@ const InPursue: React.FC = () => {
             <ol className="space-y-2.5 text-[12px] sm:text-sm text-synth-text leading-snug">
               <li className="flex gap-2.5">
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">1</span>
-                <span><span className="text-serpico-blue font-semibold">Tap a police</span> unit on the map to select it.</span>
+                <span>
+                  <span className="text-serpico-blue font-semibold">Tap a police</span> unit — that arms pursue targeting.
+                </span>
               </li>
               <li className="flex gap-2.5">
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">2</span>
-                <span>Hit <span className="text-neon-cyan font-semibold">Pursue</span>, then <span className="text-serpico-red font-semibold">tap a suspect</span> to lock the chase.</span>
+                <span>
+                  Then <span className="text-serpico-red font-semibold">tap a suspect</span> to lock the chase.
+                </span>
               </li>
               <li className="flex gap-2.5">
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">3</span>
@@ -322,7 +346,9 @@ const InPursue: React.FC = () => {
               </li>
               <li className="flex gap-2.5">
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">4</span>
-                <span className="text-synth-muted">Units can go down mid-round — switch to another police and keep hunting.</span>
+                <span className="text-synth-muted">
+                  Units can go down mid-round — tap another police and keep hunting.
+                </span>
               </li>
             </ol>
           </div>
@@ -405,9 +431,13 @@ const InPursue: React.FC = () => {
                     </button>
                   )}
                   {pursueModePoliceId === selectedPolice.id && (
-                    <span className="px-2 py-0.5 rounded text-[9px] font-display uppercase text-neon-magenta border border-neon-magenta/40 animate-pulse">
-                      Targeting
-                    </span>
+                    <button
+                      type="button"
+                      onClick={cancelTargeting}
+                      className="px-2 py-0.5 rounded text-[9px] font-display uppercase text-neon-magenta border border-neon-magenta/40 animate-pulse touch-manipulation min-h-0 min-w-0"
+                    >
+                      Targeting · Cancel
+                    </button>
                   )}
                 </div>
                 <h3 className="font-display font-bold text-sm truncate">{selectedPolice.officerName}</h3>
@@ -556,7 +586,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap police → Pursue → tap suspect · Units may go down mid-round
+          Tap police → tap suspect · Units may go down mid-round
         </p>
       </div>
     </div>
