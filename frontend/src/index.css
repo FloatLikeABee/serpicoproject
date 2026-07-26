@@ -282,6 +282,18 @@ html.synth-world ::-webkit-scrollbar-thumb {
   border: none !important;
 }
 
+/* Landmark DivIcons must receive taps (default leaflet-div-icon styles are replaced). */
+.pursuit-landmark-marker {
+  background: transparent !important;
+  border: none !important;
+  pointer-events: auto !important;
+}
+
+.pursuit-landmark-marker > div {
+  pointer-events: auto !important;
+  cursor: pointer;
+}
+
 @media (max-width: 640px) {
   /* Touch targets for primary actions only — NOT HUD nav (causes horizontal overflow) */
   .btn-neon-primary,

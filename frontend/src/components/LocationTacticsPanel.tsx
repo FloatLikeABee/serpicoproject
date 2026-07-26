@@ -152,6 +152,9 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
 
           {game.phase === 'active' && (
             <>
+              <p className="text-[11px] text-gray-300 leading-snug border border-neon-amber/25 rounded-md px-2 py-1.5 bg-neon-amber/5">
+                {game.briefing}
+              </p>
               <div className="flex flex-wrap gap-2 text-[10px] font-mono">
                 <span className="text-neon-cyan">T{game.turn}/{game.maxTurns}</span>
                 <span className="text-neon-green">Caught {caught}</span>

@@ -28,6 +28,7 @@ import {
 import {
   LocationAIEvaluation,
   LocationTacticsGame,
+  beginTacticsRaid,
   localFallbackLocationEvaluation,
   startLocationTactics,
 } from '../../utils/locationTacticsSim';
@@ -393,20 +394,22 @@ const InPursue: React.FC = () => {
     setDeployMode(false);
     setPursueModePoliceId(null);
     pursueModeRef.current = null;
+    setSelectedPoliceId(null);
+    setTacticsCollapsed(false);
+    setTacticsEval(null);
+    tacticsEvalKeyRef.current = null;
+
     setTacticsGame((current) => {
+      // Keep an in-progress raid on another site; just bring its panel forward.
       if (current && current.phase !== 'completed' && current.landmarkId !== landmark.id) {
-        // Keep the live raid; just expand it so vehicle chase can continue under a collapsed view later.
-        setTacticsCollapsed(false);
         return current;
       }
-      if (current && current.landmarkId === landmark.id) {
-        setTacticsCollapsed(false);
+      // Re-open the same site if already loaded.
+      if (current && current.landmarkId === landmark.id && current.phase !== 'completed') {
         return current;
       }
-      setTacticsCollapsed(false);
-      setTacticsEval(null);
-      tacticsEvalKeyRef.current = null;
-      return startLocationTactics(landmark);
+      // One tap: generate today's scenario and enter the raid immediately.
+      return beginTacticsRaid(startLocationTactics(landmark));
     });
   }, []);
 
