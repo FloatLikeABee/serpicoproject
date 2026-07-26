@@ -482,7 +482,7 @@ const InPursue: React.FC = () => {
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">3</span>
                 <span>
                   Tap <span className="text-neon-amber font-semibold">bars / clubs / factories / projects</span> for
-                  on-foot raids (collapsible — keep chasing on the map).
+                  visual raids: foot chase, cover gunfight, or hide-and-seek (collapsible).
                 </span>
               </li>
               <li className="flex gap-2.5">
