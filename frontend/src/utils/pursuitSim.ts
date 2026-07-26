@@ -93,6 +93,16 @@ export interface SimRoundResult {
   stats?: RoundStats;
 }
 
+export type LandmarkKind = 'bar' | 'club' | 'factory' | 'projects';
+
+export interface MapLandmark {
+  id: string;
+  kind: LandmarkKind;
+  name: string;
+  lat: number;
+  lng: number;
+}
+
 export interface SimSession {
   id: string;
   userId: string;
@@ -109,6 +119,8 @@ export interface SimSession {
   reinforcementsLeft: number;
   /** Spawn cluster center — keeps the opening view tight. */
   clusterCenter?: SimLatLng;
+  /** Named points of interest placed randomly each round. */
+  landmarks: MapLandmark[];
 }
 
 /** Start lean: fewer cops than suspects; player may reinforce mid-round. */
@@ -137,7 +149,12 @@ export const ROUND_COOLDOWN_MS = 2 * 60 * 1000;
 const CATCH_METERS = 55;
 const CATCH_CLOSE_METERS = 120;
 const DEST_ARRIVAL_M = 40;
-const OlatheBounds = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
+/** Playable Olathe city box — map pan/zoom is locked to this. */
+export const OLATHE_BOUNDS = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
+const OlatheBounds = OLATHE_BOUNDS;
+export const OLATHE_CENTER: [number, number] = [38.8814, -94.8191];
+export const OLATHE_MIN_ZOOM = 13;
+export const OLATHE_MAX_ZOOM = 17;
 /** Fallback grid step when OSM roads are still loading (~22 m). */
 const ROAD_GRID_STEP = 0.0002;
 const PURSUIT_ROUTE_REBUILD_M = 700;
@@ -791,6 +808,84 @@ function assignPerpDestinations(spawns: SimLatLng[]): SimLatLng[] {
   });
 }
 
+const LANDMARK_CATALOG: Array<{ kind: LandmarkKind; names: string[] }> = [
+  {
+    kind: 'bar',
+    names: ['The Broken Tap', 'Rail Yard Tavern', 'Santa Fe Street Pub', 'Cedar Side Bar', 'Off-Duty Lounge'],
+  },
+  {
+    kind: 'club',
+    names: ['Neon Alley', 'After Hours Olathe', 'The Velvet Grid', 'Pulse & Siren', 'Blackout Room', 'Kilowatt Club'],
+  },
+  {
+    kind: 'factory',
+    names: ['Kansas Ave Mill Works', 'Cedar Creek Assembly Yard', 'Prairie Tool Foundry', 'Old Silo Packing Plant'],
+  },
+  {
+    kind: 'projects',
+    names: ['Ridgeview Courts', 'West Park Flats', 'Southgate Walkups', 'Elm Hollow Residences'],
+  },
+];
+
+const LANDMARK_COUNTS: Record<LandmarkKind, number> = {
+  bar: 3,
+  club: 4,
+  factory: 2,
+  projects: 2,
+};
+
+const MIN_LANDMARK_SEP_M = 280;
+
+function shuffleCopy<T>(items: T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function pickLandmarkPoint(avoid: SimLatLng[]): SimLatLng {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const candidate = {
+      lat: rand(OlatheBounds.latMin + 0.003, OlatheBounds.latMax - 0.003),
+      lng: rand(OlatheBounds.lngMin + 0.004, OlatheBounds.lngMax - 0.004),
+    };
+    const ok = avoid.every(
+      (p) => haversineMeters(candidate.lat, candidate.lng, p.lat, p.lng) >= MIN_LANDMARK_SEP_M
+    );
+    if (ok) return candidate;
+  }
+  return {
+    lat: rand(OlatheBounds.latMin + 0.003, OlatheBounds.latMax - 0.003),
+    lng: rand(OlatheBounds.lngMin + 0.004, OlatheBounds.lngMax - 0.004),
+  };
+}
+
+/** Place named bars, clubs, factories, and projects randomly across Olathe each round. */
+export function createRoundLandmarks(): MapLandmark[] {
+  const landmarks: MapLandmark[] = [];
+  const placed: SimLatLng[] = [];
+
+  for (const catalog of LANDMARK_CATALOG) {
+    const count = LANDMARK_COUNTS[catalog.kind];
+    const names = shuffleCopy(catalog.names).slice(0, count);
+    for (const name of names) {
+      const point = pickLandmarkPoint(placed);
+      placed.push(point);
+      landmarks.push({
+        id: uid(`lm-${catalog.kind}`),
+        kind: catalog.kind,
+        name,
+        lat: point.lat,
+        lng: point.lng,
+      });
+    }
+  }
+
+  return shuffleCopy(landmarks);
+}
+
 function routeHasMovement(route: SimLatLng[]): boolean {
   for (let i = 1; i < route.length; i++) {
     if (haversineMeters(route[i - 1].lat, route[i - 1].lng, route[i].lat, route[i].lng) > 40) {
@@ -1003,6 +1098,7 @@ export function createSimSession(userId: string, round = 1): SimSession {
     vehicles,
     reinforcementsLeft: MAX_POLICE_REINFORCEMENTS,
     clusterCenter,
+    landmarks: createRoundLandmarks(),
     stats: {
       round,
       roundDurationSec: 0,
@@ -1292,6 +1388,9 @@ export function mergeServerSession(local: SimSession, server: SimSession): SimSe
 }
 
 export function simSessionFromAPI(raw: Record<string, unknown>): SimSession {
+  const landmarks = Array.isArray(raw.landmarks)
+    ? (raw.landmarks as MapLandmark[])
+    : createRoundLandmarks();
   return {
     id: String(raw.id),
     userId: String(raw.userId),
@@ -1305,6 +1404,7 @@ export function simSessionFromAPI(raw: Record<string, unknown>): SimSession {
     reinforcementsLeft:
       typeof raw.reinforcementsLeft === 'number' ? raw.reinforcementsLeft : MAX_POLICE_REINFORCEMENTS,
     clusterCenter: raw.clusterCenter as SimLatLng | undefined,
+    landmarks,
   };
 }
 
