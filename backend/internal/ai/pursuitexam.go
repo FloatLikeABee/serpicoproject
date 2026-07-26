@@ -11,24 +11,30 @@ import (
 )
 
 const (
-	pursuitRoundDuration = 12 * time.Hour
-	pursuitCooldownDuration = 5 * time.Minute
-	pursuitCatchMeters   = 35.0
-	simMovementScale     = 1.0
-	patrolCruiseMph      = 28.0
-	perpCruiseMph        = 30.0
-	policePursuitBonusMph = 4.0
-	perpFleeMultiplier   = 1.0
+	pursuitRoundDuration    = 20 * time.Minute
+	pursuitCooldownDuration = 1 * time.Minute
+	pursuitCatchMeters      = 35.0
+	simMovementScale        = 2.2
+	patrolCruiseMph         = 34.0
+	perpCruiseMph           = 36.0
+	policePursuitBonusMph   = 10.0
+	perpFleeMultiplier      = 1.0
 	policePursuitMultiplier = 1.0
-	pursuitClosureBoost  = 1.1
-	pursuitRouteRebuildM = 80.0
-	fleetTotalMin        = 3
-	fleetTotalMax        = 4
-	minPerpPoliceSpawnM  = 600.0
-	minPerpDestDistanceM = 6000.0
-	minVehicleSpawnSepM  = 1200.0
-	destArrivalM         = 40.0
-	roadGridStep         = 0.0002
+	pursuitClosureBoost     = 1.08
+	pursuitRouteRebuildM    = 80.0
+	initialPoliceCount      = 1
+	maxPoliceReinforcements = 2
+	initialPerpMultiplier   = 2
+	fleetTotalMin           = initialPoliceCount + initialPoliceCount*initialPerpMultiplier
+	fleetTotalMax           = initialPoliceCount + maxPoliceReinforcements + initialPoliceCount*initialPerpMultiplier
+	clusterRadiusM          = 650.0
+	minVehicleSpawnSepM     = 110.0
+	perpDestMinM            = 900.0
+	perpDestMaxM            = 2200.0
+	patrolRadiusM           = 900.0
+	minPerpDestDistanceM    = 900.0
+	destArrivalM            = 40.0
+	roadGridStep            = 0.0002
 )
 
 // LatLng is a geographic coordinate.
@@ -73,18 +79,20 @@ type PursuitRoundResult struct {
 
 // PursuitExamSession is a per-user pursuit strategy exam round.
 type PursuitExamSession struct {
-	ID             string              `json:"id"`
-	UserID         string              `json:"userId"`
-	Phase          string              `json:"phase"` // active | completed | cooldown
-	Round          int                 `json:"round"`
-	RoundEndsAt    time.Time           `json:"roundEndsAt"`
-	CooldownEndsAt *time.Time          `json:"cooldownEndsAt,omitempty"`
-	Vehicles       []PursuitVehicle    `json:"vehicles"`
-	Result         *PursuitRoundResult `json:"result,omitempty"`
-	ArmedPoliceID  string              `json:"armedPoliceId,omitempty"`
-	LastSimAt      time.Time           `json:"-"`
-	CreatedAt      time.Time           `json:"createdAt"`
-	UpdatedAt      time.Time           `json:"updatedAt"`
+	ID                  string              `json:"id"`
+	UserID              string              `json:"userId"`
+	Phase               string              `json:"phase"` // active | completed | cooldown
+	Round               int                 `json:"round"`
+	RoundEndsAt         time.Time           `json:"roundEndsAt"`
+	CooldownEndsAt      *time.Time          `json:"cooldownEndsAt,omitempty"`
+	Vehicles            []PursuitVehicle    `json:"vehicles"`
+	Result              *PursuitRoundResult `json:"result,omitempty"`
+	ArmedPoliceID       string              `json:"armedPoliceId,omitempty"`
+	ReinforcementsLeft  int                 `json:"reinforcementsLeft"`
+	ClusterCenter       *LatLng             `json:"clusterCenter,omitempty"`
+	LastSimAt           time.Time           `json:"-"`
+	CreatedAt           time.Time           `json:"createdAt"`
+	UpdatedAt           time.Time           `json:"updatedAt"`
 }
 
 // PursuitExamService manages per-user pursuit exam sessions.
@@ -237,6 +245,51 @@ func (s *PursuitExamService) StartPursuit(userID, policeID, perpID string) (*Pur
 	return s.copySession(session), nil
 }
 
+// DeployPolice places one reinforcement unit at the tapped map position (road-snapped).
+func (s *PursuitExamService) DeployPolice(userID string, lat, lng float64) (*PursuitExamSession, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session, err := s.sessionForUserLocked(userID)
+	if err != nil {
+		return nil, err
+	}
+	if session.Phase != "active" {
+		return nil, fmt.Errorf("round is not active")
+	}
+	if session.ReinforcementsLeft <= 0 {
+		return nil, fmt.Errorf("no reinforcements left")
+	}
+
+	avoid := make([]LatLng, 0, len(session.Vehicles))
+	for i := range session.Vehicles {
+		avoid = append(avoid, LatLng{Lat: session.Vehicles[i].Lat, Lng: session.Vehicles[i].Lng})
+	}
+	start := snapToRoadGrid(LatLng{Lat: lat, Lng: lng})
+	ok := true
+	for _, p := range avoid {
+		if haversineMeters(start.Lat, start.Lng, p.Lat, p.Lng) < minVehicleSpawnSepM*0.5 {
+			ok = false
+			break
+		}
+	}
+	if !ok {
+		start = pickNearPoint(start, 40, 180, avoid)
+	}
+
+	policeIndex := 0
+	for i := range session.Vehicles {
+		if session.Vehicles[i].Role == "police" {
+			policeIndex++
+		}
+	}
+	session.Vehicles = append(session.Vehicles, buildPoliceVehicle(policeIndex, start))
+	session.ReinforcementsLeft--
+	session.UpdatedAt = time.Now()
+	s.simulateLocked(session)
+	return s.copySession(session), nil
+}
+
 func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSession, error) {
 	sid, ok := s.byUser[userID]
 	if !ok {
@@ -249,13 +302,10 @@ func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSe
 	return session, nil
 }
 
-func randomFleetCounts() (policeCount, perpCount int) {
-	total := fleetTotalMin + rand.Intn(fleetTotalMax-fleetTotalMin+1)
-	// Prefer 2 police + 1–2 suspects for a clearer chase map.
-	if total <= 3 {
-		return 2, 1
-	}
-	return 2, total - 2
+func initialFleetCounts() (policeCount, perpCount int) {
+	policeCount = initialPoliceCount
+	perpCount = policeCount * initialPerpMultiplier
+	return policeCount, perpCount
 }
 
 func sessionFleetUsable(session *PursuitExamSession) bool {
@@ -268,17 +318,24 @@ func sessionFleetUsable(session *PursuitExamSession) bool {
 			perps++
 		}
 	}
-	total := police + perps
-	return total >= fleetTotalMin && total <= fleetTotalMax && police >= 1 && perps >= 1
+	// Suspects stay at 2× starting cops; police may grow via reinforcements only.
+	if perps != initialPoliceCount*initialPerpMultiplier {
+		return false
+	}
+	if police < initialPoliceCount || police > initialPoliceCount+maxPoliceReinforcements {
+		return false
+	}
+	return true
 }
 
 func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamSession {
 	now := time.Now()
-	policeCount, perpCount := randomFleetCounts()
+	policeCount, perpCount := initialFleetCounts()
+	center := randomClusterCenter()
 
-	perpSpawns := pickPerpSpreadSpawns(perpCount)
+	perpSpawns := pickClusterSpawns(perpCount, center, nil)
 	perpDestinations := assignPerpDestinations(perpSpawns)
-	policeSpawns := pickSpreadAnchors(policeCount, perpSpawns)
+	policeSpawns := pickClusterSpawns(policeCount, center, perpSpawns)
 
 	police := make([]PursuitVehicle, 0, policeCount)
 	perps := make([]PursuitVehicle, 0, perpCount)
@@ -295,17 +352,20 @@ func (s *PursuitExamService) newRound(userID string, roundNum int) *PursuitExamS
 	vehicles := append(police, perps...)
 	schedulePoliceDowns(vehicles, now)
 	now = time.Now()
+	cluster := center
 
 	return &PursuitExamSession{
-		ID:          uuid.New().String(),
-		UserID:      userID,
-		Phase:       "active",
-		Round:       roundNum,
-		RoundEndsAt: now.Add(pursuitRoundDuration),
-		Vehicles:    vehicles,
-		LastSimAt:   now,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:                 uuid.New().String(),
+		UserID:             userID,
+		Phase:              "active",
+		Round:              roundNum,
+		RoundEndsAt:        now.Add(pursuitRoundDuration),
+		Vehicles:           vehicles,
+		ReinforcementsLeft: maxPoliceReinforcements,
+		ClusterCenter:      &cluster,
+		LastSimAt:          now,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 }
 
@@ -529,7 +589,7 @@ func (s *PursuitExamService) maybeAssignPerpDestination(v *PursuitVehicle) {
 	if v.Destination != nil {
 		destDist = haversineMeters(pos.Lat, pos.Lng, v.Destination.Lat, v.Destination.Lng)
 	}
-	if v.Destination == nil || destDist < minPerpDestDistanceM*0.9 || destDist <= destArrivalM {
+	if v.Destination == nil || destDist <= destArrivalM {
 		dest := pickPerpDestination(pos, nil)
 		v.Destination = &dest
 		v.Route = buildRoadRouteToDestination(pos, dest)
@@ -675,88 +735,70 @@ func mapCorners() []LatLng {
 	return corners
 }
 
-func pickSpreadAnchors(count int, avoid []LatLng) []LatLng {
-	anchors := spreadAnchors()
-	rand.Shuffle(len(anchors), func(i, j int) { anchors[i], anchors[j] = anchors[j], anchors[i] })
-	picked := make([]LatLng, 0, count)
-	for _, anchor := range anchors {
-		if len(picked) >= count {
-			break
-		}
+func offsetMeters(center LatLng, northM, eastM float64) LatLng {
+	latMin, latMax, lngMin, lngMax := olatheMapBounds()
+	lat := center.Lat + northM/111320.0
+	lng := center.Lng + eastM/(111320.0*math.Cos(center.Lat*math.Pi/180.0))
+	if lat < latMin {
+		lat = latMin
+	}
+	if lat > latMax {
+		lat = latMax
+	}
+	if lng < lngMin {
+		lng = lngMin
+	}
+	if lng > lngMax {
+		lng = lngMax
+	}
+	return LatLng{Lat: lat, Lng: lng}
+}
+
+func randomClusterCenter() LatLng {
+	latMin, latMax, lngMin, lngMax := olatheMapBounds()
+	marginLat := clusterRadiusM / 111320.0
+	marginLng := clusterRadiusM / (111320.0 * math.Cos(38.88*math.Pi/180.0))
+	return snapToRoadGrid(LatLng{
+		Lat: latMin + marginLat + rand.Float64()*((latMax-marginLat)-(latMin+marginLat)),
+		Lng: lngMin + marginLng + rand.Float64()*((lngMax-marginLng)-(lngMin+marginLng)),
+	})
+}
+
+func pickNearPoint(center LatLng, minR, maxR float64, avoid []LatLng) LatLng {
+	for attempt := 0; attempt < 40; attempt++ {
+		angle := rand.Float64() * math.Pi * 2
+		r := minR + rand.Float64()*(maxR-minR)
+		candidate := snapToRoadGrid(offsetMeters(center, math.Cos(angle)*r, math.Sin(angle)*r))
 		ok := true
-		for _, p := range append(avoid, picked...) {
-			if haversineMeters(anchor.Lat, anchor.Lng, p.Lat, p.Lng) < minVehicleSpawnSepM {
+		for _, p := range avoid {
+			if haversineMeters(candidate.Lat, candidate.Lng, p.Lat, p.Lng) < minVehicleSpawnSepM {
 				ok = false
 				break
 			}
 		}
 		if ok {
-			picked = append(picked, anchor)
+			return candidate
 		}
 	}
-	for _, anchor := range anchors {
-		if len(picked) >= count {
-			break
-		}
-		duplicate := false
-		for _, p := range picked {
-			if p.Lat == anchor.Lat && p.Lng == anchor.Lng {
-				duplicate = true
-				break
-			}
-		}
-		if !duplicate {
-			picked = append(picked, anchor)
-		}
-	}
-	if len(picked) > count {
-		picked = picked[:count]
+	return snapToRoadGrid(offsetMeters(center, (rand.Float64()*2-1)*maxR, (rand.Float64()*2-1)*maxR))
+}
+
+func pickClusterSpawns(count int, center LatLng, avoid []LatLng) []LatLng {
+	picked := make([]LatLng, 0, count)
+	for i := 0; i < count; i++ {
+		picked = append(picked, pickNearPoint(center, 40, clusterRadiusM, append(avoid, picked...)))
 	}
 	return picked
 }
 
-func pickPerpSpreadSpawns(count int) []LatLng {
-	corners := mapCorners()
-	rand.Shuffle(len(corners), func(i, j int) { corners[i], corners[j] = corners[j], corners[i] })
-	if count > len(corners) {
-		count = len(corners)
-	}
-	return corners[:count]
-}
-
 func pickPerpDestination(from LatLng, used []LatLng) LatLng {
-	corners := mapCorners()
-	type ranked struct {
-		corner LatLng
-		dist   float64
-	}
-	rankedCorners := make([]ranked, 0, len(corners))
-	for _, c := range corners {
-		skip := false
-		for _, u := range used {
-			if u.Lat == c.Lat && u.Lng == c.Lng {
-				skip = true
-				break
-			}
+	for attempt := 0; attempt < 30; attempt++ {
+		dest := pickNearPoint(from, perpDestMinM, perpDestMaxM, used)
+		if haversineMeters(from.Lat, from.Lng, dest.Lat, dest.Lng) >= perpDestMinM*0.7 {
+			return dest
 		}
-		if skip {
-			continue
-		}
-		rankedCorners = append(rankedCorners, ranked{
-			corner: c,
-			dist:   haversineMeters(from.Lat, from.Lng, c.Lat, c.Lng),
-		})
 	}
-	if len(rankedCorners) > 0 {
-		best := rankedCorners[0]
-		for _, r := range rankedCorners[1:] {
-			if r.dist > best.dist {
-				best = r
-			}
-		}
-		return best.corner
-	}
-	return farthestMapCorner(from)
+	return pickNearPoint(from, perpDestMinM, perpDestMaxM, used)
 }
 
 func assignPerpDestinations(spawns []LatLng) []LatLng {
@@ -811,7 +853,7 @@ func ensurePerpReady(v *PursuitVehicle) {
 	if v.Destination != nil {
 		destDist = haversineMeters(pos.Lat, pos.Lng, v.Destination.Lat, v.Destination.Lng)
 	}
-	if v.Destination == nil || destDist < minPerpDestDistanceM*0.9 || destDist <= destArrivalM {
+	if v.Destination == nil || destDist <= destArrivalM {
 		dest := pickPerpDestination(pos, nil)
 		v.Destination = &dest
 	}
@@ -944,7 +986,7 @@ func buildPerpVehicleAt(index int, start, dest LatLng) PursuitVehicle {
 }
 
 func buildRandomPatrolRoute(start LatLng) []LatLng {
-	dest := randomGridPoint(38.86, 38.91, -94.85, -94.78)
+	dest := pickNearPoint(start, 250, patrolRadiusM, nil)
 	return buildRoadRouteToDestination(start, dest)
 }
 

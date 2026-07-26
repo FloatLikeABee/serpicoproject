@@ -105,25 +105,33 @@ export interface SimSession {
   armedPoliceId?: string;
   stats?: RoundStats;
   roundStartMs?: number;
+  /** Extra police the player may place on the map this round. */
+  reinforcementsLeft: number;
+  /** Spawn cluster center — keeps the opening view tight. */
+  clusterCenter?: SimLatLng;
 }
 
-/** Total vehicles on the map each round (police + suspects), both factions present. */
-export const FLEET_TOTAL_MIN = 3;
-export const FLEET_TOTAL_MAX = 4;
+/** Start lean: fewer cops than suspects; player may reinforce mid-round. */
+export const INITIAL_POLICE_COUNT = 1;
+export const MAX_POLICE_REINFORCEMENTS = 2;
+/** Suspects always start at 2× initial police. */
+export const INITIAL_PERP_MULTIPLIER = 2;
+export const FLEET_TOTAL_MIN = INITIAL_POLICE_COUNT + INITIAL_POLICE_COUNT * INITIAL_PERP_MULTIPLIER;
+export const FLEET_TOTAL_MAX =
+  INITIAL_POLICE_COUNT + MAX_POLICE_REINFORCEMENTS + INITIAL_POLICE_COUNT * INITIAL_PERP_MULTIPLIER;
 
-function randomFleetCounts(): { policeCount: number; perpCount: number } {
-  const total = randInt(FLEET_TOTAL_MIN, FLEET_TOTAL_MAX);
-  // Prefer 2 police when possible; always leave at least one suspect.
-  const policeCount = total <= 3 ? 2 : randInt(2, 2);
-  return { policeCount, perpCount: total - policeCount };
+function initialFleetCounts(): { policeCount: number; perpCount: number } {
+  const policeCount = INITIAL_POLICE_COUNT;
+  return { policeCount, perpCount: policeCount * INITIAL_PERP_MULTIPLIER };
 }
-/** Real mph on the map — no arcade speed multiplier. */
-export const SIM_MOVEMENT_SCALE = 1.0;
 
-export const ROUND_MS = 12 * 60 * 60 * 1000;
-export const ROUND_RESET_AVAILABLE_MS = 3 * 60 * 1000;
+/** Faster chases without changing relative police vs perp gap. */
+export const SIM_MOVEMENT_SCALE = 2.2;
+
+export const ROUND_MS = 20 * 60 * 1000;
+export const ROUND_RESET_AVAILABLE_MS = 2 * 60 * 1000;
 /** Gap after a round ends before auto-start; user can also start manually sooner. */
-export const ROUND_COOLDOWN_MS = 5 * 60 * 1000;
+export const ROUND_COOLDOWN_MS = 60 * 1000;
 const CATCH_METERS = 55;
 const CATCH_CLOSE_METERS = 120;
 const DEST_ARRIVAL_M = 40;
@@ -144,17 +152,22 @@ const MIN_PURSUIT_ROUTE_M = 250;
 
 /** Throttle route rebuilds per vehicle to prevent shake/teleport loops. */
 const lastRouteRebuildAt = new Map<string, number>();
-const MIN_VEHICLE_SPAWN_SEP_M = 1200;
+/** Close spawn cluster — units start near each other for short, fast pursuits. */
+const CLUSTER_RADIUS_M = 650;
+const MIN_VEHICLE_SPAWN_SEP_M = 110;
+const PERP_DEST_MIN_M = 900;
+const PERP_DEST_MAX_M = 2200;
+const PATROL_RADIUS_M = 900;
 
-const PATROL_CRUISE_MPH = 28;
-const PERP_CRUISE_MPH = 30;
+const PATROL_CRUISE_MPH = 34;
+const PERP_CRUISE_MPH = 36;
 /** Police stay clearly faster than fleeing suspects, still in real-world range. */
-const POLICE_PURSUIT_BONUS_MPH = 8;
-const POLICE_MIN_SPEED_OVER_PERP_MPH = 12;
-const POLICE_CLOSE_RANGE_BONUS_MPH = 10;
+const POLICE_PURSUIT_BONUS_MPH = 10;
+const POLICE_MIN_SPEED_OVER_PERP_MPH = 14;
+const POLICE_CLOSE_RANGE_BONUS_MPH = 12;
 const POLICE_PURSUIT_MULTIPLIER = 1.0;
 const PERP_FLEE_MULTIPLIER = 1.0;
-const PURSUIT_CLOSURE_BOOST = 1.05;
+const PURSUIT_CLOSURE_BOOST = 1.08;
 
 interface FleetSpec {
   model: string;
@@ -371,10 +384,6 @@ function hasForwardPath(v: SimVehicle): boolean {
     }
   }
   return false;
-}
-
-function randomPointInZone(latMin: number, latMax: number, lngMin: number, lngMax: number): SimLatLng {
-  return snapToRoad({ lat: rand(latMin, latMax), lng: rand(lngMin, lngMax) });
 }
 
 function snapToRoad(p: SimLatLng): SimLatLng {
@@ -670,93 +679,105 @@ export function isPerpPursuitTarget(v: SimVehicle): boolean {
 }
 
 function randomPatrolRoute(start: SimLatLng): SimLatLng[] {
-  const dest = randomPointInZone(
-    OlatheBounds.latMin,
-    OlatheBounds.latMax,
-    OlatheBounds.lngMin,
-    OlatheBounds.lngMax
-  );
+  const dest = pickNearPoint(start, 250, PATROL_RADIUS_M);
   return buildRoadRouteToDestination(start, dest);
 }
 
-function shuffleInPlace<T>(items: T[]): T[] {
-  for (let i = items.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [items[i], items[j]] = [items[j], items[i]];
+function buildPoliceVehicleAt(index: number, start: SimLatLng): SimVehicle {
+  const fleet = policeFleet[index % policeFleet.length];
+  const profile = policeProfiles[index % policeProfiles.length];
+  const route = randomPatrolRoute(start);
+  return {
+    id: uid('police'),
+    role: 'police',
+    lat: start.lat,
+    lng: start.lng,
+    heading: route.length > 1 ? bearingHeading(route[0], route[1]) : rand(0, 360),
+    route,
+    routeIndex: 0,
+    routeProgress: 0,
+    maxSpeedMph: fleet.ratedMaxMph + randInt(-2, 2),
+    officerName: `Officer ${officerNames[index % officerNames.length]}`,
+    officerRank: profile.rank,
+    evaluation: profile.eval,
+    vehicleModel: fleet.model,
+    status: 'patrol',
+    beingPursued: false,
+  };
+}
+
+export function canDeployReinforcement(session: SimSession): boolean {
+  return session.phase === 'active' && (session.reinforcementsLeft ?? 0) > 0;
+}
+
+/** Place one of the player's reinforcement police units at a map tap (snapped to road). */
+export function deployPoliceAt(session: SimSession, lat: number, lng: number): SimSession {
+  if (!canDeployReinforcement(session)) return session;
+  const existing = session.vehicles.map((v) => ({ lat: v.lat, lng: v.lng }));
+  const start = snapToRoad({ lat, lng });
+  // Nudge if dropped on top of another unit.
+  const placed =
+    existing.every((p) => haversineMeters(start.lat, start.lng, p.lat, p.lng) >= MIN_VEHICLE_SPAWN_SEP_M * 0.5)
+      ? start
+      : pickNearPoint(start, 40, 180, existing);
+  const policeIndex = session.vehicles.filter((v) => v.role === 'police').length;
+  const unit = buildPoliceVehicleAt(policeIndex, placed);
+  const vehicles = [...session.vehicles, unit];
+  const reinforcementsLeft = Math.max(0, (session.reinforcementsLeft ?? 0) - 1);
+  const stats = session.stats
+    ? { ...session.stats, totalPolice: session.stats.totalPolice + 1 }
+    : session.stats;
+  return { ...session, vehicles, reinforcementsLeft, stats };
+}
+
+function offsetMeters(center: SimLatLng, northM: number, eastM: number): SimLatLng {
+  const lat = center.lat + northM / 111320;
+  const lng = center.lng + eastM / (111320 * Math.cos(center.lat * (Math.PI / 180)));
+  return {
+    lat: clamp(lat, OlatheBounds.latMin, OlatheBounds.latMax),
+    lng: clamp(lng, OlatheBounds.lngMin, OlatheBounds.lngMax),
+  };
+}
+
+function randomClusterCenter(): SimLatLng {
+  // Keep a margin so the cluster radius stays inside Olathe.
+  const marginLat = CLUSTER_RADIUS_M / 111320;
+  const marginLng = CLUSTER_RADIUS_M / (111320 * Math.cos(38.88 * (Math.PI / 180)));
+  return snapToRoad({
+    lat: rand(OlatheBounds.latMin + marginLat, OlatheBounds.latMax - marginLat),
+    lng: rand(OlatheBounds.lngMin + marginLng, OlatheBounds.lngMax - marginLng),
+  });
+}
+
+function pickNearPoint(center: SimLatLng, minR: number, maxR: number, avoid: SimLatLng[] = []): SimLatLng {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const angle = rand(0, Math.PI * 2);
+    const r = rand(minR, maxR);
+    const candidate = snapToRoad(offsetMeters(center, Math.cos(angle) * r, Math.sin(angle) * r));
+    const ok = avoid.every(
+      (p) => haversineMeters(candidate.lat, candidate.lng, p.lat, p.lng) >= MIN_VEHICLE_SPAWN_SEP_M
+    );
+    if (ok) return candidate;
   }
-  return items;
+  return snapToRoad(offsetMeters(center, rand(-maxR, maxR), rand(-maxR, maxR)));
 }
 
-function spreadAnchors(): SimLatLng[] {
-  const { latMin, latMax, lngMin, lngMax } = OlatheBounds;
-  const latMid = (latMin + latMax) / 2;
-  const lngMid = (lngMin + lngMax) / 2;
-  const latQ1 = latMin + (latMax - latMin) * 0.25;
-  const latQ3 = latMin + (latMax - latMin) * 0.75;
-  const lngQ1 = lngMin + (lngMax - lngMin) * 0.25;
-  const lngQ3 = lngMin + (lngMax - lngMin) * 0.75;
-  return [
-    { lat: latMin, lng: lngMin },
-    { lat: latMin, lng: lngMax },
-    { lat: latMax, lng: lngMin },
-    { lat: latMax, lng: lngMax },
-    { lat: latMid, lng: lngMin },
-    { lat: latMid, lng: lngMax },
-    { lat: latMin, lng: lngMid },
-    { lat: latMax, lng: lngMid },
-    { lat: latQ1, lng: lngQ1 },
-    { lat: latQ1, lng: lngQ3 },
-    { lat: latQ3, lng: lngQ1 },
-    { lat: latQ3, lng: lngQ3 },
-    { lat: latMid, lng: lngMid },
-    { lat: latQ1, lng: lngMid },
-    { lat: latQ3, lng: lngMid },
-    { lat: latMid, lng: lngQ1 },
-  ].map(snapToRoad);
-}
-
-function mapCorners(): SimLatLng[] {
-  return spreadAnchors().slice(0, 8);
-}
-
-function pickSpreadAnchors(count: number, avoid: SimLatLng[] = []): SimLatLng[] {
-  const anchors = shuffleInPlace([...spreadAnchors()]);
+/** Tight spawn cluster so the opening fit-bounds view shows everyone close. */
+function pickClusterSpawns(count: number, center: SimLatLng, avoid: SimLatLng[] = []): SimLatLng[] {
   const picked: SimLatLng[] = [];
-  for (const anchor of anchors) {
-    if (picked.length >= count) break;
-    const farFromAvoid = [...avoid, ...picked].every(
-      (p) => haversineMeters(anchor.lat, anchor.lng, p.lat, p.lng) >= MIN_VEHICLE_SPAWN_SEP_M
-    );
-    if (farFromAvoid) picked.push(anchor);
+  for (let i = 0; i < count; i++) {
+    picked.push(pickNearPoint(center, 40, CLUSTER_RADIUS_M, [...avoid, ...picked]));
   }
-  for (const anchor of anchors) {
-    if (picked.length >= count) break;
-    if (picked.some((p) => p.lat === anchor.lat && p.lng === anchor.lng)) continue;
-    picked.push(anchor);
-  }
-  while (picked.length < count) {
-    picked.push(
-      snapToRoad({
-        lat: rand(OlatheBounds.latMin, OlatheBounds.latMax),
-        lng: rand(OlatheBounds.lngMin, OlatheBounds.lngMax),
-      })
-    );
-  }
-  return picked.slice(0, count);
-}
-
-/** Suspects spawn across spread anchors so larger fleets stay apart. */
-function pickPerpSpreadSpawns(count: number): SimLatLng[] {
-  return pickSpreadAnchors(count);
+  return picked;
 }
 
 function pickPerpDestination(from: SimLatLng, used: SimLatLng[] = []): SimLatLng {
-  const ranked = mapCorners()
-    .filter((c) => !used.some((u) => u.lat === c.lat && u.lng === c.lng))
-    .map((corner) => ({ corner, dist: haversineMeters(from.lat, from.lng, corner.lat, corner.lng) }))
-    .sort((a, b) => b.dist - a.dist);
-  if (ranked.length > 0) return ranked[0].corner;
-  return farthestMapCorner(from);
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const dest = pickNearPoint(from, PERP_DEST_MIN_M, PERP_DEST_MAX_M, used);
+    const dist = haversineMeters(from.lat, from.lng, dest.lat, dest.lng);
+    if (dist >= PERP_DEST_MIN_M * 0.7) return dest;
+  }
+  return pickNearPoint(from, PERP_DEST_MIN_M, PERP_DEST_MAX_M, used);
 }
 
 function assignPerpDestinations(spawns: SimLatLng[]): SimLatLng[] {
@@ -766,25 +787,6 @@ function assignPerpDestinations(spawns: SimLatLng[]): SimLatLng[] {
     used.push(dest);
     return dest;
   });
-}
-
-function farthestMapCorner(start: SimLatLng): SimLatLng {
-  const corners = [
-    { lat: OlatheBounds.latMin, lng: OlatheBounds.lngMin },
-    { lat: OlatheBounds.latMin, lng: OlatheBounds.lngMax },
-    { lat: OlatheBounds.latMax, lng: OlatheBounds.lngMin },
-    { lat: OlatheBounds.latMax, lng: OlatheBounds.lngMax },
-  ];
-  let best = corners[0];
-  let bestDist = 0;
-  for (const c of corners) {
-    const d = haversineMeters(start.lat, start.lng, c.lat, c.lng);
-    if (d > bestDist) {
-      bestDist = d;
-      best = c;
-    }
-  }
-  return snapToRoad(best);
 }
 
 function routeHasMovement(route: SimLatLng[]): boolean {
@@ -817,10 +819,6 @@ function ensurePerpReady(v: SimVehicle) {
     if (!canRebuildRoute(v)) return;
     applyRouteWithProgress(v, buildRoadRouteToDestination(pos, v.destination));
   }
-}
-
-function randomPoliceSpawn(existing: SimLatLng[]): SimLatLng {
-  return pickSpreadAnchors(1, existing)[0];
 }
 
 function advanceVehicle(v: SimVehicle, elapsedSec: number, pursuedPerp?: SimVehicle) {
@@ -953,34 +951,15 @@ export function startNextRound(session: SimSession): SimSession {
 }
 
 export function createSimSession(userId: string, round = 1): SimSession {
-  const { policeCount, perpCount } = randomFleetCounts();
-  const perpSpawns = pickPerpSpreadSpawns(perpCount);
-  const policeSpawns = pickSpreadAnchors(policeCount, perpSpawns);
+  const { policeCount, perpCount } = initialFleetCounts();
+  const clusterCenter = randomClusterCenter();
+  const perpSpawns = pickClusterSpawns(perpCount, clusterCenter);
+  const policeSpawns = pickClusterSpawns(policeCount, clusterCenter, perpSpawns);
   const perpDestinations = assignPerpDestinations(perpSpawns);
   const vehicles: SimVehicle[] = [];
 
   for (let i = 0; i < policeCount; i++) {
-    const start = policeSpawns[i];
-    const fleet = policeFleet[i % policeFleet.length];
-    const profile = policeProfiles[i % policeProfiles.length];
-    const route = randomPatrolRoute(start);
-    vehicles.push({
-      id: uid('police'),
-      role: 'police',
-      lat: start.lat,
-      lng: start.lng,
-      heading: route.length > 1 ? bearingHeading(route[0], route[1]) : rand(0, 360),
-      route,
-      routeIndex: 0,
-      routeProgress: 0,
-      maxSpeedMph: fleet.ratedMaxMph + randInt(-2, 2),
-      officerName: `Officer ${officerNames[i % officerNames.length]}`,
-      officerRank: profile.rank,
-      evaluation: profile.eval,
-      vehicleModel: fleet.model,
-      status: 'patrol',
-      beingPursued: false,
-    });
+    vehicles.push(buildPoliceVehicleAt(i, policeSpawns[i]));
   }
 
   for (let i = 0; i < perpCount; i++) {
@@ -1010,6 +989,7 @@ export function createSimSession(userId: string, round = 1): SimSession {
   }
 
   const now = Date.now();
+  // With a single starting unit, downs are skipped until reinforcements arrive.
   schedulePoliceDowns(vehicles, now);
   return {
     id: uid('session'),
@@ -1019,6 +999,8 @@ export function createSimSession(userId: string, round = 1): SimSession {
     roundEndsAt: now + ROUND_MS,
     roundStartMs: now,
     vehicles,
+    reinforcementsLeft: MAX_POLICE_REINFORCEMENTS,
+    clusterCenter,
     stats: {
       round,
       roundDurationSec: 0,
@@ -1318,12 +1300,19 @@ export function simSessionFromAPI(raw: Record<string, unknown>): SimSession {
     vehicles: (raw.vehicles as SimVehicle[]) || [],
     result: raw.result as SimRoundResult | undefined,
     armedPoliceId: raw.armedPoliceId as string | undefined,
+    reinforcementsLeft:
+      typeof raw.reinforcementsLeft === 'number' ? raw.reinforcementsLeft : MAX_POLICE_REINFORCEMENTS,
+    clusterCenter: raw.clusterCenter as SimLatLng | undefined,
   };
 }
 
 export function isStoredSessionUsable(session: SimSession): boolean {
   const perpN = session.vehicles.filter((v) => v.role === 'perp').length;
   const polN = session.vehicles.filter((v) => v.role === 'police').length;
-  const total = perpN + polN;
-  return total >= FLEET_TOTAL_MIN && total <= FLEET_TOTAL_MAX && polN >= 1 && perpN >= 1;
+  // Suspects stay at 2× starting cops; police may grow via reinforcements only.
+  if (perpN !== INITIAL_POLICE_COUNT * INITIAL_PERP_MULTIPLIER) return false;
+  if (polN < INITIAL_POLICE_COUNT || polN > INITIAL_POLICE_COUNT + MAX_POLICE_REINFORCEMENTS) {
+    return false;
+  }
+  return true;
 }

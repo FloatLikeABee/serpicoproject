@@ -25,14 +25,67 @@ interface PursuitMapCanvasProps {
   selectedId?: string | null;
   armedPoliceId?: string | null;
   pursueModePoliceId?: string | null;
+  /** Re-fit the camera when this key changes (new round / session). */
+  fitKey?: string | number | null;
+  deployMode?: boolean;
   onVehicleClick?: (vehicle: PursuitMapVehicle) => void;
+  onMapClick?: (lat: number, lng: number) => void;
 }
 
-const MapUpdater: React.FC<{ center: [number, number]; zoom: number }> = ({ center, zoom }) => {
+/** Fit once per round so all units are visible at initiation — do not chase moving markers. */
+const FitVehiclesOnce: React.FC<{
+  vehicles: PursuitMapVehicle[];
+  fitKey?: string | number | null;
+  fallbackCenter: [number, number];
+  fallbackZoom: number;
+}> = ({ vehicles, fitKey, fallbackCenter, fallbackZoom }) => {
   const map = useMap();
-  React.useEffect(() => {
-    map.setView(center, zoom, { animate: false });
-  }, [map, center, zoom]);
+  const fittedKeyRef = useRef<string | number | null>(null);
+
+  useEffect(() => {
+    if (fitKey == null) return;
+    if (fittedKeyRef.current === fitKey) return;
+    if (!vehicles.length) {
+      map.setView(fallbackCenter, fallbackZoom, { animate: false });
+      fittedKeyRef.current = fitKey;
+      return;
+    }
+    const bounds = L.latLngBounds(vehicles.map((v) => [v.lat, v.lng] as [number, number]));
+    if (!bounds.isValid()) {
+      map.setView(fallbackCenter, fallbackZoom, { animate: false });
+    } else {
+      map.fitBounds(bounds.pad(0.45), { animate: false, maxZoom: 16, padding: [36, 36] });
+    }
+    fittedKeyRef.current = fitKey;
+  }, [map, vehicles, fitKey, fallbackCenter, fallbackZoom]);
+
+  return null;
+};
+
+const MapClickHandler: React.FC<{
+  enabled: boolean;
+  onMapClick?: (lat: number, lng: number) => void;
+}> = ({ enabled, onMapClick }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    if (enabled) {
+      container.style.cursor = 'crosshair';
+    } else {
+      container.style.cursor = '';
+    }
+    if (!enabled || !onMapClick) return;
+    const handler = (e: L.LeafletMouseEvent) => {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    };
+    map.on('click', handler);
+    return () => {
+      map.off('click', handler);
+      container.style.cursor = '';
+    };
+  }, [map, enabled, onMapClick]);
+
   return null;
 };
 
@@ -249,7 +302,10 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   selectedId,
   armedPoliceId,
   pursueModePoliceId,
+  fitKey,
+  deployMode = false,
   onVehicleClick,
+  onMapClick,
 }) => {
   const selectedVehicle = vehicles.find((v) => v.id === selectedId);
 
@@ -300,7 +356,13 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <MapUpdater center={center} zoom={zoom} />
+      <FitVehiclesOnce
+        vehicles={vehicles}
+        fitKey={fitKey}
+        fallbackCenter={center}
+        fallbackZoom={zoom}
+      />
+      <MapClickHandler enabled={deployMode} onMapClick={onMapClick} />
 
       {routeLines.map((r) => (
         <Polyline

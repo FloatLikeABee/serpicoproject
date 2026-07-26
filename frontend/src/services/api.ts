@@ -166,6 +166,8 @@ export interface PursuitExamSession {
   vehicles: PursuitVehicle[];
   result?: PursuitRoundResult;
   armedPoliceId?: string;
+  reinforcementsLeft?: number;
+  clusterCenter?: { lat: number; lng: number };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -225,6 +227,18 @@ export const pursuitExamAPI = {
     const response = await api.post<{ session: PursuitExamSession }>(
       '/pursuit-exam/pursue',
       { userId, policeId, perpId },
+      { headers: { 'X-User-Id': userId } }
+    );
+    return response.data;
+  },
+  deployPolice: async (
+    userId: string,
+    lat: number,
+    lng: number
+  ): Promise<{ session: PursuitExamSession }> => {
+    const response = await api.post<{ session: PursuitExamSession }>(
+      '/pursuit-exam/deploy',
+      { userId, lat, lng },
       { headers: { 'X-User-Id': userId } }
     );
     return response.data;
