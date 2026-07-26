@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PursuitMapCanvas, { PursuitMapVehicle } from '../../components/PursuitMapCanvas';
 import LocationTacticsPanel from '../../components/LocationTacticsPanel';
+import DraggableFloat from '../../components/DraggableFloat';
 import { useAuth } from '../../contexts/AuthContext';
 import { pursuitExamAPI, PursuitAIEvaluation } from '../../services/api';
 import {
@@ -103,6 +104,8 @@ const InPursue: React.FC = () => {
   const [tacticsEval, setTacticsEval] = useState<LocationAIEvaluation | null>(null);
   const [tacticsEvalLoading, setTacticsEvalLoading] = useState(false);
   const tacticsEvalKeyRef = useRef<string | null>(null);
+  const [resultCollapsed, setResultCollapsed] = useState(false);
+  const [patrolCollapsed, setPatrolCollapsed] = useState(false);
 
   const sessionRef = useRef<SimSession | null>(null);
   const lastTickRef = useRef<number>(performance.now());
@@ -119,6 +122,15 @@ const InPursue: React.FC = () => {
   useEffect(() => {
     pursueModeRef.current = pursueModePoliceId;
   }, [pursueModePoliceId]);
+
+  // While locking a suspect, keep the patrol card collapsed so the map stays clickable.
+  useEffect(() => {
+    if (pursueModePoliceId) setPatrolCollapsed(true);
+  }, [pursueModePoliceId]);
+
+  useEffect(() => {
+    if (session?.phase === 'completed') setResultCollapsed(false);
+  }, [session?.phase, session?.round]);
 
   useEffect(() => {
     deployModeRef.current = deployMode;
@@ -593,126 +605,166 @@ const InPursue: React.FC = () => {
         )}
 
         {selectedPolice && session.phase === 'active' && (!tacticsGame || tacticsCollapsed) && (
-          <div className="absolute top-2 left-2 right-2 sm:top-auto sm:bottom-16 sm:left-auto sm:right-3 sm:w-64 z-[1100] game-panel p-2.5 sm:p-3 border border-neon-cyan/40 shadow-lg pointer-events-auto">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[10px] text-neon-cyan font-display uppercase tracking-wider">Patrol Unit</p>
-                  {canPursue && !pursueModePoliceId && (
-                    <button
-                      type="button"
-                      onClick={handleArmPursue}
-                      className="px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-cyan/50 bg-neon-cyan/15 text-neon-cyan hover:bg-neon-cyan/25 transition-colors touch-manipulation min-h-0 min-w-0"
-                    >
-                      Pursue
-                    </button>
-                  )}
-                  {pursueModePoliceId === selectedPolice.id && (
-                    <button
-                      type="button"
-                      onClick={cancelTargeting}
-                      className="px-2 py-0.5 rounded text-[9px] font-display uppercase text-neon-magenta border border-neon-magenta/40 animate-pulse touch-manipulation min-h-0 min-w-0"
-                    >
-                      Targeting · Cancel
-                    </button>
-                  )}
-                </div>
-                <h3 className="font-display font-bold text-sm truncate">{selectedPolice.officerName}</h3>
-                <p className="text-[10px] text-synth-muted mt-0.5">{selectedPolice.officerRank}</p>
-              </div>
+          <div className="absolute bottom-3 left-2 z-[1100] w-[min(220px,46vw)] pointer-events-auto">
+            {patrolCollapsed || pursueModePoliceId ? (
               <button
                 type="button"
-                onClick={() => { setSelectedPoliceId(null); cancelTargeting(); }}
-                className="text-synth-muted hover:text-white text-xs px-1 min-h-0 min-w-0"
-                aria-label="Close panel"
+                onClick={() => setPatrolCollapsed(false)}
+                className="game-panel w-full px-2.5 py-1.5 border border-neon-cyan/40 text-left"
               >
-                ✕
+                <p className="text-[9px] font-display uppercase tracking-wider text-neon-cyan">
+                  {pursueModePoliceId ? 'Targeting' : 'Patrol'}
+                </p>
+                <p className="text-[11px] font-bold text-white truncate">{selectedPolice.officerName}</p>
+                <p className="text-[9px] text-synth-muted">
+                  {pursueModePoliceId ? 'Tap a suspect on the map' : 'Tap to expand unit card'}
+                </p>
               </button>
-            </div>
-            <p className="text-[11px] text-gray-300 mt-1.5 leading-snug line-clamp-2">{selectedPolice.evaluation}</p>
-            <div className="mt-1.5 flex items-center justify-between text-[10px] gap-2">
-              <span className="text-synth-muted truncate">{selectedPolice.vehicleModel}</span>
-              <span className="font-display font-bold text-neon-cyan flex-shrink-0 whitespace-nowrap">
-                {Math.round(selectedPolice.maxSpeedMph)} mph
-              </span>
-            </div>
-            {selectedPolice.status === 'down' && (
-              <p className="mt-2 text-[10px] text-red-400 font-display uppercase tracking-wide text-center">
-                ✕ Unit down — unavailable
-              </p>
-            )}
-            {selectedPolice.status === 'pursuing' && (
-              <p className="mt-2 text-[10px] text-neon-green font-display uppercase tracking-wide text-center">
-                ● In active pursuit
-              </p>
+            ) : (
+              <div className="game-panel p-2 border border-neon-cyan/40 shadow-lg">
+                <div className="flex items-start justify-between gap-1">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-[9px] text-neon-cyan font-display uppercase tracking-wider">Patrol</p>
+                      {canPursue && !pursueModePoliceId && (
+                        <button
+                          type="button"
+                          onClick={handleArmPursue}
+                          className="px-2 py-0.5 rounded text-[9px] font-display uppercase tracking-wider border border-neon-cyan/50 bg-neon-cyan/15 text-neon-cyan touch-manipulation min-h-0 min-w-0"
+                        >
+                          Pursue
+                        </button>
+                      )}
+                    </div>
+                    <h3 className="font-display font-bold text-xs truncate">{selectedPolice.officerName}</h3>
+                    <p className="text-[9px] text-synth-muted truncate">{selectedPolice.officerRank}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setPatrolCollapsed(true)}
+                      className="text-[9px] text-synth-muted hover:text-white px-1 min-h-0 min-w-0"
+                    >
+                      Hide
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedPoliceId(null); cancelTargeting(); }}
+                      className="text-synth-muted hover:text-white text-[10px] px-1 min-h-0 min-w-0"
+                      aria-label="Close panel"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[9px] gap-1">
+                  <span className="text-synth-muted truncate">{selectedPolice.vehicleModel}</span>
+                  <span className="font-display font-bold text-neon-cyan flex-shrink-0">
+                    {Math.round(selectedPolice.maxSpeedMph)} mph
+                  </span>
+                </div>
+                {selectedPolice.status === 'down' && (
+                  <p className="mt-1 text-[9px] text-red-400 font-display uppercase text-center">Unit down</p>
+                )}
+                {selectedPolice.status === 'pursuing' && (
+                  <p className="mt-1 text-[9px] text-neon-green font-display uppercase text-center">In pursuit</p>
+                )}
+              </div>
             )}
           </div>
         )}
 
         {session.phase === 'completed' && session.result && (
-          <div className="absolute inset-0 z-[1200] flex items-center justify-center p-4 bg-synth-void/80 backdrop-blur-sm pointer-events-auto overflow-y-auto">
-            <div className="game-panel max-w-md w-full p-4 sm:p-5 border border-neon-purple/50 max-h-[90vh] overflow-y-auto">
-              <p className="text-[10px] font-display uppercase tracking-widest text-synth-muted">Round complete</p>
-              <h2 className={`text-xl font-display font-bold mt-1 ${
-                session.result.outcome === 'total_win' ? 'neon-text-green' :
-                session.result.outcome === 'partial_win' ? 'neon-text-cyan' : 'text-neon-magenta'
-              }`}>
-                {session.result.outcome === 'total_win' ? 'Total Win' :
-                 session.result.outcome === 'partial_win' ? 'Partial Win' : 'Total Failure'}
-              </h2>
-
-              {evalLoading ? (
-                <p className="text-xs text-neon-cyan mt-3 animate-pulse font-display">AI grading…</p>
-              ) : aiEvaluation ? (
-                <div className="mt-3 space-y-2">
-                  <div className="flex items-start gap-3">
-                    <p className="text-4xl font-display font-bold text-white leading-none">{aiEvaluation.grade}</p>
-                    <div className="min-w-0 space-y-1">
-                      <p className="text-xs text-gray-200 leading-snug">{aiEvaluation.summary}</p>
-                      <p className="text-[11px] text-gray-400 leading-snug">{aiEvaluation.strategyAnalysis}</p>
-                      <p className="text-[11px] text-gray-400 leading-snug">{aiEvaluation.resourceAnalysis}</p>
-                      {(aiEvaluation.improvements?.[0] || aiEvaluation.strengths?.[0]) && (
-                        <p className="text-[11px] text-neon-amber leading-snug">
-                          {aiEvaluation.improvements?.[0]
-                            ? `Next: ${aiEvaluation.improvements[0]}`
-                            : `Strength: ${aiEvaluation.strengths[0]}`}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-4xl font-display font-bold mt-2 text-white">{session.result.grade}</p>
-              )}
-
-              <div className="mt-3 pt-3 border-t border-neon-purple/20 grid grid-cols-2 gap-2 text-[10px] font-display">
-                <span className="text-synth-muted">Police used: <span className="text-white">{session.result.stats?.policeUsed ?? '—'}/{session.result.stats?.totalPolice}</span></span>
-                <span className="text-synth-muted">Pursuits: <span className="text-white">{session.result.stats?.pursuitsLaunched ?? 0}</span></span>
-                <span className="text-neon-green">Caught: {session.result.caught}</span>
-                <span className="text-neon-magenta">Escaped: {session.result.escaped}</span>
-                <span className="text-synth-muted">Units down: <span className="text-white">{session.result.stats?.policeDown ?? 0}</span></span>
-                <span className="text-neon-cyan">Suspects: {session.result.totalPerps}</span>
-              </div>
-
-              {cooldownSecondsLeft > 0 ? (
-                <p className="mt-4 text-center text-[10px] text-synth-muted font-mono uppercase">
-                  Auto next round in {formatTime(cooldownSecondsLeft)}
-                </p>
-              ) : (
-                <p className="mt-4 text-center text-[10px] text-neon-green font-mono uppercase">
-                  Ready for next round
-                </p>
-              )}
-
+          <DraggableFloat
+            storageKey="pursue-result-float"
+            initial={{ x: 16, y: 48 }}
+            className="max-w-[min(340px,calc(100%-24px))]"
+          >
+            {resultCollapsed ? (
               <button
                 type="button"
-                onClick={handleStartNextRound}
-                className="mt-3 w-full rounded-xl border border-serpico-blue/50 bg-serpico-blue/20 px-4 py-2.5 text-sm font-display font-bold uppercase tracking-wide text-serpico-blue transition hover:bg-serpico-blue/30"
+                onClick={() => setResultCollapsed(false)}
+                className="game-panel drag-handle cursor-grab active:cursor-grabbing px-3 py-2 border border-neon-purple/50 text-left w-full"
               >
-                {cooldownSecondsLeft > 0 ? 'Start next round now' : 'Start next round'}
+                <p className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Round complete · drag me</p>
+                <p className={`text-sm font-display font-bold ${
+                  session.result.outcome === 'total_win' ? 'neon-text-green' :
+                  session.result.outcome === 'partial_win' ? 'neon-text-cyan' : 'text-neon-magenta'
+                }`}>
+                  {session.result.outcome === 'total_win' ? 'Total Win' :
+                   session.result.outcome === 'partial_win' ? 'Partial Win' : 'Total Failure'}
+                  {aiEvaluation ? ` · ${aiEvaluation.grade}` : ''}
+                </p>
+                <p className="text-[10px] text-synth-muted">
+                  Caught {session.result.caught} · Escaped {session.result.escaped} · Tap to expand
+                </p>
               </button>
-            </div>
-          </div>
+            ) : (
+              <div className="game-panel border border-neon-purple/50 max-h-[min(70vh,520px)] overflow-y-auto shadow-xl">
+                <div className="drag-handle cursor-grab active:cursor-grabbing px-3 py-2 border-b border-white/10 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-display uppercase tracking-widest text-synth-muted">
+                      Round complete · drag to move
+                    </p>
+                    <h2 className={`text-lg font-display font-bold ${
+                      session.result.outcome === 'total_win' ? 'neon-text-green' :
+                      session.result.outcome === 'partial_win' ? 'neon-text-cyan' : 'text-neon-magenta'
+                    }`}>
+                      {session.result.outcome === 'total_win' ? 'Total Win' :
+                       session.result.outcome === 'partial_win' ? 'Partial Win' : 'Total Failure'}
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setResultCollapsed(true)}
+                    className="px-2 py-1 text-[10px] font-display uppercase border border-white/15 rounded text-synth-muted hover:text-white min-h-0 min-w-0"
+                  >
+                    Collapse
+                  </button>
+                </div>
+
+                <div className="px-3 py-2 space-y-2">
+                  {evalLoading ? (
+                    <p className="text-xs text-neon-cyan animate-pulse font-display">AI grading…</p>
+                  ) : aiEvaluation ? (
+                    <div className="flex items-start gap-2">
+                      <p className="text-3xl font-display font-bold text-white leading-none">{aiEvaluation.grade}</p>
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="text-[11px] text-gray-200 leading-snug">{aiEvaluation.summary}</p>
+                        <p className="text-[10px] text-gray-400 leading-snug">{aiEvaluation.strategyAnalysis}</p>
+                        <p className="text-[10px] text-gray-400 leading-snug">{aiEvaluation.resourceAnalysis}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-3xl font-display font-bold text-white">{session.result.grade}</p>
+                  )}
+
+                  <div className="pt-2 border-t border-neon-purple/20 grid grid-cols-2 gap-1.5 text-[10px] font-display">
+                    <span className="text-synth-muted">Police used: <span className="text-white">{session.result.stats?.policeUsed ?? '—'}/{session.result.stats?.totalPolice}</span></span>
+                    <span className="text-synth-muted">Pursuits: <span className="text-white">{session.result.stats?.pursuitsLaunched ?? 0}</span></span>
+                    <span className="text-neon-green">Caught: {session.result.caught}</span>
+                    <span className="text-neon-magenta">Escaped: {session.result.escaped}</span>
+                  </div>
+
+                  {cooldownSecondsLeft > 0 ? (
+                    <p className="text-center text-[10px] text-synth-muted font-mono uppercase">
+                      Auto next in {formatTime(cooldownSecondsLeft)}
+                    </p>
+                  ) : (
+                    <p className="text-center text-[10px] text-neon-green font-mono uppercase">Ready for next round</p>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleStartNextRound}
+                    className="w-full rounded-lg border border-serpico-blue/50 bg-serpico-blue/20 px-3 py-2 text-xs font-display font-bold uppercase tracking-wide text-serpico-blue"
+                  >
+                    {cooldownSecondsLeft > 0 ? 'Start next round now' : 'Start next round'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </DraggableFloat>
         )}
       </div>
 
