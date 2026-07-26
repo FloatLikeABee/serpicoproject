@@ -12,7 +12,7 @@ import (
 
 const (
 	pursuitRoundDuration    = 20 * time.Minute
-	pursuitCooldownDuration = 1 * time.Minute
+	pursuitCooldownDuration = 2 * time.Minute
 	pursuitCatchMeters      = 35.0
 	simMovementScale        = 2.2
 	patrolCruiseMph         = 34.0
@@ -24,11 +24,12 @@ const (
 	pursuitRouteRebuildM    = 80.0
 	initialPoliceCount      = 1
 	maxPoliceReinforcements = 2
-	initialPerpMultiplier   = 2
-	fleetTotalMin           = initialPoliceCount + initialPoliceCount*initialPerpMultiplier
-	fleetTotalMax           = initialPoliceCount + maxPoliceReinforcements + initialPoliceCount*initialPerpMultiplier
-	clusterRadiusM          = 650.0
-	minVehicleSpawnSepM     = 110.0
+	perpCountMin            = 4
+	perpCountMax            = 6
+	fleetTotalMin           = initialPoliceCount + perpCountMin
+	fleetTotalMax           = initialPoliceCount + maxPoliceReinforcements + perpCountMax
+	clusterRadiusM          = 800.0
+	minVehicleSpawnSepM     = 100.0
 	perpDestMinM            = 900.0
 	perpDestMaxM            = 2200.0
 	patrolRadiusM           = 900.0
@@ -304,7 +305,7 @@ func (s *PursuitExamService) sessionForUserLocked(userID string) (*PursuitExamSe
 
 func initialFleetCounts() (policeCount, perpCount int) {
 	policeCount = initialPoliceCount
-	perpCount = policeCount * initialPerpMultiplier
+	perpCount = perpCountMin + rand.Intn(perpCountMax-perpCountMin+1)
 	return policeCount, perpCount
 }
 
@@ -318,8 +319,7 @@ func sessionFleetUsable(session *PursuitExamSession) bool {
 			perps++
 		}
 	}
-	// Suspects stay at 2× starting cops; police may grow via reinforcements only.
-	if perps != initialPoliceCount*initialPerpMultiplier {
+	if perps < perpCountMin || perps > perpCountMax {
 		return false
 	}
 	if police < initialPoliceCount || police > initialPoliceCount+maxPoliceReinforcements {
