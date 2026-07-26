@@ -422,19 +422,20 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         });
       }
     }
+    // Only chase pairs draw lines — idle suspect paths made the map unreadable.
     vehicles
       .filter((v) => v.route && v.route.length > 1 && v.status !== 'caught')
       .forEach((v) => {
         const isPursuit = v.role === 'police' && v.status === 'pursuing';
-        const isPerp = v.role === 'perp';
-        if (!isPursuit && !isPerp) return;
+        const isFleeing = v.role === 'perp' && v.beingPursued;
+        if (!isPursuit && !isFleeing) return;
         const positions = remainingRoute(v);
         if (positions.length < 2) return;
         lines.push({
           id: `${v.id}-route`,
           positions,
-          color: isPursuit ? '#00f5ff' : v.beingPursued ? '#ff6b6b' : '#ff2bd6',
-          dashed: isPerp && !v.beingPursued,
+          color: isPursuit ? '#00f5ff' : '#ff6b6b',
+          dashed: isFleeing,
         });
       });
     return lines;
@@ -480,7 +481,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
       ))}
 
       {vehicles
-        .filter((v) => v.role === 'perp' && v.destination && v.status !== 'caught')
+        .filter((v) => v.role === 'perp' && v.beingPursued && v.destination && v.status !== 'caught')
         .map((v) => (
           <CircleMarker
             key={`${v.id}-dest-dot`}
