@@ -250,6 +250,9 @@ function nearestRoadNodeCandidates(
   const latCell = Math.floor(point.lat / NODE_GRID_DEG);
   const lngCell = Math.floor(point.lng / NODE_GRID_DEG);
   const found: Array<{ index: number; dist: number }> = [];
+  // Narrowest cell edge in meters — anything outside the searched rings is at least this far.
+  const cellSpanM = 111320 * NODE_GRID_DEG * Math.cos(point.lat * (Math.PI / 180));
+  let bestDist = Infinity;
 
   for (let ring = 0; ring <= NODE_GRID_MAX_RING; ring++) {
     for (let dy = -ring; dy <= ring; dy++) {
@@ -260,12 +263,14 @@ function nearestRoadNodeCandidates(
         if (!bucket) continue;
         for (const index of bucket) {
           const n = network.nodes[index];
-          found.push({ index, dist: haversineMeters(point.lat, point.lng, n.lat, n.lng) });
+          const dist = haversineMeters(point.lat, point.lng, n.lat, n.lng);
+          if (dist < bestDist) bestDist = dist;
+          found.push({ index, dist });
         }
       }
     }
-    // One extra ring past the first hit keeps the true nearest node from being missed.
-    if (found.length >= limit && ring >= 1) break;
+    // Stop once no unsearched cell could hold anything closer than what we already have.
+    if (found.length >= limit && bestDist <= ring * cellSpanM) break;
   }
 
   if (!found.length) return scanAllNodes(network, point, limit);

@@ -770,15 +770,6 @@ export function createRoundLandmarks(): MapLandmark[] {
   return shuffleCopy(landmarks);
 }
 
-function routeHasMovement(route: SimLatLng[]): boolean {
-  for (let i = 1; i < route.length; i++) {
-    if (haversineMeters(route[i - 1].lat, route[i - 1].lng, route[i].lat, route[i].lng) > 40) {
-      return true;
-    }
-  }
-  return false;
-}
-
 function ensurePerpReady(v: SimVehicle) {
   if (v.role !== 'perp' || v.status === 'caught' || v.status === 'escaped') return;
   if (v.status !== 'patrol') v.status = 'patrol';
@@ -795,7 +786,7 @@ function ensurePerpReady(v: SimVehicle) {
     return;
   }
 
-  if (!hasForwardPath(v) || !routeHasMovement(v.route)) {
+  if (!hasForwardPath(v)) {
     if (!rebuildReady(v, PATROL_REBUILD_MS)) return;
     commitRoute(v, buildRoadRouteToDestination(pos, v.destination));
   }
@@ -1183,7 +1174,7 @@ export function startPursuit(session: SimSession, policeId: string, perpId: stri
     routeIndex: police.routeIndex,
     routeProgress: police.routeProgress,
   };
-  commitRoute(pursuitDraft, buildPursuitRoadRoute(police, perp));
+  commitRoute(pursuitDraft, buildPursuitRoadRoute(pursuitDraft, perp));
 
   // Re-tasking a unit drops its old target unless another car is still on it.
   const droppedPerpId =
