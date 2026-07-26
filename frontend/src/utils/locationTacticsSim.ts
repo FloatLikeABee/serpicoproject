@@ -538,8 +538,7 @@ function buildStats(game: LocationTacticsGame, result: TacticsResult): LocationT
 
 function finalize(game: LocationTacticsGame): LocationTacticsGame {
   const caught = game.perps.filter((p) => p.status === 'caught').length;
-  const escaped = game.perps.filter((p) => p.status === 'escaped').length +
-    livingPerps(game).length; // remaining count as escaped at timeout
+  // Remaining runners count as escaped at timeout / end.
   for (const p of livingPerps(game)) p.status = 'escaped';
   const total = game.perps.length;
   const hurt = game.officers.filter((o) => o.status === 'hurt').length;
