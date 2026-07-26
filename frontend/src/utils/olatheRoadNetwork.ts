@@ -190,22 +190,44 @@ export function routeFollowsRoads(route: RoadPoint[]): boolean {
   return true;
 }
 
-/** Nearest road node + distance in meters. */
-export function nearestRoadNode(network: RoadNetwork, point: RoadPoint): { index: number; dist: number } {
-  let bestIdx = 0;
-  let bestDist = Infinity;
-  for (let i = 0; i < network.nodes.length; i++) {
-    const n = network.nodes[i];
-    const d = haversineMeters(point.lat, point.lng, n.lat, n.lng);
-    if (d < bestDist) {
-      bestDist = d;
-      bestIdx = i;
-    }
-  }
-  return { index: bestIdx, dist: bestDist };
+/** Bucket size for the node lookup grid (~110 m). */
+const NODE_GRID_DEG = 0.001;
+const NODE_GRID_MAX_RING = 20;
+const ASTAR_MAX_VISITS = 40000;
+const ROUTE_CACHE_MAX = 256;
+/**
+ * Greedy weight on the A* heuristic. City grids have huge numbers of equal-cost paths, so an
+ * exact heuristic explores most of the map; overweighting keeps searches to a narrow corridor
+ * at the cost of a slightly-longer road path, which is invisible in a chase.
+ */
+const HEURISTIC_WEIGHT = 1.4;
+
+let nodeGrid: Map<string, number[]> | null = null;
+let nodeGridOwner: RoadNetwork | null = null;
+let routeCache = new Map<string, RoadPoint[]>();
+
+function gridKey(latCell: number, lngCell: number): string {
+  return `${latCell}:${lngCell}`;
 }
 
-function nearestRoadNodeCandidates(
+/** Bucket nodes by cell so nearest-node lookups don't scan the whole city. */
+function ensureNodeGrid(network: RoadNetwork): Map<string, number[]> {
+  if (nodeGrid && nodeGridOwner === network) return nodeGrid;
+  const grid = new Map<string, number[]>();
+  for (let i = 0; i < network.nodes.length; i++) {
+    const n = network.nodes[i];
+    const key = gridKey(Math.floor(n.lat / NODE_GRID_DEG), Math.floor(n.lng / NODE_GRID_DEG));
+    const bucket = grid.get(key);
+    if (bucket) bucket.push(i);
+    else grid.set(key, [i]);
+  }
+  nodeGrid = grid;
+  nodeGridOwner = network;
+  routeCache = new Map();
+  return grid;
+}
+
+function scanAllNodes(
   network: RoadNetwork,
   point: RoadPoint,
   limit: number
@@ -218,80 +240,214 @@ function nearestRoadNodeCandidates(
   return ranked.slice(0, limit);
 }
 
+function nearestRoadNodeCandidates(
+  network: RoadNetwork,
+  point: RoadPoint,
+  limit: number
+): Array<{ index: number; dist: number }> {
+  if (!network.nodes.length) return [];
+  const grid = ensureNodeGrid(network);
+  const latCell = Math.floor(point.lat / NODE_GRID_DEG);
+  const lngCell = Math.floor(point.lng / NODE_GRID_DEG);
+  const found: Array<{ index: number; dist: number }> = [];
+
+  for (let ring = 0; ring <= NODE_GRID_MAX_RING; ring++) {
+    for (let dy = -ring; dy <= ring; dy++) {
+      for (let dx = -ring; dx <= ring; dx++) {
+        // Only walk the new cells added by this ring.
+        if (ring > 0 && Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+        const bucket = grid.get(gridKey(latCell + dy, lngCell + dx));
+        if (!bucket) continue;
+        for (const index of bucket) {
+          const n = network.nodes[index];
+          found.push({ index, dist: haversineMeters(point.lat, point.lng, n.lat, n.lng) });
+        }
+      }
+    }
+    // One extra ring past the first hit keeps the true nearest node from being missed.
+    if (found.length >= limit && ring >= 1) break;
+  }
+
+  if (!found.length) return scanAllNodes(network, point, limit);
+  found.sort((a, b) => a.dist - b.dist);
+  return found.slice(0, limit);
+}
+
+/** Nearest road node + distance in meters. */
+export function nearestRoadNode(network: RoadNetwork, point: RoadPoint): { index: number; dist: number } {
+  const [best] = nearestRoadNodeCandidates(network, point, 1);
+  return best ?? { index: 0, dist: Infinity };
+}
+
 export function snapToNearestRoad(network: RoadNetwork, point: RoadPoint): RoadPoint {
   const { index } = nearestRoadNode(network, point);
   return { ...network.nodes[index] };
 }
 
-function dijkstra(network: RoadNetwork, startIdx: number, endIdx: number): number[] | null {
-  const dist = new Map<number, number>();
-  const prev = new Map<number, number>();
-  const visited = new Set<number>();
-  const queue: number[] = [startIdx];
-  dist.set(startIdx, 0);
+/** Binary min-heap keyed by f-score — replaces sorting the open set every pop. */
+class MinHeap {
+  private ids: number[] = [];
+  private keys: number[] = [];
 
-  while (queue.length > 0) {
-    queue.sort((a, b) => (dist.get(a) ?? Infinity) - (dist.get(b) ?? Infinity));
-    const u = queue.shift()!;
-    if (visited.has(u)) continue;
-    visited.add(u);
-    if (u === endIdx) break;
+  get size(): number {
+    return this.ids.length;
+  }
 
+  push(id: number, key: number) {
+    this.ids.push(id);
+    this.keys.push(key);
+    let i = this.ids.length - 1;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.keys[parent] <= this.keys[i]) break;
+      this.swap(parent, i);
+      i = parent;
+    }
+  }
+
+  pop(): number {
+    const topId = this.ids[0];
+    const lastId = this.ids.pop()!;
+    const lastKey = this.keys.pop()!;
+    if (this.ids.length > 0) {
+      this.ids[0] = lastId;
+      this.keys[0] = lastKey;
+      let i = 0;
+      for (;;) {
+        const left = i * 2 + 1;
+        const right = left + 1;
+        let smallest = i;
+        if (left < this.keys.length && this.keys[left] < this.keys[smallest]) smallest = left;
+        if (right < this.keys.length && this.keys[right] < this.keys[smallest]) smallest = right;
+        if (smallest === i) break;
+        this.swap(smallest, i);
+        i = smallest;
+      }
+    }
+    return topId;
+  }
+
+  private swap(a: number, b: number) {
+    [this.ids[a], this.ids[b]] = [this.ids[b], this.ids[a]];
+    [this.keys[a], this.keys[b]] = [this.keys[b], this.keys[a]];
+  }
+}
+
+interface SearchScratch {
+  size: number;
+  cost: Float64Array;
+  cameFrom: Int32Array;
+  closed: Uint8Array;
+}
+
+let scratch: SearchScratch | null = null;
+
+function scratchFor(size: number): SearchScratch {
+  if (!scratch || scratch.size !== size) {
+    scratch = {
+      size,
+      cost: new Float64Array(size),
+      cameFrom: new Int32Array(size),
+      closed: new Uint8Array(size),
+    };
+  }
+  scratch.cost.fill(Infinity);
+  scratch.cameFrom.fill(-1);
+  scratch.closed.fill(0);
+  return scratch;
+}
+
+/** A* over the road graph — straight-line heuristic keeps routes short and direct. */
+function findNodePath(network: RoadNetwork, startIdx: number, endIdx: number): number[] | null {
+  if (startIdx === endIdx) return [startIdx];
+  const size = network.nodes.length;
+  if (startIdx >= size || endIdx >= size) return null;
+
+  const { cost, cameFrom, closed } = scratchFor(size);
+  const goal = network.nodes[endIdx];
+  const heuristic = (idx: number) => {
+    const n = network.nodes[idx];
+    return haversineMeters(n.lat, n.lng, goal.lat, goal.lng) * HEURISTIC_WEIGHT;
+  };
+
+  cost[startIdx] = 0;
+  const open = new MinHeap();
+  open.push(startIdx, heuristic(startIdx));
+
+  let visits = 0;
+  let reached = false;
+  while (open.size > 0 && visits < ASTAR_MAX_VISITS) {
+    const u = open.pop();
+    if (closed[u]) continue;
+    closed[u] = 1;
+    visits++;
+    if (u === endIdx) {
+      reached = true;
+      break;
+    }
     for (const edge of network.adjacency.get(u) || []) {
-      const alt = (dist.get(u) ?? Infinity) + edge.weight;
-      if (alt < (dist.get(edge.to) ?? Infinity)) {
-        dist.set(edge.to, alt);
-        prev.set(edge.to, u);
-        if (!visited.has(edge.to)) queue.push(edge.to);
+      const alt = cost[u] + edge.weight;
+      if (alt + 0.01 < cost[edge.to]) {
+        cost[edge.to] = alt;
+        cameFrom[edge.to] = u;
+        open.push(edge.to, alt + heuristic(edge.to));
       }
     }
   }
 
-  if (!prev.has(endIdx) && startIdx !== endIdx) return null;
+  if (!reached) return null;
 
   const path: number[] = [];
-  let cur: number | undefined = endIdx;
-  while (cur !== undefined) {
+  let cur = endIdx;
+  let guard = 0;
+  while (cur !== -1 && guard++ <= size) {
     path.unshift(cur);
     if (cur === startIdx) break;
-    cur = prev.get(cur);
+    cur = cameFrom[cur];
   }
-  return path.length > 0 ? path : null;
+  return path[0] === startIdx && path.length >= 2 ? path : null;
 }
 
-function pathLengthMeters(network: RoadNetwork, path: number[]): number {
-  let len = 0;
-  for (let i = 1; i < path.length; i++) {
-    const a = network.nodes[path[i - 1]];
-    const b = network.nodes[path[i]];
-    len += haversineMeters(a.lat, a.lng, b.lat, b.lng);
+function cachedNodePath(network: RoadNetwork, startIdx: number, endIdx: number): RoadPoint[] | null {
+  const key = `${startIdx}>${endIdx}`;
+  const hit = routeCache.get(key);
+  if (hit) {
+    // Refresh recency for the LRU.
+    routeCache.delete(key);
+    routeCache.set(key, hit);
+    return hit.map((p) => ({ ...p }));
   }
-  return len;
+
+  const path = findNodePath(network, startIdx, endIdx);
+  if (!path) return null;
+  const points = path.map((idx) => ({ ...network.nodes[idx] }));
+  routeCache.set(key, points);
+  if (routeCache.size > ROUTE_CACHE_MAX) {
+    const oldest = routeCache.keys().next().value;
+    if (oldest !== undefined) routeCache.delete(oldest);
+  }
+  return points.map((p) => ({ ...p }));
 }
 
 function findBestRoadPath(network: RoadNetwork, start: RoadPoint, dest: RoadPoint): RoadPoint[] | null {
   const startCandidates = nearestRoadNodeCandidates(network, start, 3);
   const destCandidates = nearestRoadNodeCandidates(network, dest, 3);
+  if (!startCandidates.length || !destCandidates.length) return null;
 
-  let bestPath: number[] | null = null;
-  let bestScore = Infinity;
+  // One search on the closest snaps covers nearly every call; alternates only cover the
+  // case where a snapped node sits on a disconnected stub.
+  const direct = cachedNodePath(network, startCandidates[0].index, destCandidates[0].index);
+  if (direct && direct.length >= 2) return direct;
 
   for (const s of startCandidates) {
     for (const d of destCandidates) {
-      const path = dijkstra(network, s.index, d.index);
-      if (!path || path.length < 2) continue;
-      const score = pathLengthMeters(network, path) + s.dist * 1.5 + d.dist * 1.5;
-      if (score < bestScore) {
-        bestScore = score;
-        bestPath = path;
-      }
+      if (s === startCandidates[0] && d === destCandidates[0]) continue;
+      const route = cachedNodePath(network, s.index, d.index);
+      if (route && route.length >= 2) return route;
     }
-    // Nearest start node already found a path — good enough for live pursuit rebuilds.
-    if (bestPath) break;
   }
 
-  if (!bestPath) return null;
-  return bestPath.map((idx) => ({ ...network.nodes[idx] }));
+  return null;
 }
 
 /** Build a route along OSM road centerlines. */

@@ -635,7 +635,7 @@ const InPursue: React.FC = () => {
                           onClick={handleArmPursue}
                           className="px-2 py-0.5 rounded text-[9px] font-display uppercase tracking-wider border border-neon-cyan/50 bg-neon-cyan/15 text-neon-cyan touch-manipulation min-h-0 min-w-0"
                         >
-                          Pursue
+                          {selectedPolice.status === 'pursuing' ? 'Retarget' : 'Pursue'}
                         </button>
                       )}
                     </div>
