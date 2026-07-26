@@ -6,6 +6,8 @@ import {
   SimSession,
   SimVehicle,
   RoundStats,
+  OLATHE_BOUNDS,
+  OLATHE_CENTER,
   armPursuit,
   canDeployReinforcement,
   canResetRound,
@@ -46,8 +48,6 @@ function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
     improvements: ['Deploy backups earlier on escaping targets'],
   };
 }
-
-const OLATHE_CENTER: [number, number] = [38.8814, -94.8191];
 
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -309,6 +309,15 @@ const InPursue: React.FC = () => {
   const handleMapClick = useCallback(async (lat: number, lng: number) => {
     const cur = sessionRef.current;
     if (!cur || !deployModeRef.current || !canDeployReinforcement(cur)) return;
+    // Reject taps outside the locked Olathe play area.
+    if (
+      lat < OLATHE_BOUNDS.latMin ||
+      lat > OLATHE_BOUNDS.latMax ||
+      lng < OLATHE_BOUNDS.lngMin ||
+      lng > OLATHE_BOUNDS.lngMax
+    ) {
+      return;
+    }
     let next = deployPoliceAt(cur, lat, lng);
     setSession(next);
     sessionRef.current = next;
@@ -486,6 +495,7 @@ const InPursue: React.FC = () => {
           center={OLATHE_CENTER}
           zoom={15}
           vehicles={vehicles.map(toMapVehicle)}
+          landmarks={session.landmarks ?? []}
           selectedId={selectedPoliceId}
           armedPoliceId={pursueModePoliceId || session.armedPoliceId}
           pursueModePoliceId={pursueModePoliceId}
@@ -648,7 +658,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap police → tap suspect · Deploy up to 2 backups · 20 min max
+          Olathe only · Bars/clubs/factories/projects · Tap police → suspect · Deploy backups
         </p>
       </div>
     </div>

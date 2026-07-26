@@ -2,6 +2,13 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, CircleMarker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import {
+  MapLandmark,
+  OLATHE_BOUNDS,
+  OLATHE_CENTER,
+  OLATHE_MAX_ZOOM,
+  OLATHE_MIN_ZOOM,
+} from '../utils/pursuitSim';
 
 export interface PursuitMapVehicle {
   id: string;
@@ -22,6 +29,7 @@ interface PursuitMapCanvasProps {
   center?: [number, number];
   zoom?: number;
   vehicles: PursuitMapVehicle[];
+  landmarks?: MapLandmark[];
   selectedId?: string | null;
   armedPoliceId?: string | null;
   pursueModePoliceId?: string | null;
@@ -31,6 +39,36 @@ interface PursuitMapCanvasProps {
   onVehicleClick?: (vehicle: PursuitMapVehicle) => void;
   onMapClick?: (lat: number, lng: number) => void;
 }
+
+const OLATHE_LATLNG_BOUNDS = L.latLngBounds(
+  [OLATHE_BOUNDS.latMin, OLATHE_BOUNDS.lngMin],
+  [OLATHE_BOUNDS.latMax, OLATHE_BOUNDS.lngMax]
+);
+
+/** Hard-lock pan/zoom so the camera cannot leave the Olathe city box. */
+const OlatheMapLock: React.FC = () => {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setMaxBounds(OLATHE_LATLNG_BOUNDS);
+    map.setMinZoom(OLATHE_MIN_ZOOM);
+    map.setMaxZoom(OLATHE_MAX_ZOOM);
+    map.options.maxBoundsViscosity = 1.0;
+    // Keep the view inside after any layout change.
+    const keepInside = () => {
+      map.panInsideBounds(OLATHE_LATLNG_BOUNDS, { animate: false });
+    };
+    map.on('drag', keepInside);
+    map.on('zoomend', keepInside);
+    keepInside();
+    return () => {
+      map.off('drag', keepInside);
+      map.off('zoomend', keepInside);
+    };
+  }, [map]);
+
+  return null;
+};
 
 /** Fit once per round so all units are visible at initiation — do not chase moving markers. */
 const FitVehiclesOnce: React.FC<{
@@ -47,6 +85,7 @@ const FitVehiclesOnce: React.FC<{
     if (fittedKeyRef.current === fitKey) return;
     if (!vehicles.length) {
       map.setView(fallbackCenter, fallbackZoom, { animate: false });
+      map.panInsideBounds(OLATHE_LATLNG_BOUNDS, { animate: false });
       fittedKeyRef.current = fitKey;
       return;
     }
@@ -54,13 +93,59 @@ const FitVehiclesOnce: React.FC<{
     if (!bounds.isValid()) {
       map.setView(fallbackCenter, fallbackZoom, { animate: false });
     } else {
-      map.fitBounds(bounds.pad(0.45), { animate: false, maxZoom: 16, padding: [36, 36] });
+      // Never zoom out past the city lock.
+      map.fitBounds(bounds.pad(0.35), {
+        animate: false,
+        maxZoom: 16,
+        padding: [28, 28],
+      });
     }
+    if (map.getZoom() < OLATHE_MIN_ZOOM) {
+      map.setZoom(OLATHE_MIN_ZOOM, { animate: false });
+    }
+    map.panInsideBounds(OLATHE_LATLNG_BOUNDS, { animate: false });
     fittedKeyRef.current = fitKey;
   }, [map, vehicles, fitKey, fallbackCenter, fallbackZoom]);
 
   return null;
 };
+
+const landmarkStyle: Record<
+  MapLandmark['kind'],
+  { color: string; label: string; glyph: string }
+> = {
+  bar: { color: '#f59e0b', label: 'Bar', glyph: 'B' },
+  club: { color: '#e879f9', label: 'Club', glyph: 'C' },
+  factory: { color: '#94a3b8', label: 'Factory', glyph: 'F' },
+  projects: { color: '#fb7185', label: 'Projects', glyph: 'P' },
+};
+
+function buildLandmarkIcon(landmark: MapLandmark): L.DivIcon {
+  const style = landmarkStyle[landmark.kind];
+  return L.divIcon({
+    className: 'pursuit-landmark-marker',
+    html: `
+      <div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;transform:translateY(-4px);">
+        <div style="
+          width:18px;height:18px;border-radius:4px;
+          background:${style.color};color:#0b0f1a;
+          font:700 10px/18px ui-monospace,Menlo,monospace;
+          text-align:center;border:1px solid rgba(255,255,255,0.55);
+          box-shadow:0 1px 4px rgba(0,0,0,0.45);
+        ">${style.glyph}</div>
+        <div style="
+          margin-top:2px;max-width:92px;padding:1px 4px;border-radius:3px;
+          background:rgba(8,12,20,0.78);color:#f8fafc;
+          font:600 9px/1.2 'IBM Plex Sans',system-ui,sans-serif;
+          text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+          border:1px solid ${style.color}66;
+        ">${landmark.name}</div>
+      </div>
+    `,
+    iconSize: [96, 36],
+    iconAnchor: [48, 14],
+  });
+}
 
 const MapClickHandler: React.FC<{
   enabled: boolean;
@@ -296,9 +381,10 @@ const ZoomAwareMarkers: React.FC<{
 };
 
 const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
-  center = [38.8814, -94.8191],
+  center = OLATHE_CENTER,
   zoom = 15,
   vehicles,
+  landmarks = [],
   selectedId,
   armedPoliceId,
   pursueModePoliceId,
@@ -351,11 +437,22 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   }, [vehicles, selectedVehicle]);
 
   return (
-    <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
+    <MapContainer
+      center={center}
+      zoom={zoom}
+      style={{ height: '100%', width: '100%' }}
+      scrollWheelZoom
+      maxBounds={OLATHE_LATLNG_BOUNDS}
+      maxBoundsViscosity={1}
+      minZoom={OLATHE_MIN_ZOOM}
+      maxZoom={OLATHE_MAX_ZOOM}
+      worldCopyJump={false}
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <OlatheMapLock />
       <FitVehiclesOnce
         vehicles={vehicles}
         fitKey={fitKey}
@@ -363,6 +460,17 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         fallbackZoom={zoom}
       />
       <MapClickHandler enabled={deployMode} onMapClick={onMapClick} />
+
+      {landmarks.map((lm) => (
+        <Marker
+          key={lm.id}
+          position={[lm.lat, lm.lng]}
+          icon={buildLandmarkIcon(lm)}
+          interactive={false}
+          keyboard={false}
+          zIndexOffset={50}
+        />
+      ))}
 
       {routeLines.map((r) => (
         <Polyline
