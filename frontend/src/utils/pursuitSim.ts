@@ -114,15 +114,17 @@ export interface SimSession {
 /** Start lean: fewer cops than suspects; player may reinforce mid-round. */
 export const INITIAL_POLICE_COUNT = 1;
 export const MAX_POLICE_REINFORCEMENTS = 2;
-/** Suspects always start at 2× initial police. */
-export const INITIAL_PERP_MULTIPLIER = 2;
-export const FLEET_TOTAL_MIN = INITIAL_POLICE_COUNT + INITIAL_POLICE_COUNT * INITIAL_PERP_MULTIPLIER;
+export const PERP_COUNT_MIN = 4;
+export const PERP_COUNT_MAX = 6;
+export const FLEET_TOTAL_MIN = INITIAL_POLICE_COUNT + PERP_COUNT_MIN;
 export const FLEET_TOTAL_MAX =
-  INITIAL_POLICE_COUNT + MAX_POLICE_REINFORCEMENTS + INITIAL_POLICE_COUNT * INITIAL_PERP_MULTIPLIER;
+  INITIAL_POLICE_COUNT + MAX_POLICE_REINFORCEMENTS + PERP_COUNT_MAX;
 
 function initialFleetCounts(): { policeCount: number; perpCount: number } {
-  const policeCount = INITIAL_POLICE_COUNT;
-  return { policeCount, perpCount: policeCount * INITIAL_PERP_MULTIPLIER };
+  return {
+    policeCount: INITIAL_POLICE_COUNT,
+    perpCount: randInt(PERP_COUNT_MIN, PERP_COUNT_MAX),
+  };
 }
 
 /** Faster chases without changing relative police vs perp gap. */
@@ -131,7 +133,7 @@ export const SIM_MOVEMENT_SCALE = 2.2;
 export const ROUND_MS = 20 * 60 * 1000;
 export const ROUND_RESET_AVAILABLE_MS = 2 * 60 * 1000;
 /** Gap after a round ends before auto-start; user can also start manually sooner. */
-export const ROUND_COOLDOWN_MS = 60 * 1000;
+export const ROUND_COOLDOWN_MS = 2 * 60 * 1000;
 const CATCH_METERS = 55;
 const CATCH_CLOSE_METERS = 120;
 const DEST_ARRIVAL_M = 40;
@@ -153,8 +155,8 @@ const MIN_PURSUIT_ROUTE_M = 250;
 /** Throttle route rebuilds per vehicle to prevent shake/teleport loops. */
 const lastRouteRebuildAt = new Map<string, number>();
 /** Close spawn cluster — units start near each other for short, fast pursuits. */
-const CLUSTER_RADIUS_M = 650;
-const MIN_VEHICLE_SPAWN_SEP_M = 110;
+const CLUSTER_RADIUS_M = 800;
+const MIN_VEHICLE_SPAWN_SEP_M = 100;
 const PERP_DEST_MIN_M = 900;
 const PERP_DEST_MAX_M = 2200;
 const PATROL_RADIUS_M = 900;
@@ -1309,8 +1311,7 @@ export function simSessionFromAPI(raw: Record<string, unknown>): SimSession {
 export function isStoredSessionUsable(session: SimSession): boolean {
   const perpN = session.vehicles.filter((v) => v.role === 'perp').length;
   const polN = session.vehicles.filter((v) => v.role === 'police').length;
-  // Suspects stay at 2× starting cops; police may grow via reinforcements only.
-  if (perpN !== INITIAL_POLICE_COUNT * INITIAL_PERP_MULTIPLIER) return false;
+  if (perpN < PERP_COUNT_MIN || perpN > PERP_COUNT_MAX) return false;
   if (polN < INITIAL_POLICE_COUNT || polN > INITIAL_POLICE_COUNT + MAX_POLICE_REINFORCEMENTS) {
     return false;
   }

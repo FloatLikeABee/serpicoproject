@@ -36,14 +36,14 @@ function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
     grade,
     score,
     summary: catchRate >= 0.75
-      ? 'Strong operational efficiency under resource constraints.'
+      ? 'Strong catch rate with disciplined unit use.'
       : catchRate >= 0.4
-      ? 'Partial success — strategy showed promise but needs refinement.'
-      : 'Low apprehension rate — reassess unit assignment and speed matching.',
-    strategyAnalysis: `You committed ${stats.pursuitsLaunched} pursuit(s) using ${stats.policeUsed} of ${stats.totalPolice} available units against ${stats.totalPerps} suspects, apprehending ${stats.caught}.`,
-    resourceAnalysis: `Police-to-suspect ratio was ${stats.totalPolice}:${stats.totalPerps}. ${stats.policeDown} unit(s) went down mid-round, reducing available capacity.`,
-    strengths: catchRate >= 0.5 ? ['Effective pressure on multiple suspect vehicles'] : ['Attempted pursuits under difficult odds'],
-    improvements: ['Deploy faster interceptors on high-speed suspects', 'Prioritize targets before units go offline'],
+      ? 'Partial success — tighten target priority next round.'
+      : 'Low catch rate under a heavy suspect load.',
+    strategyAnalysis: `Launched ${stats.pursuitsLaunched} pursuits; caught ${stats.caught} of ${stats.totalPerps}.`,
+    resourceAnalysis: `Used ${stats.policeUsed} of ${stats.totalPolice} police vs ${stats.totalPerps} suspects.`,
+    strengths: [catchRate >= 0.5 ? 'Kept pressure on active pursuits' : 'Engaged under difficult odds'],
+    improvements: ['Deploy backups earlier on escaping targets'],
   };
 }
 
@@ -377,7 +377,7 @@ const InPursue: React.FC = () => {
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">1</span>
                 <span>
                   Start with <span className="text-serpico-blue font-semibold">1 police</span> vs{' '}
-                  <span className="text-serpico-red font-semibold">2 suspects</span> clustered close on the map.
+                  <span className="text-serpico-red font-semibold">4–6 suspects</span> clustered close on the map.
                 </span>
               </li>
               <li className="flex gap-2.5">
@@ -565,41 +565,23 @@ const InPursue: React.FC = () => {
               </h2>
 
               {evalLoading ? (
-                <p className="text-xs text-neon-cyan mt-3 animate-pulse font-display">AI analyzing your operations…</p>
+                <p className="text-xs text-neon-cyan mt-3 animate-pulse font-display">AI grading…</p>
               ) : aiEvaluation ? (
-                <div className="mt-3 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <p className="text-4xl font-display font-bold text-white">{aiEvaluation.grade}</p>
-                    <div>
-                      <p className="text-xs text-gray-300">{aiEvaluation.summary}</p>
-                      <p className="text-[10px] text-synth-muted mt-0.5">Score: {aiEvaluation.score}</p>
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-start gap-3">
+                    <p className="text-4xl font-display font-bold text-white leading-none">{aiEvaluation.grade}</p>
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-xs text-gray-200 leading-snug">{aiEvaluation.summary}</p>
+                      <p className="text-[11px] text-gray-400 leading-snug">{aiEvaluation.strategyAnalysis}</p>
+                      <p className="text-[11px] text-gray-400 leading-snug">{aiEvaluation.resourceAnalysis}</p>
+                      {(aiEvaluation.improvements?.[0] || aiEvaluation.strengths?.[0]) && (
+                        <p className="text-[11px] text-neon-amber leading-snug">
+                          {aiEvaluation.improvements?.[0]
+                            ? `Next: ${aiEvaluation.improvements[0]}`
+                            : `Strength: ${aiEvaluation.strengths[0]}`}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                  <div className="text-[11px] space-y-2">
-                    <div>
-                      <p className="text-neon-cyan font-display uppercase text-[10px] tracking-wider">Strategy</p>
-                      <p className="text-gray-300 mt-0.5 leading-snug">{aiEvaluation.strategyAnalysis}</p>
-                    </div>
-                    <div>
-                      <p className="text-neon-magenta font-display uppercase text-[10px] tracking-wider">Resources</p>
-                      <p className="text-gray-300 mt-0.5 leading-snug">{aiEvaluation.resourceAnalysis}</p>
-                    </div>
-                    {aiEvaluation.strengths?.length > 0 && (
-                      <div>
-                        <p className="text-neon-green font-display uppercase text-[10px] tracking-wider">Strengths</p>
-                        <ul className="text-gray-300 mt-0.5 list-disc list-inside">
-                          {aiEvaluation.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                    {aiEvaluation.improvements?.length > 0 && (
-                      <div>
-                        <p className="text-neon-amber font-display uppercase text-[10px] tracking-wider">Improve</p>
-                        <ul className="text-gray-300 mt-0.5 list-disc list-inside">
-                          {aiEvaluation.improvements.map((s, i) => <li key={i}>{s}</li>)}
-                        </ul>
-                      </div>
-                    )}
                   </div>
                 </div>
               ) : (
