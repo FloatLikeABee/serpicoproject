@@ -7,7 +7,9 @@ import (
 	"strings"
 )
 
-const locationTacticsEvalSystemPrompt = `You are Serpico Field Tactics Instructor. Grade a short on-foot raid at a bar, club, factory, or housing project.
+const locationTacticsEvalSystemPrompt = `You are Serpico Field Tactics Instructor. Grade a short turn-based raid on a multi-floor building: a bar, club, factory, or housing project.
+
+Officers spend a fixed number of moves per turn, then suspects act. Suspects escape only through the front gate the officers entered by, so containment of that gate and of the stairwells is the core skill. Officers carry very few rounds, cover never breaks but never fully protects, and anyone caught in the open goes down on the first hit.
 
 Grade ONLY A, B, or C. Keep every text field to one short sentence. Strengths/improvements: at most one item each.
 Respond with ONLY valid JSON. No markdown fences.`
@@ -31,6 +33,11 @@ type LocationTacticsStats struct {
 	Outcome              string   `json:"outcome"`
 	OperationalScore     int      `json:"operationalScore"`
 	Decisions            []string `json:"decisions"`
+	Floors               int      `json:"floors"`
+	ShotsFired           int      `json:"shotsFired"`
+	ShotsLeft            int      `json:"shotsLeft"`
+	OfficersDown         int      `json:"officersDown"`
+	GateEscapes          int      `json:"gateEscapes"`
 }
 
 func (s *AIService) EvaluateLocationTactics(stats LocationTacticsStats) (*PursuitAIEvaluation, error) {
@@ -86,7 +93,7 @@ func fallbackLocationTacticsEvaluation(stats LocationTacticsStats) *PursuitAIEva
 	}
 	grade := "C"
 	score := 55
-	summary := "Suspects broke out — perimeter collapsed."
+	summary := "Suspects broke out the front gate — containment collapsed."
 	if rate >= 0.75 && stats.PoliceHurt <= 1 {
 		grade = "A"
 		score = 92
@@ -101,10 +108,10 @@ func fallbackLocationTacticsEvaluation(stats LocationTacticsStats) *PursuitAIEva
 		Grade:            grade,
 		Score:            score,
 		Summary:          summary,
-		StrategyAnalysis: fmt.Sprintf("Caught %d/%d in %d turns at %s.", stats.Caught, stats.TotalPerps, stats.TurnsUsed, stats.LandmarkName),
-		ResourceAnalysis: fmt.Sprintf("%d officers used, %d hurt, %d armed suspects.", stats.TotalPolice, stats.PoliceHurt, stats.ArmedPerps),
+		StrategyAnalysis: fmt.Sprintf("Caught %d/%d across %d floors in %d turns at %s.", stats.Caught, stats.TotalPerps, stats.Floors, stats.TurnsUsed, stats.LandmarkName),
+		ResourceAnalysis: fmt.Sprintf("%d officers, %d down, %d shots fired with %d left.", stats.TotalPolice, stats.OfficersDown, stats.ShotsFired, stats.ShotsLeft),
 		Strengths:        []string{ternary(stats.UnknownRoomsScouted > 0, "Pushed into unknown ground", "Kept a live stack moving")},
-		Improvements:     []string{ternary(rate < 0.75, "Cover exits before clearing deep rooms", "Maintain the same exit discipline")},
+		Improvements:     []string{ternary(stats.GateEscapes > 0, "Leave a body on the front gate", "Maintain the same gate discipline")},
 	}
 }
 
