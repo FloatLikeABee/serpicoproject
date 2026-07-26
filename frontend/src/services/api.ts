@@ -247,6 +247,15 @@ export const pursuitExamAPI = {
     const response = await api.post<{ evaluation: PursuitAIEvaluation }>('/pursuit-exam/evaluate', { stats });
     return response.data;
   },
+  evaluateLocationTactics: async (
+    stats: Record<string, unknown>
+  ): Promise<{ evaluation: PursuitAIEvaluation }> => {
+    const response = await api.post<{ evaluation: PursuitAIEvaluation }>(
+      '/pursuit-exam/location-evaluate',
+      { stats }
+    );
+    return response.data;
+  },
 };
 
 export type MysteryCaseCategory = 'missing_person' | 'cold_case' | 'unsolved_crime' | 'fugitive' | string;

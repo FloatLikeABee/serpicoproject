@@ -36,8 +36,10 @@ interface PursuitMapCanvasProps {
   /** Re-fit the camera when this key changes (new round / session). */
   fitKey?: string | number | null;
   deployMode?: boolean;
+  activeLandmarkId?: string | null;
   onVehicleClick?: (vehicle: PursuitMapVehicle) => void;
   onMapClick?: (lat: number, lng: number) => void;
+  onLandmarkClick?: (landmark: MapLandmark) => void;
 }
 
 const OLATHE_LATLNG_BOUNDS = L.latLngBounds(
@@ -120,25 +122,25 @@ const landmarkStyle: Record<
   projects: { color: '#fb7185', label: 'Projects', glyph: 'P' },
 };
 
-function buildLandmarkIcon(landmark: MapLandmark): L.DivIcon {
+function buildLandmarkIcon(landmark: MapLandmark, active = false): L.DivIcon {
   const style = landmarkStyle[landmark.kind];
   return L.divIcon({
     className: 'pursuit-landmark-marker',
     html: `
-      <div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;transform:translateY(-4px);">
+      <div style="display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:pointer;transform:translateY(-4px);">
         <div style="
           width:18px;height:18px;border-radius:4px;
           background:${style.color};color:#0b0f1a;
           font:700 10px/18px ui-monospace,Menlo,monospace;
-          text-align:center;border:1px solid rgba(255,255,255,0.55);
-          box-shadow:0 1px 4px rgba(0,0,0,0.45);
+          text-align:center;border:1px solid ${active ? '#fff' : 'rgba(255,255,255,0.55)'};
+          box-shadow:0 0 ${active ? '8px' : '4px'} ${style.color};
         ">${style.glyph}</div>
         <div style="
           margin-top:2px;max-width:92px;padding:1px 4px;border-radius:3px;
           background:rgba(8,12,20,0.78);color:#f8fafc;
           font:600 9px/1.2 'IBM Plex Sans',system-ui,sans-serif;
           text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-          border:1px solid ${style.color}66;
+          border:1px solid ${active ? '#fff' : `${style.color}66`};
         ">${landmark.name}</div>
       </div>
     `,
@@ -390,8 +392,10 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   pursueModePoliceId,
   fitKey,
   deployMode = false,
+  activeLandmarkId = null,
   onVehicleClick,
   onMapClick,
+  onLandmarkClick,
 }) => {
   const selectedVehicle = vehicles.find((v) => v.id === selectedId);
 
@@ -465,10 +469,16 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         <Marker
           key={lm.id}
           position={[lm.lat, lm.lng]}
-          icon={buildLandmarkIcon(lm)}
-          interactive={false}
+          icon={buildLandmarkIcon(lm, activeLandmarkId === lm.id)}
+          interactive={!deployMode}
           keyboard={false}
-          zIndexOffset={50}
+          zIndexOffset={activeLandmarkId === lm.id ? 200 : 80}
+          eventHandlers={{
+            click: (e) => {
+              L.DomEvent.stopPropagation(e);
+              if (!deployMode) onLandmarkClick?.(lm);
+            },
+          }}
         />
       ))}
 

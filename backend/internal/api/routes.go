@@ -77,6 +77,7 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		pursuitExam.POST("/pursue", func(c *gin.Context) { handlePursuitExamPursue(c, aiService) })
 		pursuitExam.POST("/deploy", func(c *gin.Context) { handlePursuitExamDeploy(c, aiService) })
 		pursuitExam.POST("/evaluate", func(c *gin.Context) { handlePursuitExamEvaluate(c, aiService) })
+		pursuitExam.POST("/location-evaluate", func(c *gin.Context) { handleLocationTacticsEvaluate(c, aiService) })
 	}
 
 	// Mysteries desk — missing persons, cold cases, briefings, insights

@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PursuitMapCanvas, { PursuitMapVehicle } from '../../components/PursuitMapCanvas';
+import LocationTacticsPanel from '../../components/LocationTacticsPanel';
 import { useAuth } from '../../contexts/AuthContext';
 import { pursuitExamAPI, PursuitAIEvaluation } from '../../services/api';
 import {
   SimSession,
   SimVehicle,
   RoundStats,
+  MapLandmark,
   OLATHE_BOUNDS,
   OLATHE_CENTER,
   armPursuit,
@@ -22,6 +24,12 @@ import {
   isPoliceAvailableForPursuit,
   isPerpPursuitTarget,
 } from '../../utils/pursuitSim';
+import {
+  LocationAIEvaluation,
+  LocationTacticsGame,
+  localFallbackLocationEvaluation,
+  startLocationTactics,
+} from '../../utils/locationTacticsSim';
 
 function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
   const catchRate = stats.totalPerps > 0 ? stats.caught / stats.totalPerps : 0;
@@ -90,6 +98,12 @@ const InPursue: React.FC = () => {
   const [evalLoading, setEvalLoading] = useState(false);
   const evaluatedRoundRef = useRef<number | null>(null);
 
+  const [tacticsGame, setTacticsGame] = useState<LocationTacticsGame | null>(null);
+  const [tacticsCollapsed, setTacticsCollapsed] = useState(false);
+  const [tacticsEval, setTacticsEval] = useState<LocationAIEvaluation | null>(null);
+  const [tacticsEvalLoading, setTacticsEvalLoading] = useState(false);
+  const tacticsEvalKeyRef = useRef<string | null>(null);
+
   const sessionRef = useRef<SimSession | null>(null);
   const lastTickRef = useRef<number>(performance.now());
   const pursueModeRef = useRef<string | null>(null);
@@ -155,6 +169,9 @@ const InPursue: React.FC = () => {
           setDeployMode(false);
           setAiEvaluation(null);
           evaluatedRoundRef.current = null;
+          setTacticsGame(null);
+          setTacticsEval(null);
+          tacticsEvalKeyRef.current = null;
         }
       }
       frame = requestAnimationFrame(loop);
@@ -163,7 +180,7 @@ const InPursue: React.FC = () => {
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  // AI evaluation when round completes
+  // AI evaluation when vehicle round completes
   useEffect(() => {
     if (session?.phase !== 'completed' || !session.result?.stats) return;
     if (evaluatedRoundRef.current === session.round) return;
@@ -182,6 +199,29 @@ const InPursue: React.FC = () => {
     };
     runEval();
   }, [session?.phase, session?.round, session?.result]);
+
+  // AI evaluation when an on-site tactics raid completes
+  useEffect(() => {
+    if (!tacticsGame || tacticsGame.phase !== 'completed' || !tacticsGame.stats) return;
+    const key = `${tacticsGame.id}:${tacticsGame.stats.outcome}`;
+    if (tacticsEvalKeyRef.current === key) return;
+    tacticsEvalKeyRef.current = key;
+
+    const runEval = async () => {
+      setTacticsEvalLoading(true);
+      try {
+        const { evaluation } = await pursuitExamAPI.evaluateLocationTactics(
+          tacticsGame.stats as unknown as Record<string, unknown>
+        );
+        setTacticsEval(evaluation);
+      } catch {
+        setTacticsEval(localFallbackLocationEvaluation(tacticsGame.stats!));
+      } finally {
+        setTacticsEvalLoading(false);
+      }
+    };
+    runEval();
+  }, [tacticsGame]);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -337,6 +377,27 @@ const InPursue: React.FC = () => {
     }
   }, [useServer, userId]);
 
+  const handleLandmarkClick = useCallback((landmark: MapLandmark) => {
+    setDeployMode(false);
+    setPursueModePoliceId(null);
+    pursueModeRef.current = null;
+    setTacticsGame((current) => {
+      if (current && current.phase !== 'completed' && current.landmarkId !== landmark.id) {
+        // Keep the live raid; just expand it so vehicle chase can continue under a collapsed view later.
+        setTacticsCollapsed(false);
+        return current;
+      }
+      if (current && current.landmarkId === landmark.id) {
+        setTacticsCollapsed(false);
+        return current;
+      }
+      setTacticsCollapsed(false);
+      setTacticsEval(null);
+      tacticsEvalKeyRef.current = null;
+      return startLocationTactics(landmark);
+    });
+  }, []);
+
   const handleResetRound = useCallback(() => {
     const cur = sessionRef.current;
     if (!cur || !canResetRound(cur)) return;
@@ -349,6 +410,9 @@ const InPursue: React.FC = () => {
     setDeployMode(false);
     setAiEvaluation(null);
     evaluatedRoundRef.current = null;
+    setTacticsGame(null);
+    setTacticsEval(null);
+    tacticsEvalKeyRef.current = null;
   }, []);
 
   const handleStartNextRound = useCallback(() => {
@@ -363,6 +427,9 @@ const InPursue: React.FC = () => {
     setDeployMode(false);
     setAiEvaluation(null);
     evaluatedRoundRef.current = null;
+    setTacticsGame(null);
+    setTacticsEval(null);
+    tacticsEvalKeyRef.current = null;
   }, []);
 
   const caughtCount = perpUnits.filter((v) => v.status === 'caught').length;
@@ -399,12 +466,13 @@ const InPursue: React.FC = () => {
               <li className="flex gap-2.5">
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">3</span>
                 <span>
-                  Use <span className="text-neon-amber font-semibold">Deploy</span> to place up to 2 backup units where you want.
+                  Tap <span className="text-neon-amber font-semibold">bars / clubs / factories / projects</span> for
+                  on-foot raids (collapsible — keep chasing on the map).
                 </span>
               </li>
               <li className="flex gap-2.5">
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">4</span>
-                <span>Catch as many as you can — rounds last 20 minutes max.</span>
+                <span>Deploy up to 2 backup cars. Rounds last 20 minutes max.</span>
               </li>
             </ol>
           </div>
@@ -501,11 +569,30 @@ const InPursue: React.FC = () => {
           pursueModePoliceId={pursueModePoliceId}
           fitKey={session.id}
           deployMode={deployMode}
+          activeLandmarkId={tacticsGame?.landmarkId}
           onVehicleClick={handleVehicleClick}
           onMapClick={handleMapClick}
+          onLandmarkClick={handleLandmarkClick}
         />
 
-        {selectedPolice && session.phase === 'active' && (
+        {tacticsGame && (
+          <LocationTacticsPanel
+            game={tacticsGame}
+            collapsed={tacticsCollapsed}
+            evaluation={tacticsEval}
+            evalLoading={tacticsEvalLoading}
+            onChange={setTacticsGame}
+            onToggleCollapse={() => setTacticsCollapsed((v) => !v)}
+            onClose={() => {
+              setTacticsGame(null);
+              setTacticsEval(null);
+              tacticsEvalKeyRef.current = null;
+              setTacticsCollapsed(false);
+            }}
+          />
+        )}
+
+        {selectedPolice && session.phase === 'active' && (!tacticsGame || tacticsCollapsed) && (
           <div className="absolute top-2 left-2 right-2 sm:top-auto sm:bottom-16 sm:left-auto sm:right-3 sm:w-64 z-[1100] game-panel p-2.5 sm:p-3 border border-neon-cyan/40 shadow-lg pointer-events-auto">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
@@ -658,7 +745,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Olathe only · Bars/clubs/factories/projects · Tap police → suspect · Deploy backups
+          Tap landmarks for on-foot raids · Collapse raid to keep vehicle chase live
         </p>
       </div>
     </div>
