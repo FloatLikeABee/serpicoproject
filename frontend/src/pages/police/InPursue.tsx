@@ -7,8 +7,10 @@ import {
   SimVehicle,
   RoundStats,
   armPursuit,
+  canDeployReinforcement,
   canResetRound,
   createSimSession,
+  deployPoliceAt,
   ensureRoadNetwork,
   resetActiveRound,
   startNextRound,
@@ -81,6 +83,7 @@ const InPursue: React.FC = () => {
   const [session, setSession] = useState<SimSession | null>(null);
   const [selectedPoliceId, setSelectedPoliceId] = useState<string | null>(null);
   const [pursueModePoliceId, setPursueModePoliceId] = useState<string | null>(null);
+  const [deployMode, setDeployMode] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [useServer, setUseServer] = useState(false);
   const [aiEvaluation, setAiEvaluation] = useState<PursuitAIEvaluation | null>(null);
@@ -90,6 +93,7 @@ const InPursue: React.FC = () => {
   const sessionRef = useRef<SimSession | null>(null);
   const lastTickRef = useRef<number>(performance.now());
   const pursueModeRef = useRef<string | null>(null);
+  const deployModeRef = useRef(false);
 
   const [roadsReady, setRoadsReady] = useState(false);
   const [roadsError, setRoadsError] = useState(false);
@@ -101,6 +105,10 @@ const InPursue: React.FC = () => {
   useEffect(() => {
     pursueModeRef.current = pursueModePoliceId;
   }, [pursueModePoliceId]);
+
+  useEffect(() => {
+    deployModeRef.current = deployMode;
+  }, [deployMode]);
 
   // Load OSM road network then start sim (vehicles snap to real roads)
   useEffect(() => {
@@ -144,6 +152,7 @@ const InPursue: React.FC = () => {
           sessionRef.current = next;
           setSelectedPoliceId(null);
           setPursueModePoliceId(null);
+          setDeployMode(false);
           setAiEvaluation(null);
           evaluatedRoundRef.current = null;
         }
@@ -207,6 +216,7 @@ const InPursue: React.FC = () => {
     const cur = sessionRef.current;
     const armedPolice = pursueModeRef.current;
     if (!cur || cur.phase !== 'active') return;
+    if (deployModeRef.current) return;
 
     if (vehicle.role === 'police' && vehicle.status !== 'caught') {
       setSelectedPoliceId(vehicle.id);
@@ -287,6 +297,37 @@ const InPursue: React.FC = () => {
     setSession((s) => (s ? { ...s, armedPoliceId: undefined } : s));
   }, []);
 
+  const handleToggleDeploy = useCallback(() => {
+    const cur = sessionRef.current;
+    if (!cur || !canDeployReinforcement(cur)) return;
+    setDeployMode((v) => !v);
+    setPursueModePoliceId(null);
+    pursueModeRef.current = null;
+    setSelectedPoliceId(null);
+  }, []);
+
+  const handleMapClick = useCallback(async (lat: number, lng: number) => {
+    const cur = sessionRef.current;
+    if (!cur || !deployModeRef.current || !canDeployReinforcement(cur)) return;
+    let next = deployPoliceAt(cur, lat, lng);
+    setSession(next);
+    sessionRef.current = next;
+    if ((next.reinforcementsLeft ?? 0) <= 0) {
+      setDeployMode(false);
+    }
+    if (useServer) {
+      try {
+        const { session: raw } = await pursuitExamAPI.deployPolice(userId, lat, lng);
+        next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
+        setSession(next);
+        sessionRef.current = next;
+        if ((next.reinforcementsLeft ?? 0) <= 0) setDeployMode(false);
+      } catch {
+        setUseServer(false);
+      }
+    }
+  }, [useServer, userId]);
+
   const handleResetRound = useCallback(() => {
     const cur = sessionRef.current;
     if (!cur || !canResetRound(cur)) return;
@@ -296,6 +337,7 @@ const InPursue: React.FC = () => {
     setSelectedPoliceId(null);
     setPursueModePoliceId(null);
     pursueModeRef.current = null;
+    setDeployMode(false);
     setAiEvaluation(null);
     evaluatedRoundRef.current = null;
   }, []);
@@ -309,6 +351,7 @@ const InPursue: React.FC = () => {
     setSelectedPoliceId(null);
     setPursueModePoliceId(null);
     pursueModeRef.current = null;
+    setDeployMode(false);
     setAiEvaluation(null);
     evaluatedRoundRef.current = null;
   }, []);
@@ -333,24 +376,26 @@ const InPursue: React.FC = () => {
               <li className="flex gap-2.5">
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">1</span>
                 <span>
-                  <span className="text-serpico-blue font-semibold">Tap a police</span> unit — that arms pursue targeting.
+                  Start with <span className="text-serpico-blue font-semibold">1 police</span> vs{' '}
+                  <span className="text-serpico-red font-semibold">2 suspects</span> clustered close on the map.
                 </span>
               </li>
               <li className="flex gap-2.5">
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">2</span>
                 <span>
-                  Then <span className="text-serpico-red font-semibold">tap a suspect</span> to lock the chase.
+                  <span className="text-serpico-blue font-semibold">Tap a police</span>, then{' '}
+                  <span className="text-serpico-red font-semibold">tap a suspect</span> to chase.
                 </span>
               </li>
               <li className="flex gap-2.5">
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">3</span>
-                <span>Catch as many as you can before the round timer ends.</span>
+                <span>
+                  Use <span className="text-neon-amber font-semibold">Deploy</span> to place up to 2 backup units where you want.
+                </span>
               </li>
               <li className="flex gap-2.5">
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">4</span>
-                <span className="text-synth-muted">
-                  Units can go down mid-round — tap another police and keep hunting.
-                </span>
+                <span>Catch as many as you can — rounds last 20 minutes max.</span>
               </li>
             </ol>
           </div>
@@ -377,20 +422,50 @@ const InPursue: React.FC = () => {
                 {formatTime(roundSecondsLeft)}
               </div>
               <div className="text-[10px] text-synth-muted uppercase tracking-wider">Time left</div>
-              {showResetRound && (
-                <button
-                  type="button"
-                  onClick={handleResetRound}
-                  className="mt-1.5 px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-amber/50 bg-neon-amber/15 text-neon-amber hover:bg-neon-amber/25 transition-colors touch-manipulation min-h-0 min-w-0"
-                >
-                  Reset round
-                </button>
-              )}
+              <div className="mt-1.5 flex flex-col items-end gap-1">
+                {canDeployReinforcement(session) && (
+                  <button
+                    type="button"
+                    onClick={handleToggleDeploy}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border transition-colors touch-manipulation min-h-0 min-w-0 ${
+                      deployMode
+                        ? 'border-neon-amber bg-neon-amber/30 text-neon-amber'
+                        : 'border-serpico-blue/50 bg-serpico-blue/15 text-serpico-blue hover:bg-serpico-blue/25'
+                    }`}
+                  >
+                    {deployMode ? 'Cancel deploy' : `Deploy (${session.reinforcementsLeft} left)`}
+                  </button>
+                )}
+                {showResetRound && (
+                  <button
+                    type="button"
+                    onClick={handleResetRound}
+                    className="px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-amber/50 bg-neon-amber/15 text-neon-amber hover:bg-neon-amber/25 transition-colors touch-manipulation min-h-0 min-w-0"
+                  >
+                    Reset round
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
 
-        {pursueModePoliceId && (
+        {deployMode && (
+          <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-neon-amber/50 bg-neon-amber/10">
+            <p className="text-[10px] sm:text-xs text-neon-amber font-display uppercase tracking-wide animate-pulse">
+              Tap the map to place a backup unit ({session.reinforcementsLeft} left)
+            </p>
+            <button
+              type="button"
+              onClick={() => setDeployMode(false)}
+              className="text-[10px] text-synth-muted hover:text-white px-2 py-0.5 min-h-0 min-w-0"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {pursueModePoliceId && !deployMode && (
           <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-neon-magenta/50 bg-neon-magenta/10">
             <p className="text-[10px] sm:text-xs text-neon-magenta font-display uppercase tracking-wide animate-pulse">
               Lock on — tap a suspect vehicle
@@ -414,7 +489,10 @@ const InPursue: React.FC = () => {
           selectedId={selectedPoliceId}
           armedPoliceId={pursueModePoliceId || session.armedPoliceId}
           pursueModePoliceId={pursueModePoliceId}
+          fitKey={session.id}
+          deployMode={deployMode}
           onVehicleClick={handleVehicleClick}
+          onMapClick={handleMapClick}
         />
 
         {selectedPolice && session.phase === 'active' && (
@@ -588,7 +666,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap police → tap suspect · Units may go down mid-round
+          Tap police → tap suspect · Deploy up to 2 backups · 20 min max
         </p>
       </div>
     </div>

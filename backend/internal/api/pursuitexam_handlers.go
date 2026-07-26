@@ -113,3 +113,39 @@ func handlePursuitExamPursue(c *gin.Context, aiService interface{}) {
 
 	c.JSON(http.StatusOK, gin.H{"session": session})
 }
+
+func handlePursuitExamDeploy(c *gin.Context, aiService interface{}) {
+	service, ok := aiService.(*ai.AIService)
+	if !ok || service.PursuitExam == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Pursuit exam service not available"})
+		return
+	}
+
+	var req struct {
+		UserID string  `json:"userId"`
+		Lat    float64 `json:"lat"`
+		Lng    float64 `json:"lng"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := pursuitUserFromRequest(c, req.UserID)
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user id required"})
+		return
+	}
+	if req.Lat == 0 && req.Lng == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "lat and lng required"})
+		return
+	}
+
+	session, err := service.PursuitExam.DeployPolice(userID, req.Lat, req.Lng)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"session": session})
+}
