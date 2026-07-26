@@ -4,12 +4,43 @@ import { LandmarkKind, MapLandmark } from './pursuitSim';
 
 export type ScenarioMode = 'chase' | 'gunfight' | 'hide';
 export type TacticsPhase = 'briefing' | 'active' | 'completed';
+/** Structural tile type for movement / cover / exits. */
 export type CellKind = 'floor' | 'wall' | 'cover' | 'exit' | 'spawn';
+/** Functional zone — drives floor-map color so the venue reads at a glance. */
+export type FloorZone =
+  | 'hall'
+  | 'bar'
+  | 'booth'
+  | 'kitchen'
+  | 'restroom'
+  | 'stage'
+  | 'dance'
+  | 'vip'
+  | 'loading'
+  | 'machine'
+  | 'office'
+  | 'unit'
+  | 'stair'
+  | 'court'
+  | 'basement'
+  | 'alley'
+  | 'entry'
+  | 'wall';
 
 export interface GridCell {
   x: number;
   y: number;
   kind: CellKind;
+  zone: FloorZone;
+}
+
+export interface FloorLabel {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 export interface TacticsUnit {
@@ -93,6 +124,8 @@ export interface LocationTacticsGame {
   width: number;
   height: number;
   cells: GridCell[];
+  /** Named rooms overlaid on the floor map. */
+  labels: FloorLabel[];
   units: TacticsUnit[];
   bullets: TacticsBullet[];
   revealed: boolean[][]; // fog for hide / chase
@@ -152,32 +185,17 @@ function cloneGame(game: LocationTacticsGame): LocationTacticsGame {
 const COP_NAMES = ['Reyes', 'Okada', 'Brooks', 'Hassan', 'Nguyen', 'Carter', 'Diaz', 'Walsh'];
 const PERP_NAMES = ['Vex', 'Rook', 'Shade', 'Bolt', 'Kite', 'Moth', 'Jinx', 'Dust', 'Hex', 'Pike'];
 
-const MODE_META: Record<
-  ScenarioMode,
-  { title: string; briefing: (place: string) => string }
-> = {
-  chase: {
-    title: 'Foot Chase',
-    briefing: (place) =>
-      `${place}: suspects are running the floor plan toward exits. You won't see them constantly — only glimpses and line-of-sight. Cut them off before they vanish.`,
-  },
-  gunfight: {
-    title: 'Cover Gunfight',
-    briefing: (place) =>
-      `${place}: armed crew dug into cover. Use walls, peek, and trade shots — bullets fly on the map. Rushing open ground will get officers hurt.`,
-  },
-  hide: {
-    title: 'Hide & Seek',
-    briefing: (place) =>
-      `${place}: limited manpower (1–2 officers). Suspects are somewhere in the dark. Search carefully — if the clock runs out, they walk free.`,
-  },
+const MODE_META: Record<ScenarioMode, { title: string; tip: string }> = {
+  chase: { title: 'Foot Chase', tip: 'Cut off exits — runners only show in glimpses / LOS.' },
+  gunfight: { title: 'Gunfight', tip: 'Use cover. Tap a spotted perp to shoot.' },
+  hide: { title: 'Hide & Seek', tip: '1–2 cops. Search the fog before time runs out.' },
 };
 
-function emptyGrid(w: number, h: number, fill: CellKind = 'floor'): GridCell[] {
+function emptyGrid(w: number, h: number, zone: FloorZone = 'hall'): GridCell[] {
   const cells: GridCell[] = [];
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      cells.push({ x, y, kind: fill });
+      cells.push({ x, y, kind: 'floor', zone });
     }
   }
   return cells;
@@ -185,12 +203,68 @@ function emptyGrid(w: number, h: number, fill: CellKind = 'floor'): GridCell[] {
 
 function cellAt(cells: GridCell[], w: number, x: number, y: number): GridCell | null {
   if (x < 0 || y < 0 || x >= w) return null;
-  return cells.find((c) => c.x === x && c.y === y) ?? null;
+  const idx = y * w + x;
+  return cells[idx] ?? null;
 }
 
-function setKind(cells: GridCell[], w: number, x: number, y: number, kind: CellKind) {
+function setCell(
+  cells: GridCell[],
+  w: number,
+  x: number,
+  y: number,
+  patch: Partial<Pick<GridCell, 'kind' | 'zone'>>
+) {
   const c = cellAt(cells, w, x, y);
-  if (c) c.kind = kind;
+  if (!c) return;
+  if (patch.kind) c.kind = patch.kind;
+  if (patch.zone) c.zone = patch.zone;
+}
+
+function fillRect(
+  cells: GridCell[],
+  w: number,
+  x0: number,
+  y0: number,
+  rw: number,
+  rh: number,
+  patch: Partial<Pick<GridCell, 'kind' | 'zone'>>
+) {
+  for (let y = y0; y < y0 + rh; y++) {
+    for (let x = x0; x < x0 + rw; x++) setCell(cells, w, x, y, patch);
+  }
+}
+
+function frameWalls(cells: GridCell[], w: number, h: number) {
+  for (let x = 0; x < w; x++) {
+    setCell(cells, w, x, 0, { kind: 'wall', zone: 'wall' });
+    setCell(cells, w, x, h - 1, { kind: 'wall', zone: 'wall' });
+  }
+  for (let y = 0; y < h; y++) {
+    setCell(cells, w, 0, y, { kind: 'wall', zone: 'wall' });
+    setCell(cells, w, w - 1, y, { kind: 'wall', zone: 'wall' });
+  }
+}
+
+function wallLine(
+  cells: GridCell[],
+  w: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  doors: Array<{ x: number; y: number }> = []
+) {
+  const doorSet = new Set(doors.map((d) => `${d.x},${d.y}`));
+  const dx = Math.sign(x1 - x0);
+  const dy = Math.sign(y1 - y0);
+  let x = x0;
+  let y = y0;
+  for (;;) {
+    if (!doorSet.has(`${x},${y}`)) setCell(cells, w, x, y, { kind: 'wall', zone: 'wall' });
+    if (x === x1 && y === y1) break;
+    x += dx;
+    y += dy;
+  }
 }
 
 function walkable(kind: CellKind) {
@@ -234,133 +308,352 @@ function hasLos(
   return true;
 }
 
-function buildChaseMap(rng: () => number, kind: LandmarkKind) {
-  const w = 12;
-  const h = 9;
-  const cells = emptyGrid(w, h, 'floor');
-  // Outer walls
-  for (let x = 0; x < w; x++) {
-    setKind(cells, w, x, 0, 'wall');
-    setKind(cells, w, x, h - 1, 'wall');
-  }
-  for (let y = 0; y < h; y++) {
-    setKind(cells, w, 0, y, 'wall');
-    setKind(cells, w, w - 1, y, 'wall');
-  }
-  // Interior blocks (building partitions)
-  const blockCount = 8 + Math.floor(rng() * 5);
-  for (let i = 0; i < blockCount; i++) {
-    const x = 2 + Math.floor(rng() * (w - 4));
-    const y = 2 + Math.floor(rng() * (h - 4));
-    const len = 2 + Math.floor(rng() * 3);
-    const horiz = rng() > 0.45;
-    for (let k = 0; k < len; k++) {
-      const cx = horiz ? x + k : x;
-      const cy = horiz ? y : y + k;
-      if (cx > 0 && cy > 0 && cx < w - 1 && cy < h - 1) setKind(cells, w, cx, cy, 'wall');
-    }
-  }
-  // Door gaps
-  for (let i = 0; i < 6; i++) {
-    const x = 1 + Math.floor(rng() * (w - 2));
-    const y = 1 + Math.floor(rng() * (h - 2));
-    setKind(cells, w, x, y, 'floor');
-  }
-  // Exits
-  const exits = [
-    { x: 1, y: Math.floor(h / 2) },
-    { x: w - 2, y: 1 + Math.floor(rng() * (h - 2)) },
-    { x: 2 + Math.floor(rng() * (w - 4)), y: h - 2 },
-  ];
-  if (kind === 'factory' || kind === 'projects') {
-    exits.push({ x: w - 2, y: h - 2 });
-  }
-  for (const e of exits) setKind(cells, w, e.x, e.y, 'exit');
+interface VenueFloorPlan {
+  w: number;
+  h: number;
+  cells: GridCell[];
+  labels: FloorLabel[];
+  copSpawns: Array<{ x: number; y: number }>;
+  perpSpawns: Array<{ x: number; y: number }>;
+}
+
+function markExit(cells: GridCell[], w: number, x: number, y: number, zone: FloorZone = 'entry') {
+  setCell(cells, w, x, y, { kind: 'exit', zone });
+}
+
+function markSpawn(cells: GridCell[], w: number, pts: Array<{ x: number; y: number }>) {
+  for (const p of pts) setCell(cells, w, p.x, p.y, { kind: 'spawn', zone: 'entry' });
+}
+
+/** Neighborhood bar: door → floor → bar rail → booths / kitchen / cellar / alley. */
+function buildBarFloor(rng: () => number): VenueFloorPlan {
+  const w = 14;
+  const h = 10;
+  const cells = emptyGrid(w, h, 'hall');
+  frameWalls(cells, w, h);
+
+  fillRect(cells, w, 1, 1, 4, 3, { kind: 'floor', zone: 'entry' }); // vestibule
+  fillRect(cells, w, 5, 1, 5, 5, { kind: 'floor', zone: 'hall' }); // main floor
+  // Bar counter as cover row
+  for (let x = 5; x <= 9; x++) setCell(cells, w, x, 3, { kind: 'cover', zone: 'bar' });
+  fillRect(cells, w, 5, 4, 5, 2, { kind: 'floor', zone: 'bar' });
+  fillRect(cells, w, 10, 1, 3, 4, { kind: 'floor', zone: 'booth' }); // booths
+  wallLine(cells, w, 10, 1, 10, 4, [{ x: 10, y: 2 }]);
+  fillRect(cells, w, 1, 5, 4, 4, { kind: 'floor', zone: 'kitchen' });
+  wallLine(cells, w, 4, 5, 4, 8, [{ x: 4, y: 6 }]);
+  fillRect(cells, w, 5, 7, 3, 2, { kind: 'floor', zone: 'restroom' });
+  wallLine(cells, w, 5, 7, 7, 7, [{ x: 6, y: 7 }]);
+  fillRect(cells, w, 9, 6, 4, 3, { kind: 'floor', zone: 'basement' }); // cellar
+  wallLine(cells, w, 9, 6, 9, 8, [{ x: 9, y: 7 }]);
+  fillRect(cells, w, 12, 1, 1, 8, { kind: 'floor', zone: 'alley' });
+
+  // Furniture cover
+  setCell(cells, w, 6, 2, { kind: 'cover', zone: 'hall' });
+  setCell(cells, w, 8, 2, { kind: 'cover', zone: 'hall' });
+  setCell(cells, w, 11, 2, { kind: 'cover', zone: 'booth' });
+  setCell(cells, w, 11, 4, { kind: 'cover', zone: 'booth' });
+  if (rng() > 0.4) setCell(cells, w, 2, 7, { kind: 'cover', zone: 'kitchen' });
+
+  markExit(cells, w, 1, 2, 'entry'); // front door
+  markExit(cells, w, 12, 8, 'alley'); // alley
+  markExit(cells, w, 12, 5, 'alley');
 
   const copSpawns = [
     { x: 1, y: 1 },
     { x: 2, y: 1 },
-    { x: 1, y: 2 },
-  ].filter((p) => walkable(cellAt(cells, w, p.x, p.y)!.kind));
-  for (const p of copSpawns) setKind(cells, w, p.x, p.y, 'spawn');
-
-  return { w, h, cells, exits, copSpawns };
-}
-
-function buildGunfightMap(rng: () => number) {
-  const w = 11;
-  const h = 9;
-  const cells = emptyGrid(w, h, 'floor');
-  for (let x = 0; x < w; x++) {
-    setKind(cells, w, x, 0, 'wall');
-    setKind(cells, w, x, h - 1, 'wall');
-  }
-  for (let y = 0; y < h; y++) {
-    setKind(cells, w, 0, y, 'wall');
-    setKind(cells, w, w - 1, y, 'wall');
-  }
-  // Cover pillars / low walls
-  const covers: Array<{ x: number; y: number }> = [];
-  for (let i = 0; i < 14; i++) {
-    const x = 2 + Math.floor(rng() * (w - 4));
-    const y = 2 + Math.floor(rng() * (h - 4));
-    setKind(cells, w, x, y, rng() > 0.35 ? 'cover' : 'wall');
-    if (cellAt(cells, w, x, y)?.kind === 'cover') covers.push({ x, y });
-  }
-  // Clear spawn lanes
-  for (let y = 1; y < h - 1; y++) {
-    setKind(cells, w, 1, y, 'floor');
-    setKind(cells, w, w - 2, y, 'floor');
-  }
-  const copSpawns = [
-    { x: 1, y: 2 },
-    { x: 1, y: 4 },
-    { x: 1, y: 6 },
+    { x: 2, y: 2 },
   ];
+  markSpawn(cells, w, copSpawns);
   const perpSpawns = [
-    { x: w - 2, y: 2 },
-    { x: w - 2, y: 4 },
-    { x: w - 2, y: 6 },
-    { x: w - 3, y: 3 },
+    { x: 7, y: 5 },
+    { x: 11, y: 3 },
+    { x: 10, y: 7 },
+    { x: 3, y: 7 },
   ];
-  return { w, h, cells, covers, copSpawns, perpSpawns };
+
+  const labels: FloorLabel[] = [
+    { id: 'entry', name: 'Entry', x: 1, y: 1, w: 4, h: 2 },
+    { id: 'bar', name: 'Bar', x: 5, y: 3, w: 5, h: 3 },
+    { id: 'booths', name: 'Booths', x: 10, y: 1, w: 2, h: 4 },
+    { id: 'kitchen', name: 'Kitchen', x: 1, y: 5, w: 3, h: 4 },
+    { id: 'wc', name: 'WC', x: 5, y: 7, w: 3, h: 2 },
+    { id: 'cellar', name: 'Cellar', x: 9, y: 6, w: 3, h: 3 },
+    { id: 'alley', name: 'Alley', x: 12, y: 1, w: 1, h: 8 },
+  ];
+  return { w, h, cells, labels, copSpawns, perpSpawns };
 }
 
-function buildHideMap(rng: () => number) {
-  const w = 10;
-  const h = 8;
-  const cells = emptyGrid(w, h, 'floor');
-  for (let x = 0; x < w; x++) {
-    setKind(cells, w, x, 0, 'wall');
-    setKind(cells, w, x, h - 1, 'wall');
+/** Nightclub: coat check, dance floor, stage/DJ, VIP, green room, loading. */
+function buildClubFloor(rng: () => number): VenueFloorPlan {
+  const w = 15;
+  const h = 11;
+  const cells = emptyGrid(w, h, 'dance');
+  frameWalls(cells, w, h);
+
+  fillRect(cells, w, 1, 1, 3, 3, { kind: 'floor', zone: 'entry' }); // coat check
+  fillRect(cells, w, 4, 1, 7, 6, { kind: 'floor', zone: 'dance' });
+  fillRect(cells, w, 11, 1, 3, 3, { kind: 'floor', zone: 'stage' }); // DJ / stage
+  wallLine(cells, w, 11, 1, 11, 3, [{ x: 11, y: 2 }]);
+  fillRect(cells, w, 11, 4, 3, 3, { kind: 'floor', zone: 'vip' });
+  wallLine(cells, w, 11, 4, 11, 6, [{ x: 11, y: 5 }]);
+  fillRect(cells, w, 1, 5, 3, 3, { kind: 'floor', zone: 'bar' });
+  for (let y = 5; y <= 7; y++) setCell(cells, w, 3, y, { kind: 'cover', zone: 'bar' });
+  fillRect(cells, w, 1, 8, 4, 2, { kind: 'floor', zone: 'restroom' });
+  wallLine(cells, w, 1, 8, 4, 8, [{ x: 2, y: 8 }]);
+  fillRect(cells, w, 6, 8, 4, 2, { kind: 'floor', zone: 'office' }); // green room
+  wallLine(cells, w, 6, 8, 9, 8, [{ x: 7, y: 8 }]);
+  fillRect(cells, w, 11, 8, 3, 2, { kind: 'floor', zone: 'loading' });
+  wallLine(cells, w, 11, 7, 13, 7, [{ x: 12, y: 7 }]);
+  fillRect(cells, w, 4, 8, 1, 2, { kind: 'floor', zone: 'stair' }); // roof stair
+
+  // Dance floor pillars / speakers as cover
+  for (const p of [
+    { x: 6, y: 3 },
+    { x: 8, y: 3 },
+    { x: 6, y: 5 },
+    { x: 8, y: 5 },
+  ]) {
+    setCell(cells, w, p.x, p.y, { kind: 'cover', zone: 'dance' });
   }
-  for (let y = 0; y < h; y++) {
-    setKind(cells, w, 0, y, 'wall');
-    setKind(cells, w, w - 1, y, 'wall');
-  }
-  // Room partitions
-  for (let y = 1; y < h - 1; y++) {
-    if (y !== 3 && y !== 5) setKind(cells, w, 4, y, 'wall');
-  }
-  for (let x = 1; x < w - 1; x++) {
-    if (x !== 2 && x !== 7) setKind(cells, w, x, 4, 'wall');
-  }
-  // Extra clutter
+  if (rng() > 0.3) setCell(cells, w, 12, 2, { kind: 'cover', zone: 'stage' });
+  setCell(cells, w, 12, 5, { kind: 'cover', zone: 'vip' });
+
+  markExit(cells, w, 1, 2, 'entry');
+  markExit(cells, w, 13, 9, 'loading');
+  markExit(cells, w, 4, 9, 'stair');
+
+  const copSpawns = [
+    { x: 1, y: 1 },
+    { x: 2, y: 1 },
+    { x: 2, y: 3 },
+  ];
+  markSpawn(cells, w, copSpawns);
+  const perpSpawns = [
+    { x: 7, y: 4 },
+    { x: 12, y: 5 },
+    { x: 12, y: 2 },
+    { x: 8, y: 9 },
+    { x: 2, y: 6 },
+  ];
+
+  const labels: FloorLabel[] = [
+    { id: 'coat', name: 'Coat Check', x: 1, y: 1, w: 3, h: 3 },
+    { id: 'dance', name: 'Dance Floor', x: 4, y: 1, w: 7, h: 6 },
+    { id: 'dj', name: 'DJ / Stage', x: 11, y: 1, w: 3, h: 3 },
+    { id: 'vip', name: 'VIP', x: 11, y: 4, w: 3, h: 3 },
+    { id: 'bar', name: 'Bar', x: 1, y: 5, w: 3, h: 3 },
+    { id: 'wc', name: 'Restrooms', x: 1, y: 8, w: 4, h: 2 },
+    { id: 'green', name: 'Green Room', x: 6, y: 8, w: 4, h: 2 },
+    { id: 'load', name: 'Loading', x: 11, y: 8, w: 3, h: 2 },
+  ];
+  return { w, h, cells, labels, copSpawns, perpSpawns };
+}
+
+/** Abandoned factory: gate, assembly lines, machines, cage, office, dock, pit. */
+function buildFactoryFloor(rng: () => number): VenueFloorPlan {
+  const w = 15;
+  const h = 11;
+  const cells = emptyGrid(w, h, 'machine');
+  frameWalls(cells, w, h);
+
+  fillRect(cells, w, 1, 1, 3, 3, { kind: 'floor', zone: 'entry' }); // guard gate
+  fillRect(cells, w, 4, 1, 8, 6, { kind: 'floor', zone: 'machine' }); // assembly
+  // Machine blocks
   for (let i = 0; i < 5; i++) {
-    const x = 1 + Math.floor(rng() * (w - 2));
-    const y = 1 + Math.floor(rng() * (h - 2));
-    if (rng() > 0.5) setKind(cells, w, x, y, 'cover');
+    const x = 5 + (i % 3) * 2;
+    const y = 2 + Math.floor(i / 3) * 2;
+    fillRect(cells, w, x, y, 2, 1, { kind: 'cover', zone: 'machine' });
+    if (rng() > 0.5) setCell(cells, w, x, y + 1, { kind: 'wall', zone: 'wall' });
   }
-  setKind(cells, w, w - 2, h - 2, 'exit');
-  setKind(cells, w, 1, h - 2, 'exit');
-  const copSpawns = [{ x: 1, y: 1 }, { x: 2, y: 1 }];
-  const floors = cells.filter((c) => c.kind === 'floor' || c.kind === 'cover');
-  return { w, h, cells, copSpawns, floors };
+  fillRect(cells, w, 12, 1, 2, 4, { kind: 'floor', zone: 'office' });
+  wallLine(cells, w, 12, 1, 12, 4, [{ x: 12, y: 2 }]);
+  fillRect(cells, w, 12, 5, 2, 3, { kind: 'floor', zone: 'loading' }); // parts cage / dock
+  wallLine(cells, w, 12, 5, 12, 7, [{ x: 12, y: 6 }]);
+  fillRect(cells, w, 1, 5, 3, 5, { kind: 'floor', zone: 'basement' }); // machine pit
+  wallLine(cells, w, 3, 5, 3, 9, [{ x: 3, y: 7 }]);
+  fillRect(cells, w, 4, 8, 8, 2, { kind: 'floor', zone: 'loading' }); // dock lane
+  fillRect(cells, w, 12, 8, 2, 2, { kind: 'floor', zone: 'stair' });
+
+  setCell(cells, w, 6, 5, { kind: 'cover', zone: 'machine' });
+  setCell(cells, w, 9, 4, { kind: 'cover', zone: 'machine' });
+  setCell(cells, w, 5, 9, { kind: 'cover', zone: 'loading' });
+
+  markExit(cells, w, 1, 2, 'entry');
+  markExit(cells, w, 13, 6, 'loading');
+  markExit(cells, w, 10, 9, 'loading');
+  markExit(cells, w, 13, 9, 'stair');
+
+  const copSpawns = [
+    { x: 1, y: 1 },
+    { x: 2, y: 1 },
+    { x: 2, y: 3 },
+  ];
+  markSpawn(cells, w, copSpawns);
+  const perpSpawns = [
+    { x: 8, y: 3 },
+    { x: 13, y: 3 },
+    { x: 2, y: 7 },
+    { x: 7, y: 9 },
+    { x: 13, y: 7 },
+  ];
+
+  const labels: FloorLabel[] = [
+    { id: 'gate', name: 'Guard Gate', x: 1, y: 1, w: 3, h: 3 },
+    { id: 'asm', name: 'Assembly Floor', x: 4, y: 1, w: 8, h: 6 },
+    { id: 'office', name: 'Office', x: 12, y: 1, w: 2, h: 4 },
+    { id: 'cage', name: 'Parts / Dock', x: 12, y: 5, w: 2, h: 3 },
+    { id: 'pit', name: 'Machine Pit', x: 1, y: 5, w: 3, h: 5 },
+    { id: 'dock', name: 'Loading Dock', x: 4, y: 8, w: 8, h: 2 },
+  ];
+  return { w, h, cells, labels, copSpawns, perpSpawns };
+}
+
+/** Housing projects: lobby, courtyard, corridor, units, stairs, laundry. */
+function buildProjectsFloor(rng: () => number): VenueFloorPlan {
+  const w = 14;
+  const h = 11;
+  const cells = emptyGrid(w, h, 'hall');
+  frameWalls(cells, w, h);
+
+  fillRect(cells, w, 1, 1, 4, 3, { kind: 'floor', zone: 'entry' }); // lobby
+  fillRect(cells, w, 5, 1, 4, 4, { kind: 'floor', zone: 'court' }); // courtyard
+  fillRect(cells, w, 9, 1, 4, 2, { kind: 'floor', zone: 'stair' });
+  wallLine(cells, w, 9, 1, 9, 2, [{ x: 9, y: 1 }]);
+
+  fillRect(cells, w, 1, 5, 12, 2, { kind: 'floor', zone: 'hall' }); // corridor
+  // Apartment units
+  fillRect(cells, w, 1, 7, 3, 3, { kind: 'floor', zone: 'unit' });
+  fillRect(cells, w, 4, 7, 3, 3, { kind: 'floor', zone: 'unit' });
+  fillRect(cells, w, 7, 7, 3, 3, { kind: 'floor', zone: 'unit' });
+  fillRect(cells, w, 10, 7, 3, 3, { kind: 'floor', zone: 'unit' });
+  wallLine(cells, w, 1, 7, 12, 7, [
+    { x: 2, y: 7 },
+    { x: 5, y: 7 },
+    { x: 8, y: 7 },
+    { x: 11, y: 7 },
+  ]);
+  wallLine(cells, w, 4, 7, 4, 9, []);
+  wallLine(cells, w, 7, 7, 7, 9, []);
+  wallLine(cells, w, 10, 7, 10, 9, []);
+
+  fillRect(cells, w, 9, 3, 4, 2, { kind: 'floor', zone: 'basement' }); // laundry
+  wallLine(cells, w, 9, 3, 9, 4, [{ x: 9, y: 4 }]);
+
+  // Courtyard benches / junk as cover
+  setCell(cells, w, 6, 2, { kind: 'cover', zone: 'court' });
+  setCell(cells, w, 7, 3, { kind: 'cover', zone: 'court' });
+  setCell(cells, w, 2, 8, { kind: 'cover', zone: 'unit' });
+  setCell(cells, w, 8, 8, { kind: 'cover', zone: 'unit' });
+  if (rng() > 0.4) setCell(cells, w, 11, 8, { kind: 'cover', zone: 'unit' });
+
+  markExit(cells, w, 1, 2, 'entry');
+  markExit(cells, w, 12, 1, 'stair'); // roof
+  markExit(cells, w, 12, 4, 'basement'); // laundry cut
+  markExit(cells, w, 5, 1, 'court'); // courtyard gate
+
+  const copSpawns = [
+    { x: 1, y: 1 },
+    { x: 2, y: 1 },
+    { x: 3, y: 2 },
+  ];
+  markSpawn(cells, w, copSpawns);
+  const perpSpawns = [
+    { x: 6, y: 3 },
+    { x: 2, y: 8 },
+    { x: 8, y: 8 },
+    { x: 11, y: 8 },
+    { x: 11, y: 3 },
+  ];
+
+  const labels: FloorLabel[] = [
+    { id: 'lobby', name: 'Lobby', x: 1, y: 1, w: 4, h: 3 },
+    { id: 'court', name: 'Courtyard', x: 5, y: 1, w: 4, h: 4 },
+    { id: 'stairs', name: 'Stairs', x: 9, y: 1, w: 4, h: 2 },
+    { id: 'laundry', name: 'Laundry', x: 9, y: 3, w: 4, h: 2 },
+    { id: 'hall', name: 'Corridor', x: 1, y: 5, w: 12, h: 2 },
+    { id: 'u1', name: 'Unit A', x: 1, y: 7, w: 3, h: 3 },
+    { id: 'u2', name: 'Unit B', x: 4, y: 7, w: 3, h: 3 },
+    { id: 'u3', name: 'Unit C', x: 7, y: 7, w: 3, h: 3 },
+    { id: 'u4', name: 'Unit D', x: 10, y: 7, w: 3, h: 3 },
+  ];
+  return { w, h, cells, labels, copSpawns, perpSpawns };
+}
+
+function buildVenueFloor(kind: LandmarkKind, rng: () => number): VenueFloorPlan {
+  if (kind === 'bar') return buildBarFloor(rng);
+  if (kind === 'club') return buildClubFloor(rng);
+  if (kind === 'factory') return buildFactoryFloor(rng);
+  return buildProjectsFloor(rng);
+}
+
+/** Mode tweaks cover density / spawn counts without erasing the venue layout. */
+function applyModeToFloor(plan: VenueFloorPlan, mode: ScenarioMode, rng: () => number): VenueFloorPlan {
+  const cells = plan.cells.map((c) => ({ ...c }));
+  const w = plan.w;
+  if (mode === 'gunfight') {
+    // Extra barricades on open hall/dance/machine floors
+    let added = 0;
+    for (let i = 0; i < 40 && added < 8; i++) {
+      const x = 2 + Math.floor(rng() * (w - 4));
+      const y = 2 + Math.floor(rng() * (plan.h - 4));
+      const c = cellAt(cells, w, x, y);
+      if (c && c.kind === 'floor' && (c.zone === 'hall' || c.zone === 'dance' || c.zone === 'machine' || c.zone === 'court')) {
+        setCell(cells, w, x, y, { kind: 'cover' });
+        added++;
+      }
+    }
+  }
+  let copSpawns = [...plan.copSpawns];
+  let perpSpawns = [...plan.perpSpawns];
+  if (mode === 'hide') {
+    copSpawns = copSpawns.slice(0, rng() > 0.55 ? 1 : 2);
+    perpSpawns = perpSpawns
+      .filter((p) => dist(p, copSpawns[0]) > 3)
+      .sort(() => rng() - 0.5)
+      .slice(0, 2 + Math.floor(rng() * 2));
+  } else if (mode === 'chase') {
+    perpSpawns = perpSpawns.sort(() => rng() - 0.5).slice(0, 3 + Math.floor(rng() * 2));
+    copSpawns = copSpawns.slice(0, Math.min(3, copSpawns.length));
+  } else {
+    perpSpawns = perpSpawns.sort(() => rng() - 0.5).slice(0, 3 + Math.floor(rng() * 2));
+    copSpawns = copSpawns.slice(0, Math.min(3, copSpawns.length));
+  }
+  // Refresh spawn markers
+  for (const c of cells) {
+    if (c.kind === 'spawn') {
+      c.kind = 'floor';
+      c.zone = c.zone === 'wall' ? 'entry' : c.zone;
+    }
+  }
+  markSpawn(cells, w, copSpawns);
+  return { ...plan, cells, copSpawns, perpSpawns };
 }
 
 function floorsOf(cells: GridCell[]) {
   return cells.filter((c) => walkable(c.kind) && c.kind !== 'exit');
 }
+
+/** Zone colors for the floor-map UI. */
+export const FLOOR_ZONE_COLORS: Record<FloorZone, string> = {
+  hall: '#2a2140',
+  bar: '#4a3728',
+  booth: '#3b2f4a',
+  kitchen: '#3f3a2e',
+  restroom: '#2c3340',
+  stage: '#4a2860',
+  dance: '#35204a',
+  vip: '#5c2a4a',
+  loading: '#3a3a32',
+  machine: '#3a4038',
+  office: '#2e3d4a',
+  unit: '#403530',
+  stair: '#3a3848',
+  court: '#2a3a30',
+  basement: '#1f2430',
+  alley: '#2a2a2a',
+  entry: '#1e3a44',
+  wall: '#52525b',
+};
 
 function pickMode(rng: () => number, kind: LandmarkKind): ScenarioMode {
   // Weight by venue flavor, still daily-random.
@@ -683,47 +976,16 @@ function endPlayerTurn(game: LocationTacticsGame): LocationTacticsGame {
 
 export function startLocationTactics(landmark: MapLandmark, now = new Date()): LocationTacticsGame {
   const key = dayKey(now);
-  const rng = makeRng(hashSeed(`${key}|${landmark.id}|${landmark.kind}|visual-v2`));
+  const rng = makeRng(hashSeed(`${key}|${landmark.id}|${landmark.kind}|floor-v3`));
   const mode = pickMode(rng, landmark.kind);
   const meta = MODE_META[mode];
+  const plan = applyModeToFloor(buildVenueFloor(landmark.kind, rng), mode, rng);
 
-  let width = 12;
-  let height = 9;
-  let cells: GridCell[] = [];
-  let copSpawns: Array<{ x: number; y: number }> = [];
-  let perpSpawns: Array<{ x: number; y: number }> = [];
-
-  if (mode === 'chase') {
-    const map = buildChaseMap(rng, landmark.kind);
-    width = map.w;
-    height = map.h;
-    cells = map.cells;
-    copSpawns = map.copSpawns;
-    perpSpawns = floorsOf(cells)
-      .filter((c) => c.x > width / 2)
-      .sort(() => rng() - 0.5)
-      .slice(0, 3 + Math.floor(rng() * 2))
-      .map((c) => ({ x: c.x, y: c.y }));
-  } else if (mode === 'gunfight') {
-    const map = buildGunfightMap(rng);
-    width = map.w;
-    height = map.h;
-    cells = map.cells;
-    copSpawns = map.copSpawns;
-    perpSpawns = map.perpSpawns.slice(0, 3 + Math.floor(rng() * 2));
-  } else {
-    const map = buildHideMap(rng);
-    width = map.w;
-    height = map.h;
-    cells = map.cells;
-    const copCount = rng() > 0.55 ? 1 : 2;
-    copSpawns = map.copSpawns.slice(0, copCount);
-    perpSpawns = map.floors
-      .filter((c) => dist(c, copSpawns[0]) > 3)
-      .sort(() => rng() - 0.5)
-      .slice(0, 2 + Math.floor(rng() * 2))
-      .map((c) => ({ x: c.x, y: c.y }));
-  }
+  const width = plan.w;
+  const height = plan.h;
+  const cells = plan.cells;
+  const copSpawns = plan.copSpawns;
+  const perpSpawns = plan.perpSpawns;
 
   const units: TacticsUnit[] = [];
   copSpawns.forEach((s, i) => {
@@ -743,19 +1005,25 @@ export function startLocationTactics(landmark: MapLandmark, now = new Date()): L
     });
   });
   perpSpawns.forEach((s, i) => {
+    const cell = cellAt(cells, width, s.x, s.y);
+    // Keep spawns on walkable tiles even if layout shifted.
+    const pos =
+      cell && walkable(cell.kind)
+        ? s
+        : floorsOf(cells).sort(() => rng() - 0.5)[0] || s;
     units.push({
       id: uid('perp', rng),
       side: 'perp',
       name: PERP_NAMES[i % PERP_NAMES.length],
-      x: s.x,
-      y: s.y,
+      x: pos.x,
+      y: pos.y,
       hp: mode === 'gunfight' ? 3 : 2,
       maxHp: mode === 'gunfight' ? 3 : 2,
       status: 'active',
       spotted: mode === 'gunfight',
       ap: 2,
       ammo: mode === 'gunfight' ? 4 : 0,
-      inCover: cellAt(cells, width, s.x, s.y)?.kind === 'cover',
+      inCover: cellAt(cells, width, pos.x, pos.y)?.kind === 'cover',
     });
   });
 
@@ -780,8 +1048,8 @@ export function startLocationTactics(landmark: MapLandmark, now = new Date()): L
     landmarkName: landmark.name,
     landmarkKind: landmark.kind,
     dayKey: key,
-    scenarioTitle: `${meta.title} — ${landmark.name}`,
-    briefing: meta.briefing(landmark.name),
+    scenarioTitle: `${meta.title} · ${landmark.name}`,
+    briefing: meta.tip,
     mode,
     phase: 'briefing',
     turn: 1,
@@ -789,12 +1057,13 @@ export function startLocationTactics(landmark: MapLandmark, now = new Date()): L
     width,
     height,
     cells,
+    labels: plan.labels,
     units,
     bullets: [],
     revealed,
     selectedUnitId: units.find((u) => u.side === 'cop')?.id,
     moveRange: mode === 'gunfight' ? 2 : 3,
-    log: [{ turn: 1, text: `${meta.title} at ${landmark.name}. Plan carefully — this will not be easy.`, tone: 'info' }],
+    log: [{ turn: 1, text: meta.tip, tone: 'info' }],
     decisions: [],
     nextGlimpseTurn: 2,
   };
@@ -807,9 +1076,7 @@ export function beginTacticsRaid(game: LocationTacticsGame): LocationTacticsGame
   const g = cloneGame(game);
   g.phase = 'active';
   g.selectedUnitId = livingCops(g)[0]?.id;
-  g.decisions.push(`Started ${g.mode} scenario`);
-  pushLog(g, g.briefing, 'warn');
-  pushLog(g, 'Select a cop, then tap a highlighted cell. Gunfight: tap a spotted perp to shoot.', 'info');
+  g.decisions.push(`Started ${g.mode} on ${g.landmarkKind} floor`);
   refreshSpotting(g);
   return g;
 }
