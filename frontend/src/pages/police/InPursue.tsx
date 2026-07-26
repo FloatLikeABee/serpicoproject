@@ -482,7 +482,7 @@ const InPursue: React.FC = () => {
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">3</span>
                 <span>
                   Tap <span className="text-neon-amber font-semibold">bars / clubs / factories / projects</span> for
-                  visual raids: foot chase, cover gunfight, or hide-and-seek (collapsible).
+                  venue floor maps — chase, gunfight, or hide (collapsible).
                 </span>
               </li>
               <li className="flex gap-2.5">
@@ -800,7 +800,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap landmarks for on-foot raids · Collapse raid to keep vehicle chase live
+          Tap landmarks for venue floor maps · Collapse to keep vehicle chase live
         </p>
       </div>
     </div>
