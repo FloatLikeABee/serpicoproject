@@ -589,12 +589,15 @@ function endTurn(game: LocationTacticsGame): LocationTacticsGame {
 
 export function beginTacticsRaid(game: LocationTacticsGame): LocationTacticsGame {
   if (game.phase !== 'briefing') return game;
+  const firstReady = game.officers.find((o) => o.status !== 'hurt');
   const next = {
     ...game,
     phase: 'active' as const,
+    selectedOfficerId: firstReady?.id ?? game.officers[0]?.id,
     decisions: [...game.decisions, 'Entered the site with a two-officer stack'],
   };
   pushLog(next, 'Raid is live. Move, scout unknowns, cover exits, clear rooms.', 'info');
+  pushLog(next, next.briefing, 'warn');
   applyReinforcements(next);
   return { ...next };
 }

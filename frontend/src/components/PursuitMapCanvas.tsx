@@ -125,27 +125,27 @@ const landmarkStyle: Record<
 function buildLandmarkIcon(landmark: MapLandmark, active = false): L.DivIcon {
   const style = landmarkStyle[landmark.kind];
   return L.divIcon({
-    className: 'pursuit-landmark-marker',
+    className: 'leaflet-div-icon pursuit-landmark-marker',
     html: `
-      <div style="display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:pointer;transform:translateY(-4px);">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:104px;height:44px;pointer-events:auto;cursor:pointer;">
         <div style="
-          width:18px;height:18px;border-radius:4px;
+          width:22px;height:22px;border-radius:5px;flex-shrink:0;
           background:${style.color};color:#0b0f1a;
-          font:700 10px/18px ui-monospace,Menlo,monospace;
+          font:700 11px/22px ui-monospace,Menlo,monospace;
           text-align:center;border:1px solid ${active ? '#fff' : 'rgba(255,255,255,0.55)'};
           box-shadow:0 0 ${active ? '8px' : '4px'} ${style.color};
         ">${style.glyph}</div>
         <div style="
-          margin-top:2px;max-width:92px;padding:1px 4px;border-radius:3px;
-          background:rgba(8,12,20,0.78);color:#f8fafc;
+          margin-top:2px;max-width:100px;padding:2px 5px;border-radius:3px;
+          background:rgba(8,12,20,0.85);color:#f8fafc;
           font:600 9px/1.2 'IBM Plex Sans',system-ui,sans-serif;
           text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
           border:1px solid ${active ? '#fff' : `${style.color}66`};
         ">${landmark.name}</div>
       </div>
     `,
-    iconSize: [96, 36],
-    iconAnchor: [48, 14],
+    iconSize: [104, 44],
+    iconAnchor: [52, 12],
   });
 }
 
@@ -465,23 +465,6 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
       />
       <MapClickHandler enabled={deployMode} onMapClick={onMapClick} />
 
-      {landmarks.map((lm) => (
-        <Marker
-          key={lm.id}
-          position={[lm.lat, lm.lng]}
-          icon={buildLandmarkIcon(lm, activeLandmarkId === lm.id)}
-          interactive={!deployMode}
-          keyboard={false}
-          zIndexOffset={activeLandmarkId === lm.id ? 200 : 80}
-          eventHandlers={{
-            click: (e) => {
-              L.DomEvent.stopPropagation(e);
-              if (!deployMode) onLandmarkClick?.(lm);
-            },
-          }}
-        />
-      ))}
-
       {routeLines.map((r) => (
         <Polyline
           key={r.id}
@@ -491,6 +474,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
             weight: r.dashed ? 2 : 3,
             opacity: r.dashed ? 0.35 : 0.55,
             dashArray: r.dashed ? '4 8' : undefined,
+            interactive: false,
           }}
         />
       ))}
@@ -502,7 +486,13 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
             key={`${v.id}-dest-dot`}
             center={[v.destination!.lat, v.destination!.lng]}
             radius={5}
-            pathOptions={{ color: '#ff2bd6', fillColor: '#ff2bd6', fillOpacity: 0.5, weight: 1 }}
+            pathOptions={{
+              color: '#ff2bd6',
+              fillColor: '#ff2bd6',
+              fillOpacity: 0.5,
+              weight: 1,
+              interactive: false,
+            }}
           />
         ))}
 
@@ -513,6 +503,46 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         pursueModePoliceId={pursueModePoliceId}
         onVehicleClick={onVehicleClick}
       />
+
+      {/* Landmarks above vehicles so site raids stay tappable. */}
+      {landmarks.map((lm) => {
+        const style = landmarkStyle[lm.kind];
+        const active = activeLandmarkId === lm.id;
+        return (
+          <React.Fragment key={lm.id}>
+            <CircleMarker
+              center={[lm.lat, lm.lng]}
+              radius={14}
+              pathOptions={{
+                color: style.color,
+                fillColor: style.color,
+                fillOpacity: active ? 0.35 : 0.2,
+                weight: active ? 2 : 1,
+                opacity: 0.9,
+              }}
+              eventHandlers={{
+                click: (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  if (!deployMode) onLandmarkClick?.(lm);
+                },
+              }}
+            />
+            <Marker
+              position={[lm.lat, lm.lng]}
+              icon={buildLandmarkIcon(lm, active)}
+              interactive={!deployMode}
+              keyboard
+              zIndexOffset={active ? 3500 : 3000}
+              eventHandlers={{
+                click: (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  if (!deployMode) onLandmarkClick?.(lm);
+                },
+              }}
+            />
+          </React.Fragment>
+        );
+      })}
     </MapContainer>
   );
 };
