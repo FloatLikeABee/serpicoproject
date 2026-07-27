@@ -859,6 +859,10 @@ export function orderPoliceTo(
   const police = session.vehicles.find((v) => v.id === policeId && v.role === 'police');
   if (!police) return reject(session, 'unavailable');
 
+  // Judge the range on the tap itself, which is what the player aimed at and sees ringed.
+  const distanceM = haversineMeters(police.lat, police.lng, lat, lng);
+  if (distanceM > MAX_DRIVE_ORDER_M) return reject(session, 'too_far', distanceM);
+
   const network = getRoadNetwork();
   const snap = network
     ? snapToRoadSegment(network, { lat, lng })
@@ -866,9 +870,9 @@ export function orderPoliceTo(
   if (!snap || snap.distM > ROAD_TAP_TOLERANCE_M) return reject(session, 'off_road');
 
   const target = snap.point;
-  const distanceM = haversineMeters(police.lat, police.lng, target.lat, target.lng);
-  if (distanceM > MAX_DRIVE_ORDER_M) return reject(session, 'too_far', distanceM);
-  if (distanceM < MIN_DRIVE_ORDER_M) return reject(session, 'too_close', distanceM);
+  if (haversineMeters(police.lat, police.lng, target.lat, target.lng) < MIN_DRIVE_ORDER_M) {
+    return reject(session, 'too_close', distanceM);
+  }
 
   const pos = { lat: police.lat, lng: police.lng };
   const path = network ? buildRoadNodePath(network, pos, target) : buildGridRouteFallback(pos, target);

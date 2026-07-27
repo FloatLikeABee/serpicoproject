@@ -361,17 +361,23 @@ const ZoomAwareMarkers: React.FC<{
   );
 };
 
-/** Nudge the camera when the followed unit drifts out of the middle of the viewport. */
+/**
+ * Camera follow. A rolling unit stays centered so the street ahead is always tappable; a parked
+ * one only pulls the camera back if it has drifted off screen, leaving the player free to look
+ * around between orders.
+ */
 const FollowUnit: React.FC<{ target?: PursuitMapVehicle | null }> = ({ target }) => {
   const map = useMap();
 
   useEffect(() => {
     if (!target) return;
-    const bounds = map.getBounds();
-    const inner = bounds.pad(-0.28);
-    if (inner.contains([target.lat, target.lng])) return;
+    if (target.status === 'driving') {
+      map.panTo([target.lat, target.lng], { animate: false });
+      return;
+    }
+    if (map.getBounds().pad(-0.2).contains([target.lat, target.lng])) return;
     map.panTo([target.lat, target.lng], { animate: false });
-  }, [map, target, target?.lat, target?.lng]);
+  }, [map, target, target?.lat, target?.lng, target?.status]);
 
   return null;
 };

@@ -4,6 +4,7 @@ import LocationTacticsPanel from '../../components/LocationTacticsPanel';
 import { useAuth } from '../../contexts/AuthContext';
 import { pursuitExamAPI } from '../../services/api';
 import {
+  SimNoticeKind,
   SimSession,
   SimVehicle,
   MapLandmark,
@@ -44,7 +45,7 @@ function toMapVehicle(v: SimVehicle): PursuitMapVehicle {
   };
 }
 
-const noticeTone: Record<string, string> = {
+const noticeTone: Record<SimNoticeKind, string> = {
   caught: 'border-neon-green/60 bg-neon-green/15 text-neon-green',
   escaped: 'border-neon-magenta/50 bg-neon-magenta/10 text-neon-magenta',
   wave: 'border-serpico-blue/50 bg-serpico-blue/15 text-serpico-blue',
@@ -183,7 +184,7 @@ const InPursue: React.FC = () => {
   }, []);
 
   const handleMapClick = useCallback(
-    async (lat: number, lng: number) => {
+    (lat: number, lng: number) => {
       const cur = sessionRef.current;
       if (!cur) return;
       // Reject taps outside the locked Olathe play area.
@@ -410,7 +411,7 @@ const InPursue: React.FC = () => {
               <div
                 key={n.id}
                 className={`px-2.5 py-1.5 rounded-lg border text-[10px] sm:text-[11px] font-display uppercase tracking-wide text-center shadow-lg backdrop-blur-sm ${
-                  noticeTone[n.kind] ?? noticeTone.wave
+                  noticeTone[n.kind]
                 }`}
               >
                 {n.text}
