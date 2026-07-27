@@ -685,17 +685,25 @@ function buildPerpVehicleAt(index: number, start: SimLatLng, dest: SimLatLng): S
 }
 
 /** A fresh wave of suspects around `center`, each rolling off toward its own destination. */
-function spawnPerpWave(center: SimLatLng, avoid: SimLatLng[], minR: number, maxR: number): SimVehicle[] {
+function spawnPerpWave(
+  center: SimLatLng,
+  avoid: SimLatLng[],
+  minR: number,
+  maxR: number,
+  wave: number
+): SimVehicle[] {
   const taken = [...avoid];
   const destinations: SimLatLng[] = [];
   const perps: SimVehicle[] = [];
+  // Walk the name and vehicle tables forward each wave so a new call-out reads as new suspects.
+  const base = (wave - 1) * WAVE_PERP_COUNT;
 
   for (let i = 0; i < WAVE_PERP_COUNT; i++) {
     const spawn = pickNearPoint(center, minR, maxR, taken);
     taken.push(spawn);
     const dest = pickPerpDestination(spawn, destinations);
     destinations.push(dest);
-    perps.push(buildPerpVehicleAt(i, spawn, dest));
+    perps.push(buildPerpVehicleAt(base + i, spawn, dest));
   }
 
   return perps;
@@ -796,7 +804,7 @@ export function createSimSession(userId: string): SimSession {
   }
 
   const vehicles: SimVehicle[] = policeSpawns.map((spawn, i) => buildPoliceVehicleAt(i, spawn));
-  vehicles.push(...spawnPerpWave(clusterCenter, policeSpawns, 250, CLUSTER_RADIUS_M));
+  vehicles.push(...spawnPerpWave(clusterCenter, policeSpawns, 250, CLUSTER_RADIUS_M, 1));
 
   return {
     id: uid('session'),
@@ -993,16 +1001,17 @@ export function tickSimSession(session: SimSession, elapsedSec: number): SimSess
   if (livePerps(next.vehicles).length === 0) {
     const police = next.vehicles.filter((v) => v.role === 'police');
     const center = police[0] ?? next.clusterCenter ?? { lat: OLATHE_CENTER[0], lng: OLATHE_CENTER[1] };
+    next.wave += 1;
     next.vehicles = [
       ...next.vehicles,
       ...spawnPerpWave(
         { lat: center.lat, lng: center.lng },
         police.map((p) => ({ lat: p.lat, lng: p.lng })),
         WAVE_SPAWN_MIN_M,
-        WAVE_SPAWN_MAX_M
+        WAVE_SPAWN_MAX_M,
+        next.wave
       ),
     ];
-    next.wave += 1;
     notices = pushNotice(
       notices,
       'wave',
