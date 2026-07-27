@@ -1,10 +1,12 @@
-/** Client-side pursuit exam simulation — drives smooth map movement. */
+/** Client-side endless auto-chase vehicle pursuit simulation. */
 
 import {
   buildOsmRoadRoute,
+  buildRoadNodePath,
   getRoadNetwork,
   routeFollowsRoads,
   snapToNearestRoad,
+  snapToRoadSegment,
 } from './olatheRoadNetwork';
 
 export interface SimLatLng {
@@ -12,9 +14,16 @@ export interface SimLatLng {
   lng: number;
 }
 
+export type PoliceKind = 'squad' | 'helper';
+export type WeaponKind = 'drone' | 'robocop' | 'laser';
+export type SimVehicleStatus = 'chasing' | 'idle' | 'fleeing' | 'caught' | 'escaped';
+
 export interface SimVehicle {
   id: string;
   role: 'police' | 'perp';
+  policeKind?: PoliceKind;
+  helperExpiresAtSimMs?: number;
+  color?: string;
   lat: number;
   lng: number;
   heading: number;
@@ -26,71 +35,12 @@ export interface SimVehicle {
   officerRank?: string;
   evaluation: string;
   vehicleModel: string;
+  status: SimVehicleStatus;
   pursuingPerpId?: string;
-  status: 'patrol' | 'pursuing' | 'caught' | 'idle' | 'escaped' | 'down';
+  playerAssigned?: boolean;
   beingPursued: boolean;
   destination?: SimLatLng;
-  downAt?: number;
-  downReason?: string;
-}
-
-export interface PursuitDecision {
-  policeId: string;
-  policeName: string;
-  policeSpeed: number;
-  policeRank?: string;
-  vehicleModel: string;
-  perpId: string;
-  perpName: string;
-  perpSpeed: number;
-  perpModel: string;
-  timestampMs: number;
-  outcome?: 'caught' | 'escaped' | 'interrupted';
-}
-
-export interface PoliceStatusRecord {
-  name: string;
-  status: string;
-  model: string;
-  speed: number;
-  rank?: string;
-}
-
-export interface RoundStats {
-  round: number;
-  roundDurationSec: number;
-  totalPolice: number;
-  totalPerps: number;
-  policeDown: number;
-  policeUsed: number;
-  pursuitsLaunched: number;
-  caught: number;
-  escaped: number;
-  outcome: string;
-  operationalScore: number;
-  decisions: PursuitDecision[];
-  policeStatus: PoliceStatusRecord[];
-}
-
-export interface PursuitAIEvaluation {
-  grade: 'A' | 'B' | 'C' | string;
-  score: number;
-  summary: string;
-  strategyAnalysis: string;
-  resourceAnalysis: string;
-  strengths: string[];
-  improvements: string[];
-}
-
-export interface SimRoundResult {
-  outcome: 'total_failure' | 'partial_win' | 'total_win';
-  caught: number;
-  escaped: number;
-  totalPerps: number;
-  score: number;
-  message: string;
-  grade: string;
-  stats?: RoundStats;
+  resolvedAtSimMs?: number;
 }
 
 export type LandmarkKind = 'bar' | 'club' | 'factory' | 'projects';
@@ -103,90 +53,87 @@ export interface MapLandmark {
   lng: number;
 }
 
+export interface SimNotice {
+  id: string;
+  kind: 'caught' | 'escaped' | 'helper' | 'weapon' | 'warn' | 'info';
+  text: string;
+  atSimMs: number;
+}
+
 export interface SimSession {
   id: string;
   userId: string;
-  phase: 'active' | 'completed' | 'cooldown';
-  round: number;
-  roundEndsAt: number;
-  cooldownEndsAt?: number;
   vehicles: SimVehicle[];
-  result?: SimRoundResult;
-  armedPoliceId?: string;
-  stats?: RoundStats;
-  roundStartMs?: number;
-  /** Extra police the player may place on the map this round. */
-  reinforcementsLeft: number;
-  /** Spawn cluster center — keeps the opening view tight. */
-  clusterCenter?: SimLatLng;
-  /** Named points of interest placed randomly each round. */
   landmarks: MapLandmark[];
+  score: number;
+  caughtTotal: number;
+  escapedTotal: number;
+  notices: SimNotice[];
+  helpersNextAtSimMs: number;
+  clusterCenter?: SimLatLng;
+  startedAtMs: number;
 }
 
-/** Start lean: fewer cops than suspects; player may reinforce mid-round. */
-export const INITIAL_POLICE_COUNT = 1;
-export const MAX_POLICE_REINFORCEMENTS = 2;
-export const PERP_COUNT_MIN = 4;
-export const PERP_COUNT_MAX = 6;
-export const FLEET_TOTAL_MIN = INITIAL_POLICE_COUNT + PERP_COUNT_MIN;
-export const FLEET_TOTAL_MAX =
-  INITIAL_POLICE_COUNT + MAX_POLICE_REINFORCEMENTS + PERP_COUNT_MAX;
+export const INITIAL_SQUAD_COUNT = 3;
+export const HELPER_COUNT = 2;
+export const PERP_COUNT = 20;
+export const BASE_SCORE = 500;
+export const CATCH_SCORE = 60;
 
-function initialFleetCounts(): { policeCount: number; perpCount: number } {
-  return {
-    policeCount: INITIAL_POLICE_COUNT,
-    perpCount: randInt(PERP_COUNT_MIN, PERP_COUNT_MAX),
-  };
-}
+export const WEAPON_COSTS: Record<WeaponKind, number> = {
+  drone: 120,
+  robocop: 240,
+  laser: 380,
+};
 
-/** Faster chases without changing relative police vs perp gap. */
-export const SIM_MOVEMENT_SCALE = 2.2;
+export const WEAPON_LABELS: Record<WeaponKind, string> = {
+  drone: 'Crime fighter drones',
+  robocop: 'Robocops',
+  laser: 'Satellite lasers',
+};
 
-export const ROUND_MS = 20 * 60 * 1000;
-export const ROUND_RESET_AVAILABLE_MS = 2 * 60 * 1000;
-/** Gap after a round ends before auto-start; user can also start manually sooner. */
-export const ROUND_COOLDOWN_MS = 2 * 60 * 1000;
-const CATCH_METERS = 55;
-const CATCH_CLOSE_METERS = 120;
-const DEST_ARRIVAL_M = 40;
 /** Playable Olathe city box — map pan/zoom is locked to this. */
 export const OLATHE_BOUNDS = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
-const OlatheBounds = OLATHE_BOUNDS;
 export const OLATHE_CENTER: [number, number] = [38.8814, -94.8191];
 export const OLATHE_MIN_ZOOM = 13;
 export const OLATHE_MAX_ZOOM = 17;
-/** Fallback grid step when OSM roads are still loading (~22 m). */
+
+export { ensureRoadNetwork } from './olatheRoadNetwork';
+
+const OlatheBounds = OLATHE_BOUNDS;
 const ROAD_GRID_STEP = 0.0002;
-const PURSUIT_ROUTE_REBUILD_M = 700;
-const PURSUIT_TARGET_LOOKAHEAD_M = 400;
-const PURSUIT_TAIL_JOIN_M = 380;
-const MIN_ROUTE_REBUILD_MS = 8000;
+const CATCH_METERS = 55;
+const CATCH_CLOSE_METERS = 125;
+const DEST_ARRIVAL_M = 45;
 const MIN_SEGMENT_M = 4;
-/** Only hard-snap position when this far off the rebuilt polyline (reduces chase jumps). */
+const MIN_PURSUIT_ROUTE_M = 230;
 const ROUTE_SNAP_M = 120;
-/** Never move a pursuing unit's lat/lng on route refresh unless beyond this. */
 const PURSUIT_FORCE_SNAP_M = 180;
-/** Reject tiny chase stubs that cause loop/appear-disappear thrash. */
-const MIN_PURSUIT_ROUTE_M = 250;
+const PURSUIT_TARGET_LOOKAHEAD_M = 430;
+const PURSUIT_TAIL_JOIN_M = 390;
+const PURSUIT_ROUTE_REBUILD_M = 680;
+const MIN_ROUTE_REBUILD_MS = 6500;
+const NOTICE_TTL_MS = 8500;
+const RESOLVED_VISIBLE_MS = 3600;
+const FIRST_HELPER_DELAY_MS = 25_000;
+const HELPER_ACTIVE_MS = 40_000;
+const HELPER_COOLDOWN_MS = 80_000;
+const MIN_VEHICLE_SPAWN_SEP_M = 145;
+const PERP_DEST_MIN_M = 1000;
+const PERP_DEST_MAX_M = 3000;
+const HELPER_SPAWN_MIN_M = 120;
+const HELPER_SPAWN_MAX_M = 520;
+const IDLE_PATROL_RADIUS_M = 650;
 
-/** Throttle route rebuilds per vehicle to prevent shake/teleport loops. */
-const lastRouteRebuildAt = new Map<string, number>();
-/** Close spawn cluster — units start near each other for short, fast pursuits. */
-const CLUSTER_RADIUS_M = 800;
-const MIN_VEHICLE_SPAWN_SEP_M = 100;
-const PERP_DEST_MIN_M = 900;
-const PERP_DEST_MAX_M = 2200;
-const PATROL_RADIUS_M = 900;
-
-const PATROL_CRUISE_MPH = 34;
-const PERP_CRUISE_MPH = 36;
-/** Police stay clearly faster than fleeing suspects, still in real-world range. */
+const PERP_CRUISE_MPH = 34;
+const POLICE_IDLE_MPH = 36;
 const POLICE_PURSUIT_BONUS_MPH = 10;
-const POLICE_MIN_SPEED_OVER_PERP_MPH = 14;
+const POLICE_MIN_SPEED_OVER_PERP_MPH = 18;
 const POLICE_CLOSE_RANGE_BONUS_MPH = 12;
-const POLICE_PURSUIT_MULTIPLIER = 1.0;
-const PERP_FLEE_MULTIPLIER = 1.0;
-const PURSUIT_CLOSURE_BOOST = 1.08;
+const PURSUIT_CLOSURE_BOOST = 1.05;
+
+let simClockMs = 0;
+const lastRouteRebuildAt = new Map<string, number>();
 
 interface FleetSpec {
   model: string;
@@ -196,69 +143,140 @@ interface FleetSpec {
 }
 
 const policeProfiles = [
-  { rank: 'Patrol Officer', eval: 'Steady responder — reliable on routine intercepts' },
-  { rank: 'Senior Officer', eval: 'Tactical ace — excels at high-speed coordination' },
-  { rank: 'Corporal', eval: 'Veteran tracker — reads suspect patterns quickly' },
-  { rank: 'Sergeant', eval: 'Command mindset — optimal unit deployment instincts' },
-  { rank: 'Field Training Officer', eval: 'Precision driver — tight gap closure specialist' },
-  { rank: 'Traffic Unit', eval: 'Speed specialist — fastest intercept on arterial roads' },
-  { rank: 'K-9 Handler', eval: 'Tenacious — maintains pressure through complex routes' },
-  { rank: 'Detective', eval: 'Analytical — picks optimal intercept corridors' },
-  { rank: 'SWAT Support', eval: 'Heavy unit — strong on highway closure' },
-  { rank: 'Motor Unit', eval: 'Agile — cuts through grid traffic fast' },
+  { rank: 'Patrol Officer', eval: 'Steady responder - reliable on routine intercepts' },
+  { rank: 'Senior Officer', eval: 'Tactical ace - excels at high-speed coordination' },
+  { rank: 'Corporal', eval: 'Veteran tracker - reads suspect patterns quickly' },
+  { rank: 'Sergeant', eval: 'Command mindset - optimal unit deployment instincts' },
+  { rank: 'Field Training Officer', eval: 'Precision driver - tight gap closure specialist' },
+  { rank: 'Traffic Unit', eval: 'Speed specialist - fastest intercept on arterial roads' },
+  { rank: 'K-9 Handler', eval: 'Tenacious - maintains pressure through complex routes' },
+  { rank: 'Detective', eval: 'Analytical - picks optimal intercept corridors' },
+  { rank: 'SWAT Support', eval: 'Heavy unit - strong on highway closure' },
+  { rank: 'Motor Unit', eval: 'Agile - cuts through grid traffic fast' },
 ];
 
 const policeFleet: FleetSpec[] = [
-  { model: 'Dodge Charger Pursuit', ratedMaxMph: 149, pursuitMph: 95 },
-  { model: 'Ford Police Interceptor Utility', ratedMaxMph: 137, pursuitMph: 88 },
-  { model: 'Chevy Tahoe PPV', ratedMaxMph: 120, pursuitMph: 82 },
-  { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 78 },
-  { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 85 },
-  { model: 'Ram 1500 Special Service', ratedMaxMph: 115, pursuitMph: 80 },
-  { model: 'Chevy Caprice PPV', ratedMaxMph: 130, pursuitMph: 86 },
-  { model: 'Dodge Durango Pursuit', ratedMaxMph: 125, pursuitMph: 84 },
-  { model: 'Ford Explorer Hybrid PIU', ratedMaxMph: 136, pursuitMph: 87 },
-  { model: 'BMW R1250RT-P Motorcycle', ratedMaxMph: 120, pursuitMph: 90 },
+  { model: 'Dodge Charger Pursuit', ratedMaxMph: 149, pursuitMph: 78 },
+  { model: 'Ford Police Interceptor Utility', ratedMaxMph: 137, pursuitMph: 72 },
+  { model: 'Chevy Tahoe PPV', ratedMaxMph: 120, pursuitMph: 68 },
+  { model: 'Ford F-150 Police Responder', ratedMaxMph: 100, pursuitMph: 66 },
+  { model: 'Harley-Davidson Police Motorcycle', ratedMaxMph: 105, pursuitMph: 76 },
+  { model: 'Ram 1500 Special Service', ratedMaxMph: 115, pursuitMph: 67 },
+  { model: 'Chevy Caprice PPV', ratedMaxMph: 130, pursuitMph: 72 },
+  { model: 'Dodge Durango Pursuit', ratedMaxMph: 125, pursuitMph: 71 },
+  { model: 'Ford Explorer Hybrid PIU', ratedMaxMph: 136, pursuitMph: 73 },
+  { model: 'BMW R1250RT-P Motorcycle', ratedMaxMph: 120, pursuitMph: 80 },
 ];
 
 const perpFleet: FleetSpec[] = [
-  { model: 'Stolen Honda Civic', ratedMaxMph: 137, fleeMph: 72 },
-  { model: 'Black Ford F-150', ratedMaxMph: 107, fleeMph: 68 },
-  { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 78 },
-  { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 58 },
-  { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 70 },
-  { model: 'Blue Nissan Altima', ratedMaxMph: 125, fleeMph: 71 },
-  { model: 'White Chevy Suburban', ratedMaxMph: 112, fleeMph: 65 },
-  { model: 'Silver Mazda CX-5', ratedMaxMph: 120, fleeMph: 69 },
-  { model: 'Black BMW 3 Series', ratedMaxMph: 145, fleeMph: 76 },
-  { model: 'Green Jeep Wrangler', ratedMaxMph: 105, fleeMph: 62 },
+  { model: 'Stolen Honda Civic', ratedMaxMph: 137, fleeMph: 37 },
+  { model: 'Black Ford F-150', ratedMaxMph: 107, fleeMph: 35 },
+  { model: 'Sport Motorcycle', ratedMaxMph: 130, fleeMph: 40 },
+  { model: 'Gray Panel Van', ratedMaxMph: 90, fleeMph: 31 },
+  { model: 'Red Toyota Corolla', ratedMaxMph: 118, fleeMph: 36 },
+  { model: 'Nissan Altima', ratedMaxMph: 125, fleeMph: 37 },
+  { model: 'White Chevy Suburban', ratedMaxMph: 112, fleeMph: 34 },
+  { model: 'Silver Mazda CX-5', ratedMaxMph: 120, fleeMph: 36 },
+  { model: 'Black BMW 3 Series', ratedMaxMph: 145, fleeMph: 39 },
+  { model: 'Green Jeep Wrangler', ratedMaxMph: 105, fleeMph: 33 },
+  { model: 'Tan Kia Soul', ratedMaxMph: 112, fleeMph: 34 },
+  { model: 'Maroon Chevy Impala', ratedMaxMph: 130, fleeMph: 36 },
+  { model: 'Yellow Mustang', ratedMaxMph: 155, fleeMph: 40 },
+  { model: 'White Cargo Van', ratedMaxMph: 95, fleeMph: 32 },
+  { model: 'Matte Charger', ratedMaxMph: 149, fleeMph: 39 },
+  { model: 'Brown Pickup', ratedMaxMph: 108, fleeMph: 34 },
+];
+
+const perpColors = [
+  '#ec4899',
+  '#f97316',
+  '#ef4444',
+  '#84cc16',
+  '#8b5cf6',
+  '#fb7185',
+  '#f59e0b',
+  '#a855f7',
+  '#10b981',
+  '#e11d48',
+  '#d946ef',
+  '#fb923c',
+  '#22c55e',
+  '#be123c',
+  '#facc15',
+  '#c084fc',
+  '#dc2626',
+  '#65a30d',
+  '#f43f5e',
+  '#ea580c',
 ];
 
 const perpNames = [
-  'Subject Alpha', 'Subject Bravo', 'Subject Charlie', 'Subject Delta',
-  'Subject Echo', 'Subject Foxtrot', 'Subject Ghost', 'Subject Havoc', 'Subject Ion',
-  'Subject Joker', 'Subject Kilo', 'Subject Lynx',
+  'Subject Alpha',
+  'Subject Bravo',
+  'Subject Charlie',
+  'Subject Delta',
+  'Subject Echo',
+  'Subject Foxtrot',
+  'Subject Ghost',
+  'Subject Havoc',
+  'Subject Ion',
+  'Subject Joker',
+  'Subject Kilo',
+  'Subject Lynx',
+  'Subject Mako',
+  'Subject Nova',
+  'Subject Orion',
+  'Subject Pike',
+  'Subject Quartz',
+  'Subject Raptor',
+  'Subject Siren',
+  'Subject Talon',
+  'Subject Umbra',
+  'Subject Viper',
+  'Subject Wraith',
+  'Subject Xenon',
+  'Subject Yarrow',
+  'Subject Zephyr',
+  'Subject Atlas',
+  'Subject Bandit',
+  'Subject Comet',
+  'Subject Drifter',
 ];
 
 const officerNames = [
-  'Martinez', 'Chen', 'Johnson', 'Williams', 'Patel', 'Garcia',
-  'Thompson', 'Davis', 'Wilson', 'Anderson', 'Lee', 'Brown',
-  'Nguyen', 'Rivera', 'Kim', 'Foster',
+  'Martinez',
+  'Chen',
+  'Johnson',
+  'Williams',
+  'Patel',
+  'Garcia',
+  'Thompson',
+  'Davis',
+  'Wilson',
+  'Anderson',
+  'Lee',
+  'Brown',
+  'Nguyen',
+  'Rivera',
+  'Kim',
+  'Foster',
+  'Miller',
+  'Sanchez',
 ];
 
-function rand(min: number, max: number) {
+function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
-function randInt(min: number, max: number) {
+function randInt(min: number, max: number): number {
   return min + Math.floor(Math.random() * (max - min + 1));
 }
 
-function uid(prefix: string) {
+function uid(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
   const rad = Math.PI / 180;
   const dLat = (lat2 - lat1) * rad;
@@ -269,12 +287,19 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function mphToMps(mph: number) {
+function mphToMps(mph: number): number {
   return mph * 0.44704;
 }
 
-function clamp(v: number, min: number, max: number) {
+function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
+}
+
+function clampToOlathe(point: SimLatLng): SimLatLng {
+  return {
+    lat: clamp(point.lat, OlatheBounds.latMin, OlatheBounds.latMax),
+    lng: clamp(point.lng, OlatheBounds.lngMin, OlatheBounds.lngMax),
+  };
 }
 
 function snapToRoadGrid(p: SimLatLng): SimLatLng {
@@ -282,6 +307,15 @@ function snapToRoadGrid(p: SimLatLng): SimLatLng {
     lat: Math.round(p.lat / ROAD_GRID_STEP) * ROAD_GRID_STEP,
     lng: Math.round(p.lng / ROAD_GRID_STEP) * ROAD_GRID_STEP,
   };
+}
+
+function snapToRoad(p: SimLatLng): SimLatLng {
+  const point = clampToOlathe(p);
+  const network = getRoadNetwork();
+  if (!network) return snapToRoadGrid(point);
+  const snappedSegment = snapToRoadSegment(network, point);
+  if (snappedSegment) return clampToOlathe(snappedSegment.point);
+  return clampToOlathe(snapToNearestRoad(network, point));
 }
 
 function bearingHeading(from: SimLatLng, to: SimLatLng): number {
@@ -301,6 +335,12 @@ function interpolateAlongSegment(cur: SimLatLng, next: SimLatLng, progress: numb
   };
 }
 
+function offsetMeters(center: SimLatLng, northM: number, eastM: number): SimLatLng {
+  const lat = center.lat + northM / 111320;
+  const lng = center.lng + eastM / (111320 * Math.cos(center.lat * (Math.PI / 180)));
+  return clampToOlathe({ lat, lng });
+}
+
 function dedupeRoute(route: SimLatLng[], minSepM = MIN_SEGMENT_M): SimLatLng[] {
   if (route.length < 2) return route.map((p) => ({ ...p }));
   const out: SimLatLng[] = [{ ...route[0] }];
@@ -311,9 +351,7 @@ function dedupeRoute(route: SimLatLng[], minSepM = MIN_SEGMENT_M): SimLatLng[] {
       out.push({ ...cur });
     }
   }
-  if (out.length === 1 && route.length > 1) {
-    out.push({ ...route[route.length - 1] });
-  }
+  if (out.length === 1) out.push({ ...route[route.length - 1] });
   return out;
 }
 
@@ -325,12 +363,10 @@ function routePathLength(route: SimLatLng[]): number {
   return len;
 }
 
-/** Pursuit routes must be road-like and long enough to avoid short-loop thrash. */
 function isUsablePursuitRoute(route: SimLatLng[], gapToPerp: number): boolean {
   if (route.length < 2) return false;
   if (!routeFollowsRoads(route) && route.length < 3) return false;
   const len = routePathLength(route);
-  // Closing distance may use a short final segment.
   if (gapToPerp <= CATCH_CLOSE_METERS) return len >= MIN_SEGMENT_M * 2;
   return len >= MIN_PURSUIT_ROUTE_M || route.length >= 5;
 }
@@ -339,11 +375,7 @@ function projectOntoRoute(
   route: SimLatLng[],
   point: SimLatLng,
   preferFromIndex = 0
-): {
-  index: number;
-  progress: number;
-  point: SimLatLng;
-} {
+): { index: number; progress: number; point: SimLatLng } {
   if (route.length < 2) {
     return { index: 0, progress: 0, point: route[0] ?? point };
   }
@@ -369,7 +401,6 @@ function projectOntoRoute(
     );
     const proj = interpolateAlongSegment(cur, next, t);
     const d = haversineMeters(point.lat, point.lng, proj.lat, proj.lng);
-    // Prefer forward segments when distances are close — avoids oscillation at vertices.
     const bias = i < preferFromIndex ? 4 : 0;
     if (d + bias < bestDist) {
       bestDist = d;
@@ -384,8 +415,8 @@ function projectOntoRoute(
 
 function canRebuildRoute(v: SimVehicle, force = false): boolean {
   if (force) return true;
-  const last = lastRouteRebuildAt.get(v.id) ?? 0;
-  return performance.now() - last >= MIN_ROUTE_REBUILD_MS;
+  const last = lastRouteRebuildAt.get(v.id) ?? -Infinity;
+  return simClockMs - last >= MIN_ROUTE_REBUILD_MS;
 }
 
 function hasForwardPath(v: SimVehicle): boolean {
@@ -405,12 +436,6 @@ function hasForwardPath(v: SimVehicle): boolean {
   return false;
 }
 
-function snapToRoad(p: SimLatLng): SimLatLng {
-  const network = getRoadNetwork();
-  if (network) return snapToNearestRoad(network, p);
-  return snapToRoadGrid(p);
-}
-
 function buildGridRouteFallback(start: SimLatLng, dest: SimLatLng): SimLatLng[] {
   const route: SimLatLng[] = [snapToRoad(start)];
   let cur = { ...route[0] };
@@ -418,7 +443,7 @@ function buildGridRouteFallback(start: SimLatLng, dest: SimLatLng): SimLatLng[] 
   let safety = 0;
   let preferLat = Math.random() > 0.5;
 
-  while (haversineMeters(cur.lat, cur.lng, end.lat, end.lng) > 60 && safety < 280) {
+  while (haversineMeters(cur.lat, cur.lng, end.lat, end.lng) > 60 && safety < 320) {
     safety++;
     const dLat = end.lat - cur.lat;
     const dLng = end.lng - cur.lng;
@@ -442,40 +467,41 @@ function buildGridRouteFallback(start: SimLatLng, dest: SimLatLng): SimLatLng[] 
       break;
     }
 
-    next.lat = clamp(next.lat, OlatheBounds.latMin, OlatheBounds.latMax);
-    next.lng = clamp(next.lng, OlatheBounds.lngMin, OlatheBounds.lngMax);
-    route.push(next);
-    cur = next;
+    route.push(clampToOlathe(next));
+    cur = route[route.length - 1];
   }
   route.push(end);
-  return route;
+  return dedupeRoute(route);
 }
 
 function buildRoadRouteToDestination(start: SimLatLng, dest: SimLatLng): SimLatLng[] {
   const network = getRoadNetwork();
   if (network) {
-    const osmRoute = buildOsmRoadRoute(network, start, dest);
+    const snappedStart = snapToRoad(start);
+    const snappedDest = snapToRoad(dest);
+    const osmRoute = buildOsmRoadRoute(network, snappedStart, snappedDest);
     if (routeFollowsRoads(osmRoute)) return dedupeRoute(osmRoute);
+    const nodePath = buildRoadNodePath(network, snappedStart, snappedDest);
+    if (nodePath.length >= 2) return dedupeRoute(nodePath);
   }
-  return dedupeRoute(buildGridRouteFallback(start, dest));
+  return buildGridRouteFallback(start, dest);
 }
 
-function applyRouteWithProgress(v: SimVehicle, route: SimLatLng[], forceSnap = false) {
+function applyRouteWithProgress(v: SimVehicle, route: SimLatLng[], forceSnap = false): void {
   const clean = dedupeRoute(route);
   if (clean.length < 2) {
     v.route = clean;
     v.routeIndex = 0;
     v.routeProgress = 0;
-    lastRouteRebuildAt.set(v.id, performance.now());
+    lastRouteRebuildAt.set(v.id, simClockMs);
     return;
   }
 
   const projected = projectOntoRoute(clean, { lat: v.lat, lng: v.lng }, v.routeIndex);
   const snapDist = haversineMeters(v.lat, v.lng, projected.point.lat, projected.point.lng);
-  const pursuing = v.role === 'police' && v.status === 'pursuing';
+  const chasing = v.role === 'police' && v.status === 'chasing';
 
   v.route = clean;
-  // Keep forward progress when the new polyline is nearby — avoids jump-backs along the line.
   if (!forceSnap && snapDist < ROUTE_SNAP_M && projected.index < v.routeIndex - 1) {
     v.routeIndex = Math.min(Math.max(v.routeIndex, 0), clean.length - 2);
     v.routeProgress = clamp(v.routeProgress, 0, 0.99);
@@ -484,14 +510,25 @@ function applyRouteWithProgress(v: SimVehicle, route: SimLatLng[], forceSnap = f
     v.routeProgress = projected.progress;
   }
 
-  // Mid-chase: never teleport along the line unless badly desynced.
-  const snapThreshold = pursuing ? PURSUIT_FORCE_SNAP_M : ROUTE_SNAP_M;
-  if ((!pursuing && forceSnap) || snapDist > snapThreshold) {
+  const snapThreshold = chasing ? PURSUIT_FORCE_SNAP_M : ROUTE_SNAP_M;
+  if ((!chasing && forceSnap) || snapDist > snapThreshold) {
     v.lat = projected.point.lat;
     v.lng = projected.point.lng;
   }
+  if (v.routeIndex < v.route.length - 1) {
+    v.heading = bearingHeading(v.route[v.routeIndex], v.route[v.routeIndex + 1]);
+  }
 
-  lastRouteRebuildAt.set(v.id, performance.now());
+  lastRouteRebuildAt.set(v.id, simClockMs);
+}
+
+function routeHasMovement(route: SimLatLng[]): boolean {
+  for (let i = 1; i < route.length; i++) {
+    if (haversineMeters(route[i - 1].lat, route[i - 1].lng, route[i].lat, route[i].lng) > 40) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function getPerpRoadTarget(perp: SimVehicle, lookaheadM = PURSUIT_TARGET_LOOKAHEAD_M): SimLatLng {
@@ -524,7 +561,6 @@ function getPerpRoadTarget(perp: SimVehicle, lookaheadM = PURSUIT_TARGET_LOOKAHE
   return { ...perp.route[perp.route.length - 1] };
 }
 
-/** Remaining road path the suspect is already driving — keeps police on the same roads. */
 function buildPursuitTailRoute(police: SimVehicle, perp: SimVehicle): SimLatLng[] | null {
   if (perp.route.length < 2 || perp.routeIndex >= perp.route.length - 1) return null;
 
@@ -546,16 +582,12 @@ function buildPursuitTailRoute(police: SimVehicle, perp: SimVehicle): SimLatLng[
     tail.push({ ...perp.route[i] });
   }
 
-  // Extend a bit past the current perp position so police keep closing.
-  const ahead = getPerpRoadTarget(perp, Math.max(PURSUIT_TARGET_LOOKAHEAD_M, gap + 80));
+  const ahead = getPerpRoadTarget(perp, Math.max(PURSUIT_TARGET_LOOKAHEAD_M, gap + 90));
   const last = tail[tail.length - 1];
-  if (haversineMeters(last.lat, last.lng, ahead.lat, ahead.lng) > 25) {
-    tail.push(ahead);
-  }
+  if (haversineMeters(last.lat, last.lng, ahead.lat, ahead.lng) > 25) tail.push(ahead);
 
   const clean = dedupeRoute(tail);
-  const gapAfter = haversineMeters(police.lat, police.lng, perp.lat, perp.lng);
-  return isUsablePursuitRoute(clean, gapAfter) ? clean : null;
+  return isUsablePursuitRoute(clean, gap) ? clean : null;
 }
 
 function buildPursuitRoadRoute(police: SimVehicle, perp: SimVehicle): SimLatLng[] {
@@ -563,54 +595,52 @@ function buildPursuitRoadRoute(police: SimVehicle, perp: SimVehicle): SimLatLng[
   const tail = buildPursuitTailRoute(police, perp);
   if (tail && isUsablePursuitRoute(tail, gap)) return tail;
 
-  // Prefer a farther lookahead so rebuilds don't collapse into short stubs.
-  const lookahead = Math.max(PURSUIT_TARGET_LOOKAHEAD_M, Math.min(700, gap + 280));
+  const lookahead = Math.max(PURSUIT_TARGET_LOOKAHEAD_M, Math.min(720, gap + 300));
   const target = getPerpRoadTarget(perp, lookahead);
   const routed = buildRoadRouteToDestination({ lat: police.lat, lng: police.lng }, target);
   if (isUsablePursuitRoute(routed, gap)) return routed;
 
-  // Route toward the perp's own destination when available for a longer road path.
   if (perp.destination) {
-    const viaDest = buildRoadRouteToDestination(
-      { lat: police.lat, lng: police.lng },
-      perp.destination
-    );
+    const viaDest = buildRoadRouteToDestination({ lat: police.lat, lng: police.lng }, perp.destination);
     if (isUsablePursuitRoute(viaDest, gap)) return viaDest;
   }
 
-  // Last resort: route to the suspect's current road-snapped position, never a long chord.
   const snappedPerp = snapToRoad({ lat: perp.lat, lng: perp.lng });
   const fallback = buildRoadRouteToDestination({ lat: police.lat, lng: police.lng }, snappedPerp);
   if (isUsablePursuitRoute(fallback, gap) || routeFollowsRoads(fallback)) return fallback;
 
-  // Stay on the current road-following route rather than drawing a straight line.
   if (isUsablePursuitRoute(police.route, gap)) return police.route;
   return buildGridRouteFallback({ lat: police.lat, lng: police.lng }, snappedPerp);
 }
 
-function ensurePursuitRoute(v: SimVehicle, perp: SimVehicle) {
+function extendPursuitRoute(v: SimVehicle, perp: SimVehicle): SimLatLng[] | null {
+  if (v.route.length < 2 || v.routeIndex >= v.route.length - 1) return null;
+  const remaining = v.route.slice(v.routeIndex).map((p) => ({ ...p }));
+  remaining[0] = { lat: v.lat, lng: v.lng };
+  const ahead = getPerpRoadTarget(perp, Math.max(PURSUIT_TARGET_LOOKAHEAD_M, 520));
+  const last = remaining[remaining.length - 1];
+  if (haversineMeters(last.lat, last.lng, ahead.lat, ahead.lng) > 40) {
+    const bridge = buildRoadRouteToDestination(last, ahead);
+    for (let i = 1; i < bridge.length; i++) remaining.push(bridge[i]);
+  }
+  return dedupeRoute(remaining);
+}
+
+function ensurePursuitRoute(v: SimVehicle, perp: SimVehicle): void {
   const target = getPerpRoadTarget(perp);
   const end = v.route[v.route.length - 1];
   const atRouteEnd = !hasForwardPath(v);
   const gap = haversineMeters(v.lat, v.lng, perp.lat, perp.lng);
-  const endDrift = end
-    ? haversineMeters(end.lat, end.lng, target.lat, target.lng)
-    : Infinity;
+  const endDrift = end ? haversineMeters(end.lat, end.lng, target.lat, target.lng) : Infinity;
 
   const currentOk =
-    hasForwardPath(v) &&
-    routeFollowsRoads(v.route) &&
-    isUsablePursuitRoute(v.route, gap);
+    hasForwardPath(v) && routeFollowsRoads(v.route) && isUsablePursuitRoute(v.route, gap);
 
-  // Keep riding a good route. Ignore moderate end-drift — replacing mid-chase causes jumps.
   if (currentOk && !atRouteEnd && endDrift <= PURSUIT_ROUTE_REBUILD_M) return;
   if (currentOk && !atRouteEnd && endDrift > PURSUIT_ROUTE_REBUILD_M) {
-    // Soft extend: append lookahead ahead of current remaining path instead of full replace.
     if (!canRebuildRoute(v)) return;
     const extended = extendPursuitRoute(v, perp);
-    if (extended && isUsablePursuitRoute(extended, gap)) {
-      applyRouteWithProgress(v, extended, false);
-    }
+    if (extended && isUsablePursuitRoute(extended, gap)) applyRouteWithProgress(v, extended, false);
     return;
   }
 
@@ -619,8 +649,6 @@ function ensurePursuitRoute(v: SimVehicle, perp: SimVehicle) {
 
   const newRoute = buildPursuitRoadRoute(v, perp);
   if (!isUsablePursuitRoute(newRoute, gap)) return;
-
-  // Don't swap a long usable route for a much shorter stub.
   if (
     currentOk &&
     routePathLength(newRoute) + 40 < routePathLength(v.route) * 0.55 &&
@@ -632,26 +660,51 @@ function ensurePursuitRoute(v: SimVehicle, perp: SimVehicle) {
   applyRouteWithProgress(v, newRoute, false);
 }
 
-/** Append a farther chase target onto the remaining current route (no teleport). */
-function extendPursuitRoute(v: SimVehicle, perp: SimVehicle): SimLatLng[] | null {
-  if (v.route.length < 2 || v.routeIndex >= v.route.length - 1) return null;
-  const remaining = v.route.slice(v.routeIndex).map((p) => ({ ...p }));
-  remaining[0] = { lat: v.lat, lng: v.lng };
-  const ahead = getPerpRoadTarget(perp, Math.max(PURSUIT_TARGET_LOOKAHEAD_M, 500));
-  const last = remaining[remaining.length - 1];
-  if (haversineMeters(last.lat, last.lng, ahead.lat, ahead.lng) > 40) {
-    const bridge = buildRoadRouteToDestination(last, ahead);
-    for (let i = 1; i < bridge.length; i++) {
-      remaining.push(bridge[i]);
-    }
-  }
-  return dedupeRoute(remaining);
+function randomPointInBounds(): SimLatLng {
+  return {
+    lat: rand(OlatheBounds.latMin + 0.002, OlatheBounds.latMax - 0.002),
+    lng: rand(OlatheBounds.lngMin + 0.003, OlatheBounds.lngMax - 0.003),
+  };
 }
 
-function releasePoliceForReassignment(v: SimVehicle) {
-  v.status = 'patrol';
-  v.pursuingPerpId = undefined;
-  applyRouteWithProgress(v, randomPatrolRoute({ lat: v.lat, lng: v.lng }));
+function pickCityRoadPoint(avoid: SimLatLng[] = [], minSepM = MIN_VEHICLE_SPAWN_SEP_M): SimLatLng {
+  for (let attempt = 0; attempt < 70; attempt++) {
+    const candidate = snapToRoad(randomPointInBounds());
+    const ok = avoid.every((p) => haversineMeters(candidate.lat, candidate.lng, p.lat, p.lng) >= minSepM);
+    if (ok) return candidate;
+  }
+  return snapToRoad(randomPointInBounds());
+}
+
+function pickNearPoint(
+  center: SimLatLng,
+  minR: number,
+  maxR: number,
+  avoid: SimLatLng[] = [],
+  minSepM = MIN_VEHICLE_SPAWN_SEP_M
+): SimLatLng {
+  for (let attempt = 0; attempt < 55; attempt++) {
+    const angle = rand(0, Math.PI * 2);
+    const r = rand(minR, maxR);
+    const candidate = snapToRoad(offsetMeters(center, Math.cos(angle) * r, Math.sin(angle) * r));
+    const ok = avoid.every((p) => haversineMeters(candidate.lat, candidate.lng, p.lat, p.lng) >= minSepM);
+    if (ok) return candidate;
+  }
+  return pickCityRoadPoint(avoid, minSepM);
+}
+
+function pickPerpDestination(from: SimLatLng, used: SimLatLng[] = []): SimLatLng {
+  for (let attempt = 0; attempt < 45; attempt++) {
+    const dest = pickCityRoadPoint(used, 220);
+    const dist = haversineMeters(from.lat, from.lng, dest.lat, dest.lng);
+    if (dist >= PERP_DEST_MIN_M && dist <= PERP_DEST_MAX_M * 1.25) return dest;
+  }
+  return pickNearPoint(from, PERP_DEST_MIN_M, PERP_DEST_MAX_M, used, 220);
+}
+
+function randomIdleRoute(start: SimLatLng): SimLatLng[] {
+  const dest = pickNearPoint(start, 180, IDLE_PATROL_RADIUS_M, [], 80);
+  return buildRoadRouteToDestination(start, dest);
 }
 
 function fleetSpecForVehicle(v: SimVehicle): FleetSpec | undefined {
@@ -660,55 +713,285 @@ function fleetSpecForVehicle(v: SimVehicle): FleetSpec | undefined {
 }
 
 export function getOperationalSpeedMph(v: SimVehicle, pursuedPerp?: SimVehicle): number {
-  if (v.status === 'caught' || v.status === 'escaped' || v.status === 'down') return 0;
+  if (v.status === 'caught' || v.status === 'escaped') return 0;
   const spec = fleetSpecForVehicle(v);
-  let mph = 0;
   if (v.role === 'police') {
-    if (v.status === 'pursuing') {
-      mph =
-        ((spec?.pursuitMph ?? v.maxSpeedMph * POLICE_PURSUIT_MULTIPLIER) + POLICE_PURSUIT_BONUS_MPH) *
-        PURSUIT_CLOSURE_BOOST;
+    if (v.status === 'chasing') {
+      let mph = (spec?.pursuitMph ?? Math.min(v.maxSpeedMph * 0.55, 76)) + POLICE_PURSUIT_BONUS_MPH;
+      mph *= PURSUIT_CLOSURE_BOOST;
       if (pursuedPerp) {
-        const perpFlee =
-          fleetSpecForVehicle(pursuedPerp)?.fleeMph ??
-          pursuedPerp.maxSpeedMph * PERP_FLEE_MULTIPLIER;
+        const perpFlee = fleetSpecForVehicle(pursuedPerp)?.fleeMph ?? PERP_CRUISE_MPH;
         mph = Math.max(mph, perpFlee + POLICE_MIN_SPEED_OVER_PERP_MPH);
         const gap = haversineMeters(v.lat, v.lng, pursuedPerp.lat, pursuedPerp.lng);
-        if (gap <= CATCH_CLOSE_METERS) {
-          mph += POLICE_CLOSE_RANGE_BONUS_MPH;
-        }
+        if (gap <= CATCH_CLOSE_METERS) mph += POLICE_CLOSE_RANGE_BONUS_MPH;
       }
-    } else {
-      mph = PATROL_CRUISE_MPH;
+      return mph;
     }
-  } else if (v.beingPursued) {
-    mph = spec?.fleeMph ?? v.maxSpeedMph * PERP_FLEE_MULTIPLIER;
-  } else {
-    mph = PERP_CRUISE_MPH;
+    return POLICE_IDLE_MPH;
   }
-  return mph * SIM_MOVEMENT_SCALE;
+  if (v.status !== 'fleeing') return 0;
+  const flee = spec?.fleeMph ?? PERP_CRUISE_MPH;
+  return v.beingPursued ? Math.min(42, flee + 3) : flee;
 }
 
-export function isPoliceAvailableForPursuit(v: SimVehicle): boolean {
-  return v.role === 'police' && v.status !== 'down' && (v.status === 'patrol' || v.status === 'idle');
+function advanceVehicle(v: SimVehicle, elapsedSec: number, pursuedPerp?: SimVehicle): void {
+  if (v.route.length < 2 || elapsedSec <= 0 || v.status === 'caught' || v.status === 'escaped') return;
+
+  const speed = mphToMps(getOperationalSpeedMph(v, pursuedPerp));
+  if (speed <= 0) return;
+
+  let remaining = speed * elapsedSec;
+  let guard = 0;
+
+  while (remaining > 0 && v.route.length >= 2 && guard++ < 80) {
+    if (v.routeIndex >= v.route.length - 1) {
+      if (v.role === 'police' && v.status === 'chasing' && pursuedPerp) {
+        ensurePursuitRoute(v, pursuedPerp);
+      } else if (v.role === 'police' && v.status === 'idle' && canRebuildRoute(v, true)) {
+        applyRouteWithProgress(v, randomIdleRoute({ lat: v.lat, lng: v.lng }), true);
+      } else if (v.role === 'perp' && v.status === 'fleeing' && v.destination && canRebuildRoute(v, true)) {
+        applyRouteWithProgress(v, buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, v.destination), true);
+      } else {
+        remaining = 0;
+      }
+      if (!hasForwardPath(v)) remaining = 0;
+      continue;
+    }
+
+    const cur = v.route[v.routeIndex];
+    const next = v.route[v.routeIndex + 1];
+    const segLen = haversineMeters(cur.lat, cur.lng, next.lat, next.lng);
+    if (segLen < MIN_SEGMENT_M) {
+      v.routeIndex += 1;
+      v.routeProgress = 0;
+      v.lat = next.lat;
+      v.lng = next.lng;
+      continue;
+    }
+
+    const distLeft = segLen * (1 - v.routeProgress);
+    if (remaining >= distLeft) {
+      remaining -= distLeft;
+      v.routeIndex += 1;
+      v.routeProgress = 0;
+      v.lat = next.lat;
+      v.lng = next.lng;
+      v.heading = bearingHeading(cur, next);
+    } else {
+      v.routeProgress += remaining / segLen;
+      const pos = interpolateAlongSegment(cur, next, v.routeProgress);
+      v.lat = pos.lat;
+      v.lng = pos.lng;
+      v.heading = bearingHeading(cur, next);
+      remaining = 0;
+    }
+  }
 }
 
-export function isPerpPursuitTarget(v: SimVehicle): boolean {
-  return v.role === 'perp' && v.status !== 'caught' && v.status !== 'escaped';
+function ensurePerpReady(v: SimVehicle): void {
+  if (v.role !== 'perp' || v.status !== 'fleeing') return;
+  const pos = { lat: v.lat, lng: v.lng };
+  if (!v.destination) {
+    v.destination = pickPerpDestination(pos);
+    applyRouteWithProgress(v, buildRoadRouteToDestination(pos, v.destination), true);
+    return;
+  }
+  if (v.route.length < 2 || !routeHasMovement(v.route) || !routeFollowsRoads(v.route)) {
+    if (!canRebuildRoute(v)) return;
+    applyRouteWithProgress(v, buildRoadRouteToDestination(pos, v.destination), false);
+  }
 }
 
-function randomPatrolRoute(start: SimLatLng): SimLatLng[] {
-  const dest = pickNearPoint(start, 250, PATROL_RADIUS_M);
-  return buildRoadRouteToDestination(start, dest);
+function perpReachedDestination(v: SimVehicle): boolean {
+  if (v.role !== 'perp' || v.status !== 'fleeing' || !v.destination) return false;
+  return haversineMeters(v.lat, v.lng, v.destination.lat, v.destination.lng) <= DEST_ARRIVAL_M;
 }
 
-function buildPoliceVehicleAt(index: number, start: SimLatLng): SimVehicle {
+function cloneVehicle(v: SimVehicle): SimVehicle {
+  return {
+    ...v,
+    route: v.route.map((p) => ({ ...p })),
+    destination: v.destination ? { ...v.destination } : undefined,
+  };
+}
+
+function cloneSession(session: SimSession): SimSession {
+  return {
+    ...session,
+    vehicles: session.vehicles.map(cloneVehicle),
+    landmarks: session.landmarks.map((l) => ({ ...l })),
+    notices: session.notices.map((n) => ({ ...n })),
+    clusterCenter: session.clusterCenter ? { ...session.clusterCenter } : undefined,
+  };
+}
+
+function addNotice(session: SimSession, kind: SimNotice['kind'], text: string): void {
+  session.notices = [
+    ...session.notices.filter((n) => simClockMs - n.atSimMs <= NOTICE_TTL_MS),
+    { id: uid('notice'), kind, text, atSimMs: simClockMs },
+  ].slice(-8);
+}
+
+function activeFleeingPerps(vehicles: SimVehicle[]): SimVehicle[] {
+  return vehicles.filter((v) => v.role === 'perp' && v.status === 'fleeing');
+}
+
+function isOperationalPolice(v: SimVehicle): boolean {
+  if (v.role !== 'police') return false;
+  if (v.policeKind === 'helper' && v.helperExpiresAtSimMs !== undefined) {
+    return simClockMs < v.helperExpiresAtSimMs;
+  }
+  return v.status === 'chasing' || v.status === 'idle';
+}
+
+function targetIsFleeing(vehicles: SimVehicle[], perpId?: string): boolean {
+  if (!perpId) return false;
+  return vehicles.some((v) => v.id === perpId && v.role === 'perp' && v.status === 'fleeing');
+}
+
+function clearPoliceTarget(police: SimVehicle): void {
+  police.status = 'idle';
+  police.pursuingPerpId = undefined;
+  police.playerAssigned = false;
+  if (!hasForwardPath(police)) {
+    applyRouteWithProgress(police, randomIdleRoute({ lat: police.lat, lng: police.lng }), true);
+  }
+}
+
+function releasePoliceTargeting(vehicles: SimVehicle[], perpId: string): void {
+  for (const unit of vehicles) {
+    if (unit.role === 'police' && unit.pursuingPerpId === perpId) {
+      clearPoliceTarget(unit);
+    }
+  }
+}
+
+function assignPoliceToPerp(police: SimVehicle, perp: SimVehicle, playerAssigned = false): void {
+  police.status = 'chasing';
+  police.pursuingPerpId = perp.id;
+  police.playerAssigned = playerAssigned;
+  const route = buildPursuitRoadRoute(police, perp);
+  if (isUsablePursuitRoute(route, haversineMeters(police.lat, police.lng, perp.lat, perp.lng))) {
+    applyRouteWithProgress(police, route, false);
+  }
+}
+
+function refreshBeingPursued(vehicles: SimVehicle[]): void {
+  const pursued = new Set<string>();
+  for (const unit of vehicles) {
+    if (unit.role === 'police' && unit.status === 'chasing' && unit.pursuingPerpId) {
+      pursued.add(unit.pursuingPerpId);
+    }
+  }
+  for (const perp of vehicles) {
+    if (perp.role === 'perp') {
+      perp.beingPursued = perp.status === 'fleeing' && pursued.has(perp.id);
+    }
+  }
+}
+
+function chooseAutoTarget(
+  police: SimVehicle,
+  perps: SimVehicle[],
+  targetCounts: Map<string, number>
+): SimVehicle | undefined {
+  return perps
+    .map((perp) => ({
+      perp,
+      count: targetCounts.get(perp.id) ?? 0,
+      dist: haversineMeters(police.lat, police.lng, perp.lat, perp.lng),
+    }))
+    .sort((a, b) => a.count - b.count || a.dist - b.dist)[0]?.perp;
+}
+
+function autoAssignPoliceTargets(session: SimSession): void {
+  const perps = activeFleeingPerps(session.vehicles);
+  if (!perps.length) {
+    for (const unit of session.vehicles) {
+      if (unit.role === 'police') clearPoliceTarget(unit);
+    }
+    refreshBeingPursued(session.vehicles);
+    return;
+  }
+
+  for (const unit of session.vehicles) {
+    if (unit.role !== 'police') continue;
+    if (!isOperationalPolice(unit)) continue;
+    if (unit.pursuingPerpId && !targetIsFleeing(session.vehicles, unit.pursuingPerpId)) {
+      clearPoliceTarget(unit);
+    }
+  }
+
+  const counts = new Map<string, number>();
+  for (const unit of session.vehicles) {
+    if (unit.role === 'police' && unit.status === 'chasing' && targetIsFleeing(session.vehicles, unit.pursuingPerpId)) {
+      counts.set(unit.pursuingPerpId!, (counts.get(unit.pursuingPerpId!) ?? 0) + 1);
+    }
+  }
+
+  const police = session.vehicles.filter(isOperationalPolice);
+  for (const unit of police) {
+    if (unit.playerAssigned && targetIsFleeing(session.vehicles, unit.pursuingPerpId)) {
+      continue;
+    }
+
+    const current = perps.find((p) => p.id === unit.pursuingPerpId);
+    if (current) counts.set(current.id, Math.max(0, (counts.get(current.id) ?? 1) - 1));
+    const best = chooseAutoTarget(unit, perps, counts);
+    if (!best) {
+      if (!current) clearPoliceTarget(unit);
+      continue;
+    }
+
+    if (current) {
+      const currentCount = counts.get(current.id) ?? 0;
+      const bestCount = counts.get(best.id) ?? 0;
+      const currentDist = haversineMeters(unit.lat, unit.lng, current.lat, current.lng);
+      const bestDist = haversineMeters(unit.lat, unit.lng, best.lat, best.lng);
+      if (currentCount <= bestCount && currentDist <= bestDist * 1.25 + 150) {
+        counts.set(current.id, (counts.get(current.id) ?? 0) + 1);
+        continue;
+      }
+    }
+
+    assignPoliceToPerp(unit, best, false);
+    counts.set(best.id, (counts.get(best.id) ?? 0) + 1);
+  }
+
+  refreshBeingPursued(session.vehicles);
+}
+
+function markPerpCaught(session: SimSession, perp: SimVehicle, noticeText?: string): void {
+  if (perp.role !== 'perp' || perp.status !== 'fleeing') return;
+  perp.status = 'caught';
+  perp.beingPursued = false;
+  perp.resolvedAtSimMs = simClockMs;
+  perp.evaluation = 'Apprehended - suspect removed from pursuit';
+  session.score += CATCH_SCORE;
+  session.caughtTotal += 1;
+  releasePoliceTargeting(session.vehicles, perp.id);
+  addNotice(session, 'caught', noticeText ?? `${perp.officerName} caught (+${CATCH_SCORE})`);
+}
+
+function markPerpEscaped(session: SimSession, perp: SimVehicle): void {
+  if (perp.role !== 'perp' || perp.status !== 'fleeing') return;
+  perp.status = 'escaped';
+  perp.beingPursued = false;
+  perp.resolvedAtSimMs = simClockMs;
+  perp.evaluation = 'Escaped - reached destination';
+  session.escapedTotal += 1;
+  releasePoliceTargeting(session.vehicles, perp.id);
+  addNotice(session, 'escaped', `${perp.officerName} escaped`);
+}
+
+function buildPoliceVehicleAt(index: number, start: SimLatLng, policeKind: PoliceKind): SimVehicle {
   const fleet = policeFleet[index % policeFleet.length];
   const profile = policeProfiles[index % policeProfiles.length];
-  const route = randomPatrolRoute(start);
+  const route = randomIdleRoute(start);
   return {
-    id: uid('police'),
+    id: uid(policeKind === 'helper' ? 'helper' : 'police'),
     role: 'police',
+    policeKind,
     lat: start.lat,
     lng: start.lng,
     heading: route.length > 1 ? bearingHeading(route[0], route[1]) : rand(0, 360),
@@ -716,96 +999,103 @@ function buildPoliceVehicleAt(index: number, start: SimLatLng): SimVehicle {
     routeIndex: 0,
     routeProgress: 0,
     maxSpeedMph: fleet.ratedMaxMph + randInt(-2, 2),
-    officerName: `Officer ${officerNames[index % officerNames.length]}`,
+    officerName: `${policeKind === 'helper' ? 'Helper' : 'Officer'} ${officerNames[index % officerNames.length]}`,
     officerRank: profile.rank,
     evaluation: profile.eval,
     vehicleModel: fleet.model,
-    status: 'patrol',
+    status: 'idle',
     beingPursued: false,
   };
 }
 
-export function canDeployReinforcement(session: SimSession): boolean {
-  return session.phase === 'active' && (session.reinforcementsLeft ?? 0) > 0;
-}
-
-/** Place one of the player's reinforcement police units at a map tap (snapped to road). */
-export function deployPoliceAt(session: SimSession, lat: number, lng: number): SimSession {
-  if (!canDeployReinforcement(session)) return session;
-  const existing = session.vehicles.map((v) => ({ lat: v.lat, lng: v.lng }));
-  const start = snapToRoad({ lat, lng });
-  // Nudge if dropped on top of another unit.
-  const placed =
-    existing.every((p) => haversineMeters(start.lat, start.lng, p.lat, p.lng) >= MIN_VEHICLE_SPAWN_SEP_M * 0.5)
-      ? start
-      : pickNearPoint(start, 40, 180, existing);
-  const policeIndex = session.vehicles.filter((v) => v.role === 'police').length;
-  const unit = buildPoliceVehicleAt(policeIndex, placed);
-  const vehicles = [...session.vehicles, unit];
-  const reinforcementsLeft = Math.max(0, (session.reinforcementsLeft ?? 0) - 1);
-  const stats = session.stats
-    ? { ...session.stats, totalPolice: session.stats.totalPolice + 1 }
-    : session.stats;
-  return { ...session, vehicles, reinforcementsLeft, stats };
-}
-
-function offsetMeters(center: SimLatLng, northM: number, eastM: number): SimLatLng {
-  const lat = center.lat + northM / 111320;
-  const lng = center.lng + eastM / (111320 * Math.cos(center.lat * (Math.PI / 180)));
+function buildPerpVehicleAt(index: number, start: SimLatLng, usedDestinations: SimLatLng[] = []): SimVehicle {
+  const dest = pickPerpDestination(start, usedDestinations);
+  usedDestinations.push(dest);
+  const fleet = perpFleet[index % perpFleet.length];
+  const route = buildRoadRouteToDestination(start, dest);
   return {
-    lat: clamp(lat, OlatheBounds.latMin, OlatheBounds.latMax),
-    lng: clamp(lng, OlatheBounds.lngMin, OlatheBounds.lngMax),
+    id: uid('perp'),
+    role: 'perp',
+    color: perpColors[index % perpColors.length],
+    lat: start.lat,
+    lng: start.lng,
+    heading: route.length > 1 ? bearingHeading(route[0], route[1]) : rand(0, 360),
+    route,
+    routeIndex: 0,
+    routeProgress: 0,
+    maxSpeedMph: fleet.ratedMaxMph + randInt(-3, 3),
+    officerName: perpNames[index % perpNames.length],
+    evaluation: 'Suspect vehicle - fleeing toward an exit route',
+    vehicleModel: fleet.model,
+    status: 'fleeing',
+    beingPursued: false,
+    destination: dest,
   };
 }
 
-function randomClusterCenter(): SimLatLng {
-  // Keep a margin so the cluster radius stays inside Olathe.
-  const marginLat = CLUSTER_RADIUS_M / 111320;
-  const marginLng = CLUSTER_RADIUS_M / (111320 * Math.cos(38.88 * (Math.PI / 180)));
+function activeAreaCenter(session: SimSession): SimLatLng {
+  const tracked = session.vehicles.filter(
+    (v) => (v.role === 'perp' && v.status === 'fleeing' && v.beingPursued) || (v.role === 'police' && v.status === 'chasing')
+  );
+  const source = tracked.length ? tracked : session.vehicles.filter((v) => v.role === 'perp' && v.status === 'fleeing');
+  if (!source.length) return session.clusterCenter ?? { lat: OLATHE_CENTER[0], lng: OLATHE_CENTER[1] };
   return snapToRoad({
-    lat: rand(OlatheBounds.latMin + marginLat, OlatheBounds.latMax - marginLat),
-    lng: rand(OlatheBounds.lngMin + marginLng, OlatheBounds.lngMax - marginLng),
+    lat: source.reduce((sum, v) => sum + v.lat, 0) / source.length,
+    lng: source.reduce((sum, v) => sum + v.lng, 0) / source.length,
   });
 }
 
-function pickNearPoint(center: SimLatLng, minR: number, maxR: number, avoid: SimLatLng[] = []): SimLatLng {
-  for (let attempt = 0; attempt < 40; attempt++) {
-    const angle = rand(0, Math.PI * 2);
-    const r = rand(minR, maxR);
-    const candidate = snapToRoad(offsetMeters(center, Math.cos(angle) * r, Math.sin(angle) * r));
-    const ok = avoid.every(
-      (p) => haversineMeters(candidate.lat, candidate.lng, p.lat, p.lng) >= MIN_VEHICLE_SPAWN_SEP_M
-    );
-    if (ok) return candidate;
+function spawnHelpersIfDue(session: SimSession): void {
+  if (helpersActive(session) || simClockMs < session.helpersNextAtSimMs) return;
+
+  const center = activeAreaCenter(session);
+  const avoid = session.vehicles.map((v) => ({ lat: v.lat, lng: v.lng }));
+  const policeIndexBase = session.vehicles.filter((v) => v.role === 'police').length;
+  for (let i = 0; i < HELPER_COUNT; i++) {
+    const start = pickNearPoint(center, HELPER_SPAWN_MIN_M, HELPER_SPAWN_MAX_M, avoid);
+    avoid.push(start);
+    const helper = buildPoliceVehicleAt(policeIndexBase + i, start, 'helper');
+    helper.helperExpiresAtSimMs = simClockMs + HELPER_ACTIVE_MS;
+    session.vehicles.push(helper);
   }
-  return snapToRoad(offsetMeters(center, rand(-maxR, maxR), rand(-maxR, maxR)));
+  addNotice(session, 'helper', 'Helper units on scene');
+  autoAssignPoliceTargets(session);
 }
 
-/** Tight spawn cluster so the opening fit-bounds view shows everyone close. */
-function pickClusterSpawns(count: number, center: SimLatLng, avoid: SimLatLng[] = []): SimLatLng[] {
-  const picked: SimLatLng[] = [];
-  for (let i = 0; i < count; i++) {
-    picked.push(pickNearPoint(center, 40, CLUSTER_RADIUS_M, [...avoid, ...picked]));
-  }
-  return picked;
+function expireHelpers(session: SimSession): void {
+  const expiring = session.vehicles.filter(
+    (v) => v.role === 'police' && v.policeKind === 'helper' && (v.helperExpiresAtSimMs ?? Infinity) <= simClockMs
+  );
+  if (!expiring.length) return;
+  const expiringIds = new Set(expiring.map((v) => v.id));
+  session.vehicles = session.vehicles.filter((v) => !expiringIds.has(v.id));
+  session.helpersNextAtSimMs = simClockMs + HELPER_COOLDOWN_MS;
+  addNotice(session, 'helper', 'Helpers recalled');
+  refreshBeingPursued(session.vehicles);
 }
 
-function pickPerpDestination(from: SimLatLng, used: SimLatLng[] = []): SimLatLng {
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const dest = pickNearPoint(from, PERP_DEST_MIN_M, PERP_DEST_MAX_M, used);
-    const dist = haversineMeters(from.lat, from.lng, dest.lat, dest.lng);
-    if (dist >= PERP_DEST_MIN_M * 0.7) return dest;
-  }
-  return pickNearPoint(from, PERP_DEST_MIN_M, PERP_DEST_MAX_M, used);
-}
+function respawnResolvedPerps(session: SimSession): void {
+  const resolved = session.vehicles.filter(
+    (v) =>
+      v.role === 'perp' &&
+      (v.status === 'caught' || v.status === 'escaped') &&
+      v.resolvedAtSimMs !== undefined &&
+      simClockMs - v.resolvedAtSimMs >= RESOLVED_VISIBLE_MS
+  );
+  if (!resolved.length) return;
 
-function assignPerpDestinations(spawns: SimLatLng[]): SimLatLng[] {
-  const used: SimLatLng[] = [];
-  return spawns.map((spawn) => {
-    const dest = pickPerpDestination(spawn, used);
-    used.push(dest);
-    return dest;
-  });
+  const resolvedIds = new Set(resolved.map((v) => v.id));
+  session.vehicles = session.vehicles.filter((v) => !resolvedIds.has(v.id));
+  const avoid = session.vehicles.map((v) => ({ lat: v.lat, lng: v.lng }));
+  const usedDestinations = session.vehicles
+    .filter((v) => v.role === 'perp' && v.destination)
+    .map((v) => v.destination!) as SimLatLng[];
+  for (let i = 0; i < resolved.length; i++) {
+    const nextIndex = session.caughtTotal + session.escapedTotal + session.vehicles.filter((v) => v.role === 'perp').length + i;
+    const start = pickCityRoadPoint(avoid, Math.max(MIN_VEHICLE_SPAWN_SEP_M, 220));
+    avoid.push(start);
+    session.vehicles.push(buildPerpVehicleAt(nextIndex, start, usedDestinations));
+  }
 }
 
 const LANDMARK_CATALOG: Array<{ kind: LandmarkKind; names: string[] }> = [
@@ -851,9 +1141,7 @@ function pickLandmarkPoint(avoid: SimLatLng[]): SimLatLng {
       lat: rand(OlatheBounds.latMin + 0.003, OlatheBounds.latMax - 0.003),
       lng: rand(OlatheBounds.lngMin + 0.004, OlatheBounds.lngMax - 0.004),
     };
-    const ok = avoid.every(
-      (p) => haversineMeters(candidate.lat, candidate.lng, p.lat, p.lng) >= MIN_LANDMARK_SEP_M
-    );
+    const ok = avoid.every((p) => haversineMeters(candidate.lat, candidate.lng, p.lat, p.lng) >= MIN_LANDMARK_SEP_M);
     if (ok) return candidate;
   }
   return {
@@ -862,8 +1150,8 @@ function pickLandmarkPoint(avoid: SimLatLng[]): SimLatLng {
   };
 }
 
-/** Place named bars, clubs, factories, and projects randomly across Olathe each round. */
-export function createRoundLandmarks(): MapLandmark[] {
+/** Place named bars, clubs, factories, and projects randomly across Olathe. */
+export function createCityLandmarks(): MapLandmark[] {
   const landmarks: MapLandmark[] = [];
   const placed: SimLatLng[] = [];
 
@@ -886,534 +1174,141 @@ export function createRoundLandmarks(): MapLandmark[] {
   return shuffleCopy(landmarks);
 }
 
-function routeHasMovement(route: SimLatLng[]): boolean {
-  for (let i = 1; i < route.length; i++) {
-    if (haversineMeters(route[i - 1].lat, route[i - 1].lng, route[i].lat, route[i].lng) > 40) {
-      return true;
-    }
-  }
-  return false;
-}
+export function createSimSession(userId: string): SimSession {
+  simClockMs = 0;
+  lastRouteRebuildAt.clear();
 
-function ensurePerpReady(v: SimVehicle) {
-  if (v.role !== 'perp' || v.status === 'caught' || v.status === 'escaped') return;
-  if (v.status !== 'patrol') v.status = 'patrol';
-
-  const pos = { lat: v.lat, lng: v.lng };
-  const destDistance = v.destination
-    ? haversineMeters(pos.lat, pos.lng, v.destination.lat, v.destination.lng)
-    : 0;
-
-  // Only pick a new destination when none exists or the current one was reached.
-  // Mid-chase reassignment was collapsing police routes into straight lines.
-  if (!v.destination || destDistance <= DEST_ARRIVAL_M) {
-    v.destination = pickPerpDestination(pos);
-    applyRouteWithProgress(v, buildRoadRouteToDestination(pos, v.destination));
-    return;
-  }
-
-  if (v.route.length < 2 || !routeHasMovement(v.route) || !routeFollowsRoads(v.route)) {
-    if (!canRebuildRoute(v)) return;
-    applyRouteWithProgress(v, buildRoadRouteToDestination(pos, v.destination));
-  }
-}
-
-function advanceVehicle(v: SimVehicle, elapsedSec: number, pursuedPerp?: SimVehicle) {
-  if (v.route.length < 2 || elapsedSec <= 0 || v.status === 'caught' || v.status === 'escaped') return;
-
-  const speed = mphToMps(getOperationalSpeedMph(v, pursuedPerp));
-  if (speed <= 0) return;
-
-  let remaining = speed * elapsedSec;
-  let guard = 0;
-
-  while (remaining > 0 && v.route.length >= 2 && guard++ < 80) {
-    if (v.routeIndex >= v.route.length - 1) {
-      if (!canRebuildRoute(v)) {
-        remaining = 0;
-        break;
-      }
-      if (v.role === 'police' && v.status === 'patrol') {
-        applyRouteWithProgress(v, randomPatrolRoute({ lat: v.lat, lng: v.lng }), true);
-      } else if (v.role === 'police' && v.status === 'pursuing' && pursuedPerp) {
-        // Prefer throttled ensurePursuitRoute over immediate short rebuilds.
-        ensurePursuitRoute(v, pursuedPerp);
-        if (!hasForwardPath(v) && canRebuildRoute(v, true)) {
-          const gap = haversineMeters(v.lat, v.lng, pursuedPerp.lat, pursuedPerp.lng);
-          const rebuilt = buildPursuitRoadRoute(v, pursuedPerp);
-          if (isUsablePursuitRoute(rebuilt, gap)) {
-            applyRouteWithProgress(v, rebuilt, false);
-          }
-        }
-      } else if (v.role === 'perp') {
-        const dest = pickPerpDestination({ lat: v.lat, lng: v.lng });
-        v.destination = dest;
-        applyRouteWithProgress(
-          v,
-          buildRoadRouteToDestination({ lat: v.lat, lng: v.lng }, dest),
-          true
-        );
-      } else {
-        remaining = 0;
-      }
-      // If rebuild didn't create forward motion, stop this tick to avoid shake loops.
-      if (!hasForwardPath(v)) remaining = 0;
-      break;
-    }
-
-    const cur = v.route[v.routeIndex];
-    const next = v.route[v.routeIndex + 1];
-    const segLen = haversineMeters(cur.lat, cur.lng, next.lat, next.lng);
-
-    // Skip micro-segments without rebuilding — rebuild thrash was the shake source.
-    if (segLen < MIN_SEGMENT_M) {
-      v.routeIndex += 1;
-      v.routeProgress = 0;
-      v.lat = next.lat;
-      v.lng = next.lng;
-      continue;
-    }
-
-    const distLeft = segLen * (1 - v.routeProgress);
-    if (remaining >= distLeft) {
-      remaining -= distLeft;
-      v.routeIndex += 1;
-      v.routeProgress = 0;
-      v.lat = next.lat;
-      v.lng = next.lng;
-      v.heading = bearingHeading(cur, next);
-    } else {
-      v.routeProgress += remaining / segLen;
-      const pos = interpolateAlongSegment(cur, next, v.routeProgress);
-      v.lat = pos.lat;
-      v.lng = pos.lng;
-      v.heading = bearingHeading(cur, next);
-      remaining = 0;
-    }
-  }
-}
-
-const downReasons = [
-  'Engine overheated — unit offline',
-  'Tire blowout — awaiting backup',
-  'Radio distress — mechanical failure',
-  'Accident damage — out of pursuit',
-];
-
-function schedulePoliceDowns(vehicles: SimVehicle[], roundStart: number) {
-  const police = vehicles.filter((v) => v.role === 'police');
-  if (police.length < 2) return;
-  const downCount = Math.min(randInt(1, 2), police.length - 1);
-  const shuffled = [...police].sort(() => Math.random() - 0.5);
-  for (let i = 0; i < downCount; i++) {
-    const vehicle = vehicles.find((v) => v.id === shuffled[i].id);
-    if (!vehicle) continue;
-    vehicle.downAt = roundStart + randInt(Math.floor(ROUND_MS * 0.2), Math.floor(ROUND_MS * 0.75));
-    vehicle.downReason = downReasons[randInt(0, downReasons.length - 1)];
-  }
-}
-
-function applyPoliceDowns(vehicles: SimVehicle[], now: number) {
-  for (const v of vehicles) {
-    if (v.role !== 'police' || !v.downAt || now < v.downAt || v.status === 'down') continue;
-    if (v.status === 'pursuing' && v.pursuingPerpId) {
-      const perp = vehicles.find((p) => p.id === v.pursuingPerpId);
-      if (perp) perp.beingPursued = false;
-    }
-    v.status = 'down';
-    v.pursuingPerpId = undefined;
-    if (v.downReason) v.evaluation = v.downReason;
-  }
-}
-
-export { ensureRoadNetwork } from './olatheRoadNetwork';
-
-export function getRoundElapsedMs(session: SimSession, now = Date.now()): number {
-  const roundStart = session.roundStartMs ?? session.roundEndsAt - ROUND_MS;
-  return Math.max(0, now - roundStart);
-}
-
-export function canResetRound(session: SimSession, now = Date.now()): boolean {
-  return session.phase === 'active' && getRoundElapsedMs(session, now) >= ROUND_RESET_AVAILABLE_MS;
-}
-
-export function resetActiveRound(session: SimSession): SimSession {
-  return createSimSession(session.userId, session.round);
-}
-
-/** Start the next round immediately (after completed/cooldown), skipping remaining wait. */
-export function startNextRound(session: SimSession): SimSession {
-  if (session.phase !== 'completed' && session.phase !== 'cooldown') return session;
-  return createSimSession(session.userId, session.round + 1);
-}
-
-export function createSimSession(userId: string, round = 1): SimSession {
-  const { policeCount, perpCount } = initialFleetCounts();
-  const clusterCenter = randomClusterCenter();
-  const perpSpawns = pickClusterSpawns(perpCount, clusterCenter);
-  const policeSpawns = pickClusterSpawns(policeCount, clusterCenter, perpSpawns);
-  const perpDestinations = assignPerpDestinations(perpSpawns);
+  const clusterCenter = snapToRoad({ lat: OLATHE_CENTER[0], lng: OLATHE_CENTER[1] });
   const vehicles: SimVehicle[] = [];
+  const usedDestinations: SimLatLng[] = [];
+  const avoid: SimLatLng[] = [];
 
-  for (let i = 0; i < policeCount; i++) {
-    vehicles.push(buildPoliceVehicleAt(i, policeSpawns[i]));
+  for (let i = 0; i < PERP_COUNT; i++) {
+    const start = pickCityRoadPoint(avoid, 210);
+    avoid.push(start);
+    vehicles.push(buildPerpVehicleAt(i, start, usedDestinations));
   }
 
-  for (let i = 0; i < perpCount; i++) {
-    const start = perpSpawns[i];
-    const dest = perpDestinations[i];
-    const fleet = perpFleet[i % perpFleet.length];
-    const route = buildRoadRouteToDestination(start, dest);
-    const perp: SimVehicle = {
-      id: uid('perp'),
-      role: 'perp',
-      lat: start.lat,
-      lng: start.lng,
-      heading: route.length > 1 ? bearingHeading(route[0], route[1]) : rand(0, 360),
-      route,
-      routeIndex: 0,
-      routeProgress: 0,
-      maxSpeedMph: fleet.ratedMaxMph + randInt(-3, 3),
-      officerName: perpNames[i % perpNames.length],
-      evaluation: 'Suspect vehicle — evasive driving toward destination',
-      vehicleModel: fleet.model,
-      destination: dest,
-      status: 'patrol',
-      beingPursued: false,
-    };
-    ensurePerpReady(perp);
-    vehicles.push(perp);
+  for (let i = 0; i < INITIAL_SQUAD_COUNT; i++) {
+    const start = pickNearPoint(clusterCenter, 80, 650, avoid, MIN_VEHICLE_SPAWN_SEP_M);
+    avoid.push(start);
+    vehicles.push(buildPoliceVehicleAt(i, start, 'squad'));
   }
 
-  const now = Date.now();
-  // With a single starting unit, downs are skipped until reinforcements arrive.
-  schedulePoliceDowns(vehicles, now);
-  return {
+  const session: SimSession = {
     id: uid('session'),
     userId,
-    phase: 'active',
-    round,
-    roundEndsAt: now + ROUND_MS,
-    roundStartMs: now,
     vehicles,
-    reinforcementsLeft: MAX_POLICE_REINFORCEMENTS,
+    landmarks: createCityLandmarks(),
+    score: BASE_SCORE,
+    caughtTotal: 0,
+    escapedTotal: 0,
+    notices: [],
+    helpersNextAtSimMs: FIRST_HELPER_DELAY_MS,
     clusterCenter,
-    landmarks: createRoundLandmarks(),
-    stats: {
-      round,
-      roundDurationSec: 0,
-      totalPolice: policeCount,
-      totalPerps: perpCount,
-      policeDown: 0,
-      policeUsed: 0,
-      pursuitsLaunched: 0,
-      caught: 0,
-      escaped: 0,
-      outcome: '',
-      operationalScore: 0,
-      decisions: [],
-      policeStatus: [],
-    },
+    startedAtMs: Date.now(),
   };
+
+  autoAssignPoliceTargets(session);
+  return session;
 }
 
-export function buildRoundStats(session: SimSession, result: SimRoundResult): RoundStats {
-  const police = session.vehicles.filter((v) => v.role === 'police');
-  const perps = session.vehicles.filter((v) => v.role === 'perp');
-  const usedIds = new Set(session.stats?.decisions.map((d) => d.policeId) ?? []);
-
-  const decisions = (session.stats?.decisions ?? []).map((d) => {
-    const perp = perps.find((p) => p.id === d.perpId);
-    return {
-      ...d,
-      outcome: perp?.status === 'caught' ? 'caught' as const : 'escaped' as const,
-    };
-  });
-
-  const roundStart = session.roundStartMs ?? session.roundEndsAt - ROUND_MS;
-  return {
-    round: session.round,
-    roundDurationSec: Math.round((session.roundEndsAt - roundStart) / 1000),
-    totalPolice: police.length,
-    totalPerps: perps.length,
-    policeDown: police.filter((v) => v.status === 'down').length,
-    policeUsed: usedIds.size,
-    pursuitsLaunched: session.stats?.pursuitsLaunched ?? decisions.length,
-    caught: result.caught,
-    escaped: result.escaped,
-    outcome: result.outcome,
-    operationalScore: result.score,
-    decisions,
-    policeStatus: police.map((v) => ({
-      name: v.officerName,
-      status: v.status,
-      model: v.vehicleModel,
-      speed: v.maxSpeedMph,
-      rank: v.officerRank,
-    })),
-  };
-}
-
-function markPerpEscaped(v: SimVehicle, vehicles: SimVehicle[]) {
-  v.status = 'escaped';
-  v.beingPursued = false;
-  v.evaluation = 'Suspect evaded — reached destination';
-  for (const unit of vehicles) {
-    if (unit.role === 'police' && unit.pursuingPerpId === v.id) {
-      releasePoliceForReassignment(unit);
-    }
-  }
-}
-
-function perpReachedDestination(v: SimVehicle): boolean {
-  if (!v.destination) return false;
-  return haversineMeters(v.lat, v.lng, v.destination.lat, v.destination.lng) <= DEST_ARRIVAL_M;
-}
-
-function shouldFinishRoundEarly(vehicles: SimVehicle[]): boolean {
-  const perps = vehicles.filter((v) => v.role === 'perp');
-  if (perps.length === 0) return false;
-  return perps.every((v) => v.status === 'caught' || v.status === 'escaped');
-}
-
-export function tickSimSession(session: SimSession, elapsedSec: number): SimSession {
-  const now = Date.now();
-  const next = { ...session, vehicles: session.vehicles.map((v) => ({ ...v, route: [...v.route] })) };
-
-  if (next.phase === 'completed' || next.phase === 'cooldown') {
-    if (next.cooldownEndsAt && now >= next.cooldownEndsAt) {
-      return createSimSession(next.userId, next.round + 1);
-    }
+export function redirectPoliceTo(session: SimSession, policeId: string, perpId: string): SimSession {
+  const next = cloneSession(session);
+  const police = next.vehicles.find((v) => v.id === policeId && v.role === 'police');
+  const perp = next.vehicles.find((v) => v.id === perpId && v.role === 'perp');
+  if (!police || !perp || !isOperationalPolice(police) || perp.status !== 'fleeing') {
     return next;
   }
-
-  applyPoliceDowns(next.vehicles, now);
-
-  const perpPositions: Record<string, SimLatLng> = {};
-  for (const v of next.vehicles) {
-    if (v.role === 'perp' && v.status !== 'caught' && v.status !== 'escaped') {
-      ensurePerpReady(v);
-      advanceVehicle(v, elapsedSec);
-      if (perpReachedDestination(v)) {
-        markPerpEscaped(v, next.vehicles);
-      } else {
-        perpPositions[v.id] = { lat: v.lat, lng: v.lng };
-      }
-    }
-  }
-
-  for (const v of next.vehicles) {
-    if (v.role !== 'police' || v.status === 'down') continue;
-    if (v.status === 'idle') v.status = 'patrol';
-
-    if (v.status === 'pursuing' && v.pursuingPerpId) {
-      const perp = next.vehicles.find((p) => p.id === v.pursuingPerpId);
-      if (!perpPositions[v.pursuingPerpId] || !perp || perp.status === 'caught' || perp.status === 'escaped') {
-        releasePoliceForReassignment(v);
-        advanceVehicle(v, elapsedSec * 0.5);
-        continue;
-      }
-      ensurePursuitRoute(v, perp);
-      advanceVehicle(v, elapsedSec, perp);
-      if (haversineMeters(v.lat, v.lng, perp.lat, perp.lng) <= CATCH_METERS) {
-        perp.status = 'caught';
-        perp.beingPursued = false;
-        releasePoliceForReassignment(v);
-      }
-    } else if (v.status === 'patrol') {
-      advanceVehicle(v, elapsedSec);
-    }
-  }
-
-  if (shouldFinishRoundEarly(next.vehicles)) {
-    return finishSimRound(next);
-  }
-
-  if (now >= next.roundEndsAt) {
-    return finishSimRound(next);
-  }
-
+  assignPoliceToPerp(police, perp, true);
+  autoAssignPoliceTargets(next);
   return next;
 }
 
-function finishSimRound(session: SimSession): SimSession {
-  let caught = 0;
-  let total = 0;
-  for (const v of session.vehicles) {
-    if (v.role === 'perp') {
-      total++;
-      if (v.status !== 'caught') v.status = 'escaped';
-      else caught++;
-    }
-    if (v.role === 'police' && v.status === 'pursuing') {
-      v.status = 'patrol';
-      v.pursuingPerpId = undefined;
-    }
-  }
-  const escaped = total - caught;
-  let outcome: SimRoundResult['outcome'] = 'partial_win';
-  let score = Math.round((caught / total) * 100);
-  let grade = 'C';
-  let message = `Partial win — ${caught} of ${total} suspects caught.`;
-  if (caught === 0) {
-    outcome = 'total_failure';
-    score = 0;
-    grade = 'F';
-    message = 'Total failure — all suspects evaded.';
-  } else if (caught === total) {
-    outcome = 'total_win';
-    score = 100;
-    grade = 'A+';
-    message = 'Total win — every suspect apprehended.';
-  } else if (score >= 75) grade = 'B';
-  else if (score < 50) grade = 'D';
+export function deployWeapon(
+  session: SimSession,
+  kind: WeaponKind,
+  perpId: string
+): { session: SimSession; ok: boolean; reason?: string } {
+  const next = cloneSession(session);
+  const cost = WEAPON_COSTS[kind];
+  const label = WEAPON_LABELS[kind];
 
-  return {
-    ...session,
-    phase: 'completed',
-    cooldownEndsAt: Date.now() + ROUND_COOLDOWN_MS,
-    result: (() => {
-      const result = { outcome, caught, escaped, totalPerps: total, score, message, grade };
-      return { ...result, stats: buildRoundStats(session, result) };
-    })(),
-    stats: buildRoundStats(session, { outcome, caught, escaped, totalPerps: total, score, message, grade }),
-  };
-}
-
-export function armPursuit(session: SimSession, policeId: string): SimSession {
-  if (session.phase !== 'active') return session;
-  return { ...session, armedPoliceId: policeId };
-}
-
-export function startPursuit(session: SimSession, policeId: string, perpId: string): SimSession {
-  if (session.phase !== 'active') return session;
-  const police = session.vehicles.find((v) => v.id === policeId);
-  const perp = session.vehicles.find((v) => v.id === perpId);
-  if (!police || !perp || !isPoliceAvailableForPursuit(police) || !isPerpPursuitTarget(perp)) {
-    return session;
+  if (next.score < cost) {
+    const reason = `Insufficient score for ${label}`;
+    addNotice(next, 'warn', reason);
+    return { session: next, ok: false, reason };
   }
 
-  const pursuitRoute = buildPursuitRoadRoute(police, perp);
-  const pursuitDraft: SimVehicle = {
-    ...police,
-    status: 'pursuing',
-    pursuingPerpId: perpId,
-    // Keep current position; only attach a chase polyline.
-    route: police.route,
-    routeIndex: police.routeIndex,
-    routeProgress: police.routeProgress,
-  };
-  if (isUsablePursuitRoute(pursuitRoute, haversineMeters(police.lat, police.lng, perp.lat, perp.lng))) {
-    applyRouteWithProgress(pursuitDraft, pursuitRoute, false);
-  } else if (police.route.length >= 2 && hasForwardPath(police)) {
-    // Keep existing road route rather than snapping onto a bad stub.
-    pursuitDraft.route = police.route;
-    pursuitDraft.routeIndex = police.routeIndex;
-    pursuitDraft.routeProgress = police.routeProgress;
-  } else {
-    applyRouteWithProgress(pursuitDraft, pursuitRoute, false);
+  const perp = next.vehicles.find((v) => v.id === perpId && v.role === 'perp');
+  if (!perp || perp.status !== 'fleeing') {
+    const reason = 'Target is no longer fleeing';
+    addNotice(next, 'warn', reason);
+    return { session: next, ok: false, reason };
   }
 
-  const vehicles = session.vehicles.map((v) => {
-    if (v.id === policeId) {
-      return {
-        ...v,
-        status: 'pursuing' as const,
-        pursuingPerpId: perpId,
-        route: pursuitDraft.route,
-        routeIndex: pursuitDraft.routeIndex,
-        routeProgress: pursuitDraft.routeProgress,
-        // Preserve live map position — never teleport on pursue start.
-        lat: v.lat,
-        lng: v.lng,
-      };
-    }
-    if (v.id === perpId) {
-      return { ...v, beingPursued: true };
-    }
-    return { ...v };
-  });
-
-  const stats = session.stats ?? {
-    round: session.round,
-    roundDurationSec: 0,
-    totalPolice: 0,
-    totalPerps: 0,
-    policeDown: 0,
-    policeUsed: 0,
-    pursuitsLaunched: 0,
-    caught: 0,
-    escaped: 0,
-    outcome: '',
-    operationalScore: 0,
-    decisions: [],
-    policeStatus: [],
-  };
-
-  stats.decisions = [
-    ...stats.decisions,
-    {
-      policeId,
-      policeName: police.officerName,
-      policeSpeed: police.maxSpeedMph,
-      policeRank: police.officerRank,
-      vehicleModel: police.vehicleModel,
-      perpId,
-      perpName: perp.officerName,
-      perpSpeed: perp.maxSpeedMph,
-      perpModel: perp.vehicleModel,
-      timestampMs: Date.now(),
-    },
-  ];
-  stats.pursuitsLaunched = stats.decisions.length;
-  stats.policeUsed = new Set(stats.decisions.map((d) => d.policeId)).size;
-
-  return { ...session, vehicles, armedPoliceId: undefined, stats };
+  next.score -= cost;
+  addNotice(next, 'weapon', `${label} deployed (-${cost})`);
+  markPerpCaught(next, perp, `${label} neutralized ${perp.officerName} (+${CATCH_SCORE})`);
+  autoAssignPoliceTargets(next);
+  return { session: next, ok: true };
 }
 
-export function mergeServerSession(local: SimSession, server: SimSession): SimSession {
-  if (!server?.vehicles?.length) return local;
-  return {
-    ...server,
-    roundEndsAt: new Date(server.roundEndsAt as unknown as string).getTime() || local.roundEndsAt,
-    cooldownEndsAt: server.cooldownEndsAt
-      ? new Date(server.cooldownEndsAt as unknown as string).getTime()
-      : undefined,
-    vehicles: server.vehicles.map((sv) => ({
-      ...sv,
-      route: sv.route || [],
-      destination: sv.destination,
-    })),
-  };
-}
+export function tickSimSession(session: SimSession, elapsedSec: number): SimSession {
+  const elapsedMs = Math.max(0, Math.min(elapsedSec, 0.5)) * 1000;
+  simClockMs += elapsedMs;
 
-export function simSessionFromAPI(raw: Record<string, unknown>): SimSession {
-  const landmarks = Array.isArray(raw.landmarks)
-    ? (raw.landmarks as MapLandmark[])
-    : createRoundLandmarks();
-  return {
-    id: String(raw.id),
-    userId: String(raw.userId),
-    phase: raw.phase as SimSession['phase'],
-    round: Number(raw.round),
-    roundEndsAt: new Date(raw.roundEndsAt as string).getTime(),
-    cooldownEndsAt: raw.cooldownEndsAt ? new Date(raw.cooldownEndsAt as string).getTime() : undefined,
-    vehicles: (raw.vehicles as SimVehicle[]) || [],
-    result: raw.result as SimRoundResult | undefined,
-    armedPoliceId: raw.armedPoliceId as string | undefined,
-    reinforcementsLeft:
-      typeof raw.reinforcementsLeft === 'number' ? raw.reinforcementsLeft : MAX_POLICE_REINFORCEMENTS,
-    clusterCenter: raw.clusterCenter as SimLatLng | undefined,
-    landmarks,
-  };
-}
+  const next = cloneSession(session);
+  expireHelpers(next);
+  spawnHelpersIfDue(next);
 
-export function isStoredSessionUsable(session: SimSession): boolean {
-  const perpN = session.vehicles.filter((v) => v.role === 'perp').length;
-  const polN = session.vehicles.filter((v) => v.role === 'police').length;
-  if (perpN < PERP_COUNT_MIN || perpN > PERP_COUNT_MAX) return false;
-  if (polN < INITIAL_POLICE_COUNT || polN > INITIAL_POLICE_COUNT + MAX_POLICE_REINFORCEMENTS) {
-    return false;
+  for (const perp of next.vehicles) {
+    if (perp.role !== 'perp' || perp.status !== 'fleeing') continue;
+    ensurePerpReady(perp);
+    advanceVehicle(perp, elapsedMs / 1000);
+    if (perpReachedDestination(perp)) markPerpEscaped(next, perp);
   }
-  return true;
+
+  autoAssignPoliceTargets(next);
+
+  for (const police of next.vehicles) {
+    if (police.role !== 'police' || !isOperationalPolice(police)) continue;
+    const perp = police.pursuingPerpId
+      ? next.vehicles.find((v) => v.id === police.pursuingPerpId && v.role === 'perp')
+      : undefined;
+    if (police.status === 'chasing' && perp?.status === 'fleeing') {
+      ensurePursuitRoute(police, perp);
+      advanceVehicle(police, elapsedMs / 1000, perp);
+      if (haversineMeters(police.lat, police.lng, perp.lat, perp.lng) <= CATCH_METERS) {
+        markPerpCaught(next, perp);
+      }
+    } else {
+      clearPoliceTarget(police);
+      advanceVehicle(police, (elapsedMs / 1000) * 0.35);
+    }
+  }
+
+  respawnResolvedPerps(next);
+  autoAssignPoliceTargets(next);
+  next.notices = next.notices.filter((notice) => simClockMs - notice.atSimMs <= NOTICE_TTL_MS);
+  return next;
+}
+
+export function helpersActive(session: SimSession): boolean {
+  return session.vehicles.some(
+    (v) => v.role === 'police' && v.policeKind === 'helper' && (v.helperExpiresAtSimMs ?? 0) > simClockMs
+  );
+}
+
+export function helpersCountdownSec(session: SimSession): number {
+  const helpers = session.vehicles.filter((v) => v.role === 'police' && v.policeKind === 'helper');
+  if (helpers.length) {
+    const remaining = Math.max(...helpers.map((v) => (v.helperExpiresAtSimMs ?? simClockMs) - simClockMs));
+    return Math.max(0, Math.ceil(remaining / 1000));
+  }
+  return Math.max(0, Math.ceil((session.helpersNextAtSimMs - simClockMs) / 1000));
+}
+
+export function canAffordWeapon(session: SimSession, kind: WeaponKind): boolean {
+  return session.score >= WEAPON_COSTS[kind];
 }

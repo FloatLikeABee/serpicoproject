@@ -23,6 +23,7 @@ export interface PursuitMapVehicle {
   routeIndex?: number;
   routeProgress?: number;
   destination?: { lat: number; lng: number };
+  color?: string;
 }
 
 interface PursuitMapCanvasProps {
@@ -220,7 +221,7 @@ const policeVehicleSvg = (heading: number, glow: string, selected: boolean, size
     </svg>
   </div>`;
 
-const perpVehicleSvg = (heading: number, pursued: boolean, lockOn: boolean, size: number) => {
+const perpVehicleSvg = (heading: number, pursued: boolean, lockOn: boolean, size: number, tint = '#ff2bd6') => {
   const outer = lockOn ? size + 8 : size;
   return `
   <div style="
@@ -228,24 +229,24 @@ const perpVehicleSvg = (heading: number, pursued: boolean, lockOn: boolean, size
     transform-origin: center center;
     width: ${outer}px;
     height: ${outer}px;
-    filter: drop-shadow(0 0 ${lockOn ? '8px #ff2bd6' : pursued ? '6px #ff2bd6' : '4px rgba(255,43,214,0.6)'});
+    filter: drop-shadow(0 0 ${lockOn ? `8px ${tint}` : pursued ? `6px ${tint}` : `4px ${tint}99`});
     pointer-events: auto;
     cursor: ${lockOn ? 'crosshair' : 'pointer'};
   ">
-    ${lockOn ? '<div style="position:absolute;inset:-3px;border:2px dashed #ff2bd6;border-radius:50%;animation:pulse 1s infinite;"></div>' : ''}
+    ${lockOn ? `<div style="position:absolute;inset:-3px;border:2px dashed ${tint};border-radius:50%;animation:pulse 1s infinite;"></div>` : ''}
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 44 44" style="margin:${lockOn ? '4px' : '0'}">
       <defs>
         <linearGradient id="perpBody" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#ff2bd6"/>
+          <stop offset="0%" style="stop-color:${tint}"/>
           <stop offset="100%" style="stop-color:#991b1b"/>
         </linearGradient>
       </defs>
-      <ellipse cx="22" cy="22" rx="20" ry="20" fill="rgba(255,43,214,0.12)" stroke="#ff2bd6" stroke-width="${lockOn || pursued ? 2.5 : 1.5}"/>
+      <ellipse cx="22" cy="22" rx="20" ry="20" fill="${tint}22" stroke="${tint}" stroke-width="${lockOn || pursued ? 2.5 : 1.5}"/>
       <path d="M10 24h24l-2.5-8H12.5l-2.5 8z" fill="url(#perpBody)" stroke="#fff" stroke-width="1"/>
-      <rect x="13" y="14" width="18" height="6" rx="2" fill="#450a0a" stroke="#ff2bd6" stroke-width="0.8"/>
-      <circle cx="14" cy="26" r="3" fill="#111" stroke="#ff2bd6" stroke-width="1"/>
-      <circle cx="30" cy="26" r="3" fill="#111" stroke="#ff2bd6" stroke-width="1"/>
-      ${pursued ? '<text x="22" y="8" text-anchor="middle" fill="#ff2bd6" font-size="8" font-weight="bold">!</text>' : ''}
+      <rect x="13" y="14" width="18" height="6" rx="2" fill="#450a0a" stroke="${tint}" stroke-width="0.8"/>
+      <circle cx="14" cy="26" r="3" fill="#111" stroke="${tint}" stroke-width="1"/>
+      <circle cx="30" cy="26" r="3" fill="#111" stroke="${tint}" stroke-width="1"/>
+      ${pursued ? `<text x="22" y="8" text-anchor="middle" fill="${tint}" font-size="8" font-weight="bold">!</text>` : ''}
     </svg>
   </div>`;
 };
@@ -300,7 +301,7 @@ function buildIcon(
   const isPolice = vehicle.role === 'police';
   const html = isPolice
     ? policeVehicleSvg(vehicle.heading, armed ? '#00f5ff' : '#2563eb', selected || armed, iconSize)
-    : perpVehicleSvg(vehicle.heading, vehicle.beingPursued || false, pursueTarget, iconSize);
+    : perpVehicleSvg(vehicle.heading, vehicle.beingPursued || false, pursueTarget, iconSize, vehicle.color);
 
   const size = !isPolice && pursueTarget ? iconSize + 8 : iconSize;
   return L.divIcon({
@@ -328,7 +329,7 @@ const MovingVehicleMarker: React.FC<{
     marker.setLatLng([vehicle.lat, vehicle.lng]);
     marker.setIcon(buildIcon(vehicle, selected, armed, pursueTarget, iconSize));
     marker.setZIndexOffset(pursueTarget ? 2000 : selected || armed ? 1000 : vehicle.role === 'police' ? 500 : 400);
-  }, [vehicle.lat, vehicle.lng, vehicle.heading, vehicle.status, vehicle.beingPursued, selected, armed, pursueTarget, vehicle, iconSize]);
+  }, [vehicle.lat, vehicle.lng, vehicle.heading, vehicle.status, vehicle.beingPursued, vehicle.color, selected, armed, pursueTarget, vehicle, iconSize]);
 
   return (
     <Marker
@@ -425,7 +426,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
     vehicles
       .filter((v) => v.route && v.route.length > 1 && v.status !== 'caught')
       .forEach((v) => {
-        const isPursuit = v.role === 'police' && v.status === 'pursuing';
+        const isPursuit = v.role === 'police' && v.status === 'chasing';
         const isPerp = v.role === 'perp';
         if (!isPursuit && !isPerp) return;
         const positions = remainingRoute(v);
@@ -433,7 +434,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         lines.push({
           id: `${v.id}-route`,
           positions,
-          color: isPursuit ? '#00f5ff' : v.beingPursued ? '#ff6b6b' : '#ff2bd6',
+          color: isPursuit ? '#00f5ff' : v.beingPursued ? '#ff6b6b' : v.color ?? '#ff2bd6',
           dashed: isPerp && !v.beingPursued,
         });
       });
@@ -480,7 +481,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
       ))}
 
       {vehicles
-        .filter((v) => v.role === 'perp' && v.destination && v.status !== 'caught')
+        .filter((v) => v.role === 'perp' && v.destination && v.status !== 'caught' && v.status !== 'escaped')
         .map((v) => (
           <CircleMarker
             key={`${v.id}-dest-dot`}

@@ -1,29 +1,27 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import PursuitMapCanvas, { PursuitMapVehicle } from '../../components/PursuitMapCanvas';
 import LocationTacticsPanel from '../../components/LocationTacticsPanel';
-import DraggableFloat from '../../components/DraggableFloat';
 import { useAuth } from '../../contexts/AuthContext';
-import { pursuitExamAPI, PursuitAIEvaluation } from '../../services/api';
+import { pursuitExamAPI } from '../../services/api';
 import {
+  HELPER_COUNT,
+  INITIAL_SQUAD_COUNT,
+  MapLandmark,
+  OLATHE_CENTER,
+  PERP_COUNT,
   SimSession,
   SimVehicle,
-  RoundStats,
-  MapLandmark,
-  OLATHE_BOUNDS,
-  OLATHE_CENTER,
-  armPursuit,
-  canDeployReinforcement,
-  canResetRound,
+  WEAPON_COSTS,
+  WEAPON_LABELS,
+  WeaponKind,
+  canAffordWeapon,
   createSimSession,
-  deployPoliceAt,
+  deployWeapon,
   ensureRoadNetwork,
-  resetActiveRound,
-  startNextRound,
-  simSessionFromAPI,
-  startPursuit,
+  helpersActive,
+  helpersCountdownSec,
+  redirectPoliceTo,
   tickSimSession,
-  isPoliceAvailableForPursuit,
-  isPerpPursuitTarget,
 } from '../../utils/pursuitSim';
 import {
   LocationAIEvaluation,
@@ -33,39 +31,9 @@ import {
   startLocationTactics,
 } from '../../utils/locationTacticsSim';
 
-function localFallbackEvaluation(stats: RoundStats): PursuitAIEvaluation {
-  const catchRate = stats.totalPerps > 0 ? stats.caught / stats.totalPerps : 0;
-  let grade = 'C';
-  let score = 55;
-  if (catchRate >= 0.75 && stats.pursuitsLaunched > 0) {
-    grade = 'A';
-    score = 92;
-  } else if (catchRate >= 0.4 || stats.caught >= 2) {
-    grade = 'B';
-    score = 76;
-  }
-  return {
-    grade,
-    score,
-    summary: catchRate >= 0.75
-      ? 'Strong catch rate with disciplined unit use.'
-      : catchRate >= 0.4
-      ? 'Partial success — tighten target priority next round.'
-      : 'Low catch rate under a heavy suspect load.',
-    strategyAnalysis: `Launched ${stats.pursuitsLaunched} pursuits; caught ${stats.caught} of ${stats.totalPerps}.`,
-    resourceAnalysis: `Used ${stats.policeUsed} of ${stats.totalPolice} police vs ${stats.totalPerps} suspects.`,
-    strengths: [catchRate >= 0.5 ? 'Kept pressure on active pursuits' : 'Engaged under difficult odds'],
-    improvements: ['Deploy backups earlier on escaping targets'],
-  };
-}
-
 function formatTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
+  const m = Math.floor(seconds / 60);
   const s = seconds % 60;
-  if (h > 0) {
-    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
@@ -83,8 +51,20 @@ function toMapVehicle(v: SimVehicle): PursuitMapVehicle {
     routeIndex: v.routeIndex,
     routeProgress: v.routeProgress,
     destination: v.destination,
+    color: v.color,
   };
 }
+
+const weaponKinds: WeaponKind[] = ['drone', 'robocop', 'laser'];
+
+const noticeColor: Record<SimSession['notices'][number]['kind'], string> = {
+  caught: 'border-neon-green/50 bg-neon-green/15 text-neon-green',
+  escaped: 'border-serpico-red/50 bg-serpico-red/15 text-serpico-red',
+  helper: 'border-neon-cyan/50 bg-neon-cyan/15 text-neon-cyan',
+  weapon: 'border-neon-amber/50 bg-neon-amber/15 text-neon-amber',
+  warn: 'border-neon-amber/60 bg-neon-amber/20 text-neon-amber',
+  info: 'border-serpico-blue/50 bg-serpico-blue/15 text-serpico-blue',
+};
 
 const InPursue: React.FC = () => {
   const { user } = useAuth();
@@ -92,52 +72,34 @@ const InPursue: React.FC = () => {
 
   const [session, setSession] = useState<SimSession | null>(null);
   const [selectedPoliceId, setSelectedPoliceId] = useState<string | null>(null);
-  const [pursueModePoliceId, setPursueModePoliceId] = useState<string | null>(null);
-  const [deployMode, setDeployMode] = useState(false);
-  const [now, setNow] = useState(Date.now());
-  const [useServer, setUseServer] = useState(false);
-  const [aiEvaluation, setAiEvaluation] = useState<PursuitAIEvaluation | null>(null);
-  const [evalLoading, setEvalLoading] = useState(false);
-  const evaluatedRoundRef = useRef<number | null>(null);
+  const [redirectPoliceId, setRedirectPoliceId] = useState<string | null>(null);
+  const [weaponMode, setWeaponMode] = useState<WeaponKind | null>(null);
+  const [roadsReady, setRoadsReady] = useState(false);
+  const [roadsError, setRoadsError] = useState(false);
 
   const [tacticsGame, setTacticsGame] = useState<LocationTacticsGame | null>(null);
   const [tacticsCollapsed, setTacticsCollapsed] = useState(false);
   const [tacticsEval, setTacticsEval] = useState<LocationAIEvaluation | null>(null);
   const [tacticsEvalLoading, setTacticsEvalLoading] = useState(false);
-  const tacticsEvalKeyRef = useRef<string | null>(null);
-  const [resultCollapsed, setResultCollapsed] = useState(false);
-  const [patrolCollapsed, setPatrolCollapsed] = useState(false);
 
   const sessionRef = useRef<SimSession | null>(null);
   const lastTickRef = useRef<number>(performance.now());
-  const pursueModeRef = useRef<string | null>(null);
-  const deployModeRef = useRef(false);
-
-  const [roadsReady, setRoadsReady] = useState(false);
-  const [roadsError, setRoadsError] = useState(false);
+  const redirectPoliceRef = useRef<string | null>(null);
+  const weaponModeRef = useRef<WeaponKind | null>(null);
+  const tacticsEvalKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
 
   useEffect(() => {
-    pursueModeRef.current = pursueModePoliceId;
-  }, [pursueModePoliceId]);
-
-  // While locking a suspect, keep the patrol card collapsed so the map stays clickable.
-  useEffect(() => {
-    if (pursueModePoliceId) setPatrolCollapsed(true);
-  }, [pursueModePoliceId]);
+    redirectPoliceRef.current = redirectPoliceId;
+  }, [redirectPoliceId]);
 
   useEffect(() => {
-    if (session?.phase === 'completed') setResultCollapsed(false);
-  }, [session?.phase, session?.round]);
+    weaponModeRef.current = weaponMode;
+  }, [weaponMode]);
 
-  useEffect(() => {
-    deployModeRef.current = deployMode;
-  }, [deployMode]);
-
-  // Load OSM road network then start sim (vehicles snap to real roads)
   useEffect(() => {
     let cancelled = false;
     setRoadsReady(false);
@@ -147,7 +109,6 @@ const InPursue: React.FC = () => {
         if (!cancelled) {
           setRoadsReady(true);
           setSession(createSimSession(userId));
-          setUseServer(false);
         }
       })
       .catch(() => {
@@ -155,13 +116,13 @@ const InPursue: React.FC = () => {
           setRoadsError(true);
           setRoadsReady(true);
           setSession(createSimSession(userId));
-          setUseServer(false);
         }
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
-  // Local simulation tick (~30fps)
   useEffect(() => {
     let frame: number;
     const loop = (ts: number) => {
@@ -169,23 +130,9 @@ const InPursue: React.FC = () => {
       lastTickRef.current = ts;
       const cur = sessionRef.current;
       if (cur) {
-        if (cur.phase === 'active') {
-          const next = tickSimSession(cur, elapsed);
-          setSession(next);
-          sessionRef.current = next;
-        } else if (cur.cooldownEndsAt && Date.now() >= cur.cooldownEndsAt) {
-          const next = createSimSession(cur.userId, cur.round + 1);
-          setSession(next);
-          sessionRef.current = next;
-          setSelectedPoliceId(null);
-          setPursueModePoliceId(null);
-          setDeployMode(false);
-          setAiEvaluation(null);
-          evaluatedRoundRef.current = null;
-          setTacticsGame(null);
-          setTacticsEval(null);
-          tacticsEvalKeyRef.current = null;
-        }
+        const next = tickSimSession(cur, elapsed);
+        setSession(next);
+        sessionRef.current = next;
       }
       frame = requestAnimationFrame(loop);
     };
@@ -193,27 +140,6 @@ const InPursue: React.FC = () => {
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  // AI evaluation when vehicle round completes
-  useEffect(() => {
-    if (session?.phase !== 'completed' || !session.result?.stats) return;
-    if (evaluatedRoundRef.current === session.round) return;
-    evaluatedRoundRef.current = session.round;
-
-    const runEval = async () => {
-      setEvalLoading(true);
-      try {
-        const { evaluation } = await pursuitExamAPI.evaluateRound(session.result!.stats!);
-        setAiEvaluation(evaluation);
-      } catch {
-        setAiEvaluation(localFallbackEvaluation(session.result!.stats!));
-      } finally {
-        setEvalLoading(false);
-      }
-    };
-    runEval();
-  }, [session?.phase, session?.round, session?.result]);
-
-  // AI evaluation when an on-site tactics raid completes
   useEffect(() => {
     if (!tacticsGame || tacticsGame.phase !== 'completed' || !tacticsGame.stats) return;
     const key = `${tacticsGame.id}:${tacticsGame.stats.outcome}`;
@@ -236,259 +162,108 @@ const InPursue: React.FC = () => {
     runEval();
   }, [tacticsGame]);
 
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(tick);
-  }, []);
+  const resetGame = useCallback(() => {
+    const next = createSimSession(userId);
+    setSession(next);
+    sessionRef.current = next;
+    setSelectedPoliceId(null);
+    setRedirectPoliceId(null);
+    setWeaponMode(null);
+    setTacticsGame(null);
+    setTacticsEval(null);
+    tacticsEvalKeyRef.current = null;
+  }, [userId]);
 
-  const vehicles = session?.vehicles ?? [];
-  const policeUnits = vehicles.filter((v) => v.role === 'police');
-  const perpUnits = vehicles.filter((v) => v.role === 'perp');
-  const selectedPolice = policeUnits.find((v) => v.id === selectedPoliceId) ?? null;
-
-  const roundSecondsLeft = useMemo(() => {
-    if (!session?.roundEndsAt || session.phase !== 'active') return 0;
-    return Math.max(0, Math.floor((session.roundEndsAt - now) / 1000));
-  }, [session, now]);
-
-  const showResetRound = useMemo(() => {
-    if (!session || session.phase !== 'active') return false;
-    return canResetRound(session, now);
-  }, [session, now]);
-
-  const cooldownSecondsLeft = useMemo(() => {
-    if (!session?.cooldownEndsAt) return 0;
-    return Math.max(0, Math.floor((session.cooldownEndsAt - now) / 1000));
-  }, [session, now]);
-
-  const canPursue = selectedPolice &&
-    isPoliceAvailableForPursuit(selectedPolice) &&
-    session?.phase === 'active';
-
-  const handleVehicleClick = useCallback(async (vehicle: PursuitMapVehicle) => {
+  const handleVehicleClick = useCallback((vehicle: PursuitMapVehicle) => {
     const cur = sessionRef.current;
-    const armedPolice = pursueModeRef.current;
-    if (!cur || cur.phase !== 'active') return;
-    if (deployModeRef.current) return;
+    if (!cur) return;
 
-    if (vehicle.role === 'police' && vehicle.status !== 'caught') {
-      setSelectedPoliceId(vehicle.id);
-
-      // One tap: select + arm targeting so Pursue does not require a second button press.
-      if (isPoliceAvailableForPursuit(vehicle as SimVehicle)) {
-        const policeId = vehicle.id;
-        pursueModeRef.current = policeId;
-        setPursueModePoliceId(policeId);
-        let next = armPursuit(cur, policeId);
-        setSession(next);
-        sessionRef.current = next;
-
-        if (useServer) {
-          try {
-            const { session: raw } = await pursuitExamAPI.armPursuit(userId, policeId);
-            next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
-            setSession(next);
-            sessionRef.current = next;
-          } catch {
-            setUseServer(false);
-          }
+    if (weaponModeRef.current) {
+      if (vehicle.role === 'perp' && vehicle.status === 'fleeing') {
+        const result = deployWeapon(cur, weaponModeRef.current, vehicle.id);
+        setSession(result.session);
+        sessionRef.current = result.session;
+        if (result.ok) {
+          setWeaponMode(null);
+          weaponModeRef.current = null;
         }
-      } else {
-        setPursueModePoliceId(null);
-        pursueModeRef.current = null;
       }
       return;
     }
 
-    if (vehicle.role === 'perp' && armedPolice && isPerpPursuitTarget(vehicle as SimVehicle)) {
-      const policeId = armedPolice;
-      let next = startPursuit(cur, policeId, vehicle.id);
+    const redirectId = redirectPoliceRef.current;
+    if (redirectId && vehicle.role === 'perp' && vehicle.status === 'fleeing') {
+      const next = redirectPoliceTo(cur, redirectId, vehicle.id);
       setSession(next);
       sessionRef.current = next;
-      setPursueModePoliceId(null);
-      pursueModeRef.current = null;
+      setRedirectPoliceId(null);
+      redirectPoliceRef.current = null;
       setSelectedPoliceId(null);
-
-      if (useServer) {
-        try {
-          const { session: raw } = await pursuitExamAPI.startPursuit(userId, policeId, vehicle.id);
-          next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
-          setSession(next);
-          sessionRef.current = next;
-        } catch {
-          setUseServer(false);
-        }
-      }
-    }
-  }, [useServer, userId]);
-
-  const handleArmPursue = useCallback(async () => {
-    if (!selectedPoliceId || !sessionRef.current) return;
-    const policeId = selectedPoliceId;
-    pursueModeRef.current = policeId;
-    setPursueModePoliceId(policeId);
-
-    let next = armPursuit(sessionRef.current, policeId);
-    setSession(next);
-    sessionRef.current = next;
-
-    if (useServer) {
-      try {
-        const { session: raw } = await pursuitExamAPI.armPursuit(userId, policeId);
-        next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
-        setSession(next);
-        sessionRef.current = next;
-      } catch {
-        setUseServer(false);
-      }
-    }
-  }, [selectedPoliceId, useServer, userId]);
-
-  const cancelTargeting = useCallback(() => {
-    setPursueModePoliceId(null);
-    pursueModeRef.current = null;
-    setSession((s) => (s ? { ...s, armedPoliceId: undefined } : s));
-  }, []);
-
-  const handleToggleDeploy = useCallback(() => {
-    const cur = sessionRef.current;
-    if (!cur || !canDeployReinforcement(cur)) return;
-    setDeployMode((v) => !v);
-    setPursueModePoliceId(null);
-    pursueModeRef.current = null;
-    setSelectedPoliceId(null);
-  }, []);
-
-  const handleMapClick = useCallback(async (lat: number, lng: number) => {
-    const cur = sessionRef.current;
-    if (!cur || !deployModeRef.current || !canDeployReinforcement(cur)) return;
-    // Reject taps outside the locked Olathe play area.
-    if (
-      lat < OLATHE_BOUNDS.latMin ||
-      lat > OLATHE_BOUNDS.latMax ||
-      lng < OLATHE_BOUNDS.lngMin ||
-      lng > OLATHE_BOUNDS.lngMax
-    ) {
       return;
     }
-    let next = deployPoliceAt(cur, lat, lng);
-    setSession(next);
-    sessionRef.current = next;
-    if ((next.reinforcementsLeft ?? 0) <= 0) {
-      setDeployMode(false);
+
+    if (vehicle.role === 'police') {
+      setSelectedPoliceId(vehicle.id);
+      setRedirectPoliceId(vehicle.id);
+      redirectPoliceRef.current = vehicle.id;
+      setWeaponMode(null);
+      weaponModeRef.current = null;
     }
-    if (useServer) {
-      try {
-        const { session: raw } = await pursuitExamAPI.deployPolice(userId, lat, lng);
-        next = simSessionFromAPI(raw as unknown as Record<string, unknown>);
-        setSession(next);
-        sessionRef.current = next;
-        if ((next.reinforcementsLeft ?? 0) <= 0) setDeployMode(false);
-      } catch {
-        setUseServer(false);
-      }
-    }
-  }, [useServer, userId]);
+  }, []);
+
+  const cancelTargeting = useCallback(() => {
+    setRedirectPoliceId(null);
+    redirectPoliceRef.current = null;
+    setWeaponMode(null);
+    weaponModeRef.current = null;
+  }, []);
 
   const handleLandmarkClick = useCallback((landmark: MapLandmark) => {
-    setDeployMode(false);
-    setPursueModePoliceId(null);
-    pursueModeRef.current = null;
+    cancelTargeting();
     setSelectedPoliceId(null);
     setTacticsCollapsed(false);
     setTacticsEval(null);
     tacticsEvalKeyRef.current = null;
 
     setTacticsGame((current) => {
-      // Keep an in-progress raid on another site; just bring its panel forward.
-      if (current && current.phase !== 'completed' && current.landmarkId !== landmark.id) {
-        return current;
-      }
-      // Re-open the same site if already loaded.
-      if (current && current.landmarkId === landmark.id && current.phase !== 'completed') {
-        return current;
-      }
-      // One tap: generate today's scenario and enter the raid immediately.
+      if (current && current.phase !== 'completed' && current.landmarkId !== landmark.id) return current;
+      if (current && current.landmarkId === landmark.id && current.phase !== 'completed') return current;
       return beginTacticsRaid(startLocationTactics(landmark));
     });
-  }, []);
+  }, [cancelTargeting]);
 
-  const handleResetRound = useCallback(() => {
-    const cur = sessionRef.current;
-    if (!cur || !canResetRound(cur)) return;
-    const next = resetActiveRound(cur);
-    setSession(next);
-    sessionRef.current = next;
-    setSelectedPoliceId(null);
-    setPursueModePoliceId(null);
-    pursueModeRef.current = null;
-    setDeployMode(false);
-    setAiEvaluation(null);
-    evaluatedRoundRef.current = null;
-    setTacticsGame(null);
-    setTacticsEval(null);
-    tacticsEvalKeyRef.current = null;
-  }, []);
-
-  const handleStartNextRound = useCallback(() => {
-    const cur = sessionRef.current;
-    if (!cur || (cur.phase !== 'completed' && cur.phase !== 'cooldown')) return;
-    const next = startNextRound(cur);
-    setSession(next);
-    sessionRef.current = next;
-    setSelectedPoliceId(null);
-    setPursueModePoliceId(null);
-    pursueModeRef.current = null;
-    setDeployMode(false);
-    setAiEvaluation(null);
-    evaluatedRoundRef.current = null;
-    setTacticsGame(null);
-    setTacticsEval(null);
-    tacticsEvalKeyRef.current = null;
-  }, []);
-
-  const caughtCount = perpUnits.filter((v) => v.status === 'caught').length;
-  const activePursuits = policeUnits.filter((v) => v.status === 'pursuing').length;
-  const downCount = policeUnits.filter((v) => v.status === 'down').length;
+  const vehicles = session?.vehicles ?? [];
+  const policeUnits = vehicles.filter((v) => v.role === 'police');
+  const helperUnits = policeUnits.filter((v) => v.policeKind === 'helper');
+  const squadUnits = policeUnits.filter((v) => v.policeKind !== 'helper');
+  const perpUnits = vehicles.filter((v) => v.role === 'perp');
+  const fleeingPerps = perpUnits.filter((v) => v.status === 'fleeing');
+  const selectedPolice = policeUnits.find((v) => v.id === selectedPoliceId) ?? null;
+  const activePursuits = policeUnits.filter((v) => v.status === 'chasing').length;
+  const helperSeconds = session ? helpersCountdownSec(session) : 0;
+  const helperCopy = session && helpersActive(session)
+    ? `Helpers leave in ${formatTime(helperSeconds)}`
+    : `Next helpers in ${formatTime(helperSeconds)}`;
 
   if (!session || !roadsReady) {
     return (
       <div className="page-fill items-center justify-center px-4">
         <div className="w-full max-w-sm space-y-4 text-center">
           <p className="text-neon-cyan font-display text-sm animate-pulse tracking-wide">
-            {roadsError ? 'Loading road fallback grid…' : 'Loading Olathe map…'}
+            {roadsError ? 'Loading road fallback grid...' : 'Loading Olathe map...'}
           </p>
 
           <div className="game-panel p-4 text-left space-y-3">
             <h2 className="font-display text-xs uppercase tracking-widest text-serpico-red text-center">
-              How to play
+              Endless Pursuit
             </h2>
             <ol className="space-y-2.5 text-[12px] sm:text-sm text-synth-text leading-snug">
-              <li className="flex gap-2.5">
-                <span className="font-mono text-neon-cyan flex-shrink-0 w-4">1</span>
-                <span>
-                  Start with <span className="text-serpico-blue font-semibold">1 police</span> vs{' '}
-                  <span className="text-serpico-red font-semibold">4–6 suspects</span> clustered close on the map.
-                </span>
+              <li>
+                Start with {INITIAL_SQUAD_COUNT} squad cars automatically chasing {PERP_COUNT} scattered suspects.
               </li>
-              <li className="flex gap-2.5">
-                <span className="font-mono text-neon-cyan flex-shrink-0 w-4">2</span>
-                <span>
-                  <span className="text-serpico-blue font-semibold">Tap a police</span>, then{' '}
-                  <span className="text-serpico-red font-semibold">tap a suspect</span> to chase.
-                </span>
-              </li>
-              <li className="flex gap-2.5">
-                <span className="font-mono text-neon-cyan flex-shrink-0 w-4">3</span>
-                <span>
-                  Tap <span className="text-neon-amber font-semibold">bars / clubs / factories / projects</span> for
-                  visual raids: foot chase, cover gunfight, or hide-and-seek (collapsible).
-                </span>
-              </li>
-              <li className="flex gap-2.5">
-                <span className="font-mono text-neon-cyan flex-shrink-0 w-4">4</span>
-                <span>Deploy up to 2 backup cars. Rounds last 20 minutes max.</span>
-              </li>
+              <li>Tap a police car, then tap a suspect to override that unit's target.</li>
+              <li>Use drones, robocops, or satellite lasers to instantly remove a tapped suspect for score.</li>
+              <li>{HELPER_COUNT} helper cars periodically arrive, chase, then get recalled.</li>
             </ol>
           </div>
         </div>
@@ -505,62 +280,58 @@ const InPursue: React.FC = () => {
               Pursue Exam
             </h1>
             <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate">
-              Round {session.round} · {useServer ? 'Live sim' : 'Local sim'}
+              Endless auto-chase · {helperCopy}
             </p>
           </div>
-          {session.phase === 'active' && (
-            <div className="text-right flex-shrink-0">
-              <div className="font-display text-lg sm:text-xl font-bold neon-text-cyan tabular-nums">
-                {formatTime(roundSecondsLeft)}
-              </div>
-              <div className="text-[10px] text-synth-muted uppercase tracking-wider">Time left</div>
-              <div className="mt-1.5 flex flex-col items-end gap-1">
-                {canDeployReinforcement(session) && (
-                  <button
-                    type="button"
-                    onClick={handleToggleDeploy}
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border transition-colors touch-manipulation min-h-0 min-w-0 ${
-                      deployMode
-                        ? 'border-neon-amber bg-neon-amber/30 text-neon-amber'
-                        : 'border-serpico-blue/50 bg-serpico-blue/15 text-serpico-blue hover:bg-serpico-blue/25'
-                    }`}
-                  >
-                    {deployMode ? 'Cancel deploy' : `Deploy (${session.reinforcementsLeft} left)`}
-                  </button>
-                )}
-                {showResetRound && (
-                  <button
-                    type="button"
-                    onClick={handleResetRound}
-                    className="px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-amber/50 bg-neon-amber/15 text-neon-amber hover:bg-neon-amber/25 transition-colors touch-manipulation min-h-0 min-w-0"
-                  >
-                    Reset round
-                  </button>
-                )}
-              </div>
+          <div className="text-right flex-shrink-0">
+            <div className="font-display text-lg sm:text-xl font-bold neon-text-cyan tabular-nums">
+              {session.score}
             </div>
-          )}
-        </div>
-
-        {deployMode && (
-          <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-neon-amber/50 bg-neon-amber/10">
-            <p className="text-[10px] sm:text-xs text-neon-amber font-display uppercase tracking-wide animate-pulse">
-              Tap the map to place a backup unit ({session.reinforcementsLeft} left)
-            </p>
+            <div className="text-[10px] text-synth-muted uppercase tracking-wider">Score</div>
             <button
               type="button"
-              onClick={() => setDeployMode(false)}
-              className="text-[10px] text-synth-muted hover:text-white px-2 py-0.5 min-h-0 min-w-0"
+              onClick={resetGame}
+              className="mt-1 px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border border-white/15 text-synth-muted hover:text-white touch-manipulation min-h-0 min-w-0"
             >
-              Cancel
+              Reset
             </button>
           </div>
-        )}
+        </div>
 
-        {pursueModePoliceId && !deployMode && (
+        <div className="mt-2 grid grid-cols-3 gap-1.5">
+          {weaponKinds.map((kind) => {
+            const affordable = canAffordWeapon(session, kind);
+            const active = weaponMode === kind;
+            return (
+              <button
+                key={kind}
+                type="button"
+                disabled={!affordable && !active}
+                onClick={() => {
+                  setWeaponMode((cur) => (cur === kind ? null : kind));
+                  weaponModeRef.current = weaponMode === kind ? null : kind;
+                  setRedirectPoliceId(null);
+                  redirectPoliceRef.current = null;
+                }}
+                className={`px-2 py-1 rounded-md text-[9px] sm:text-[10px] font-display uppercase tracking-wider border transition-colors touch-manipulation min-h-0 min-w-0 ${
+                  active
+                    ? 'border-neon-amber bg-neon-amber/30 text-neon-amber'
+                    : affordable
+                    ? 'border-neon-amber/45 bg-neon-amber/10 text-neon-amber hover:bg-neon-amber/20'
+                    : 'border-white/10 bg-white/5 text-synth-muted opacity-60'
+                }`}
+              >
+                <span className="block truncate">{WEAPON_LABELS[kind]}</span>
+                <span className="block font-mono opacity-80">-{WEAPON_COSTS[kind]}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {(redirectPoliceId || weaponMode) && (
           <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-neon-magenta/50 bg-neon-magenta/10">
             <p className="text-[10px] sm:text-xs text-neon-magenta font-display uppercase tracking-wide animate-pulse">
-              Lock on — tap a suspect vehicle
+              {weaponMode ? `Tap a suspect for ${WEAPON_LABELS[weaponMode]}` : 'Redirect mode - tap a suspect'}
             </p>
             <button
               type="button"
@@ -580,15 +351,26 @@ const InPursue: React.FC = () => {
           vehicles={vehicles.map(toMapVehicle)}
           landmarks={session.landmarks ?? []}
           selectedId={selectedPoliceId}
-          armedPoliceId={pursueModePoliceId || session.armedPoliceId}
-          pursueModePoliceId={pursueModePoliceId}
+          armedPoliceId={redirectPoliceId}
+          pursueModePoliceId={redirectPoliceId || (weaponMode ? 'weapon' : null)}
           fitKey={session.id}
-          deployMode={deployMode}
           activeLandmarkId={tacticsGame?.landmarkId}
           onVehicleClick={handleVehicleClick}
-          onMapClick={handleMapClick}
           onLandmarkClick={handleLandmarkClick}
         />
+
+        {session.notices.length > 0 && (
+          <div className="absolute top-2 right-2 z-[1100] w-[min(320px,calc(100%-16px))] space-y-1 pointer-events-none">
+            {session.notices.slice(-4).map((notice) => (
+              <div
+                key={notice.id}
+                className={`rounded-lg border px-2.5 py-1.5 text-[10px] sm:text-xs font-display uppercase tracking-wide shadow-lg ${noticeColor[notice.kind]}`}
+              >
+                {notice.text}
+              </div>
+            ))}
+          </div>
+        )}
 
         {tacticsGame && (
           <LocationTacticsPanel
@@ -607,200 +389,92 @@ const InPursue: React.FC = () => {
           />
         )}
 
-        {selectedPolice && session.phase === 'active' && (!tacticsGame || tacticsCollapsed) && (
-          <div className="absolute bottom-3 left-2 z-[1100] w-[min(220px,46vw)] pointer-events-auto">
-            {patrolCollapsed || pursueModePoliceId ? (
+        {selectedPolice && (!tacticsGame || tacticsCollapsed) && (
+          <div className="absolute bottom-3 left-2 z-[1100] w-[min(230px,50vw)] pointer-events-auto">
+            <div className="game-panel p-2 border border-neon-cyan/40 shadow-lg">
+              <div className="flex items-start justify-between gap-1">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] text-neon-cyan font-display uppercase tracking-wider">
+                    {selectedPolice.policeKind === 'helper' ? 'Helper unit' : 'Squad unit'}
+                  </p>
+                  <h3 className="font-display font-bold text-xs truncate">{selectedPolice.officerName}</h3>
+                  <p className="text-[9px] text-synth-muted truncate">{selectedPolice.officerRank}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPoliceId(null);
+                    cancelTargeting();
+                  }}
+                  className="text-synth-muted hover:text-white text-[10px] px-1 min-h-0 min-w-0"
+                  aria-label="Close panel"
+                >
+                  x
+                </button>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[9px] gap-1">
+                <span className="text-synth-muted truncate">{selectedPolice.vehicleModel}</span>
+                <span className="font-display font-bold text-neon-cyan flex-shrink-0">
+                  {selectedPolice.status === 'chasing' ? 'Chasing' : 'Idle'}
+                </span>
+              </div>
+              {selectedPolice.pursuingPerpId && (
+                <p className="mt-1 text-[9px] text-neon-green font-display uppercase text-center">
+                  {selectedPolice.playerAssigned ? 'Player assigned target' : 'Auto target'}
+                </p>
+              )}
               <button
                 type="button"
-                onClick={() => setPatrolCollapsed(false)}
-                className="game-panel w-full px-2.5 py-1.5 border border-neon-cyan/40 text-left"
+                onClick={() => {
+                  setRedirectPoliceId(selectedPolice.id);
+                  redirectPoliceRef.current = selectedPolice.id;
+                  setWeaponMode(null);
+                  weaponModeRef.current = null;
+                }}
+                className="mt-2 w-full px-2 py-1 rounded text-[9px] font-display uppercase tracking-wider border border-neon-cyan/50 bg-neon-cyan/15 text-neon-cyan touch-manipulation min-h-0 min-w-0"
               >
-                <p className="text-[9px] font-display uppercase tracking-wider text-neon-cyan">
-                  {pursueModePoliceId ? 'Targeting' : 'Patrol'}
-                </p>
-                <p className="text-[11px] font-bold text-white truncate">{selectedPolice.officerName}</p>
-                <p className="text-[9px] text-synth-muted">
-                  {pursueModePoliceId ? 'Tap a suspect on the map' : 'Tap to expand unit card'}
-                </p>
+                Redirect target
               </button>
-            ) : (
-              <div className="game-panel p-2 border border-neon-cyan/40 shadow-lg">
-                <div className="flex items-start justify-between gap-1">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <p className="text-[9px] text-neon-cyan font-display uppercase tracking-wider">Patrol</p>
-                      {canPursue && !pursueModePoliceId && (
-                        <button
-                          type="button"
-                          onClick={handleArmPursue}
-                          className="px-2 py-0.5 rounded text-[9px] font-display uppercase tracking-wider border border-neon-cyan/50 bg-neon-cyan/15 text-neon-cyan touch-manipulation min-h-0 min-w-0"
-                        >
-                          Pursue
-                        </button>
-                      )}
-                    </div>
-                    <h3 className="font-display font-bold text-xs truncate">{selectedPolice.officerName}</h3>
-                    <p className="text-[9px] text-synth-muted truncate">{selectedPolice.officerRank}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setPatrolCollapsed(true)}
-                      className="text-[9px] text-synth-muted hover:text-white px-1 min-h-0 min-w-0"
-                    >
-                      Hide
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setSelectedPoliceId(null); cancelTargeting(); }}
-                      className="text-synth-muted hover:text-white text-[10px] px-1 min-h-0 min-w-0"
-                      aria-label="Close panel"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-1 flex items-center justify-between text-[9px] gap-1">
-                  <span className="text-synth-muted truncate">{selectedPolice.vehicleModel}</span>
-                  <span className="font-display font-bold text-neon-cyan flex-shrink-0">
-                    {Math.round(selectedPolice.maxSpeedMph)} mph
-                  </span>
-                </div>
-                {selectedPolice.status === 'down' && (
-                  <p className="mt-1 text-[9px] text-red-400 font-display uppercase text-center">Unit down</p>
-                )}
-                {selectedPolice.status === 'pursuing' && (
-                  <p className="mt-1 text-[9px] text-neon-green font-display uppercase text-center">In pursuit</p>
-                )}
-              </div>
-            )}
+            </div>
           </div>
-        )}
-
-        {session.phase === 'completed' && session.result && (
-          <DraggableFloat
-            storageKey="pursue-result-float"
-            initial={{ x: 16, y: 48 }}
-            className="max-w-[min(340px,calc(100%-24px))]"
-          >
-            {resultCollapsed ? (
-              <button
-                type="button"
-                onClick={() => setResultCollapsed(false)}
-                className="game-panel drag-handle cursor-grab active:cursor-grabbing px-3 py-2 border border-neon-purple/50 text-left w-full"
-              >
-                <p className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Round complete · drag me</p>
-                <p className={`text-sm font-display font-bold ${
-                  session.result.outcome === 'total_win' ? 'neon-text-green' :
-                  session.result.outcome === 'partial_win' ? 'neon-text-cyan' : 'text-neon-magenta'
-                }`}>
-                  {session.result.outcome === 'total_win' ? 'Total Win' :
-                   session.result.outcome === 'partial_win' ? 'Partial Win' : 'Total Failure'}
-                  {aiEvaluation ? ` · ${aiEvaluation.grade}` : ''}
-                </p>
-                <p className="text-[10px] text-synth-muted">
-                  Caught {session.result.caught} · Escaped {session.result.escaped} · Tap to expand
-                </p>
-              </button>
-            ) : (
-              <div className="game-panel border border-neon-purple/50 max-h-[min(70vh,520px)] overflow-y-auto shadow-xl">
-                <div className="drag-handle cursor-grab active:cursor-grabbing px-3 py-2 border-b border-white/10 flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-display uppercase tracking-widest text-synth-muted">
-                      Round complete · drag to move
-                    </p>
-                    <h2 className={`text-lg font-display font-bold ${
-                      session.result.outcome === 'total_win' ? 'neon-text-green' :
-                      session.result.outcome === 'partial_win' ? 'neon-text-cyan' : 'text-neon-magenta'
-                    }`}>
-                      {session.result.outcome === 'total_win' ? 'Total Win' :
-                       session.result.outcome === 'partial_win' ? 'Partial Win' : 'Total Failure'}
-                    </h2>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setResultCollapsed(true)}
-                    className="px-2 py-1 text-[10px] font-display uppercase border border-white/15 rounded text-synth-muted hover:text-white min-h-0 min-w-0"
-                  >
-                    Collapse
-                  </button>
-                </div>
-
-                <div className="px-3 py-2 space-y-2">
-                  {evalLoading ? (
-                    <p className="text-xs text-neon-cyan animate-pulse font-display">AI grading…</p>
-                  ) : aiEvaluation ? (
-                    <div className="flex items-start gap-2">
-                      <p className="text-3xl font-display font-bold text-white leading-none">{aiEvaluation.grade}</p>
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="text-[11px] text-gray-200 leading-snug">{aiEvaluation.summary}</p>
-                        <p className="text-[10px] text-gray-400 leading-snug">{aiEvaluation.strategyAnalysis}</p>
-                        <p className="text-[10px] text-gray-400 leading-snug">{aiEvaluation.resourceAnalysis}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-3xl font-display font-bold text-white">{session.result.grade}</p>
-                  )}
-
-                  <div className="pt-2 border-t border-neon-purple/20 grid grid-cols-2 gap-1.5 text-[10px] font-display">
-                    <span className="text-synth-muted">Police used: <span className="text-white">{session.result.stats?.policeUsed ?? '—'}/{session.result.stats?.totalPolice}</span></span>
-                    <span className="text-synth-muted">Pursuits: <span className="text-white">{session.result.stats?.pursuitsLaunched ?? 0}</span></span>
-                    <span className="text-neon-green">Caught: {session.result.caught}</span>
-                    <span className="text-neon-magenta">Escaped: {session.result.escaped}</span>
-                  </div>
-
-                  {cooldownSecondsLeft > 0 ? (
-                    <p className="text-center text-[10px] text-synth-muted font-mono uppercase">
-                      Auto next in {formatTime(cooldownSecondsLeft)}
-                    </p>
-                  ) : (
-                    <p className="text-center text-[10px] text-neon-green font-mono uppercase">Ready for next round</p>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleStartNextRound}
-                    className="w-full rounded-lg border border-serpico-blue/50 bg-serpico-blue/20 px-3 py-2 text-xs font-display font-bold uppercase tracking-wide text-serpico-blue"
-                  >
-                    {cooldownSecondsLeft > 0 ? 'Start next round now' : 'Start next round'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </DraggableFloat>
         )}
       </div>
 
       <div className="game-header border-t border-neon-purple/20 p-2 sm:p-3 flex-shrink-0">
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px] sm:text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[10px] sm:text-xs">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-serpico-blue flex-shrink-0" />
-            <span className="text-synth-muted">Police</span>
-            <span className="font-bold text-serpico-blue ml-auto">{policeUnits.length}</span>
+            <span className="text-synth-muted">Squad</span>
+            <span className="font-bold text-serpico-blue ml-auto">{squadUnits.length}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-neon-cyan flex-shrink-0" />
+            <span className="text-synth-muted">Helpers</span>
+            <span className="font-bold text-neon-cyan ml-auto">{helperUnits.length}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-serpico-red flex-shrink-0" />
-            <span className="text-synth-muted">Suspects</span>
-            <span className="font-bold text-serpico-red ml-auto">{perpUnits.length}</span>
+            <span className="text-synth-muted">Fleeing</span>
+            <span className="font-bold text-serpico-red ml-auto">{fleeingPerps.length}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-neon-green flex-shrink-0" />
             <span className="text-synth-muted">Caught</span>
-            <span className="font-bold text-neon-green ml-auto">{caughtCount}</span>
+            <span className="font-bold text-neon-green ml-auto">{session.caughtTotal}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-neon-cyan flex-shrink-0" />
-            <span className="text-synth-muted">Pursuing</span>
-            <span className="font-bold text-neon-cyan ml-auto">{activePursuits}</span>
+            <span className="w-2 h-2 rounded-full bg-neon-amber flex-shrink-0" />
+            <span className="text-synth-muted">Escaped</span>
+            <span className="font-bold text-neon-amber ml-auto">{session.escapedTotal}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0" />
-            <span className="text-synth-muted">Down</span>
-            <span className="font-bold text-gray-400 ml-auto">{downCount}</span>
+            <span className="w-2 h-2 rounded-full bg-neon-purple flex-shrink-0" />
+            <span className="text-synth-muted">Chasing</span>
+            <span className="font-bold text-neon-purple ml-auto">{activePursuits}</span>
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap landmarks for on-foot raids · Collapse raid to keep vehicle chase live
+          Tap police to redirect · Tap landmarks for on-foot raids · Collapse raid to keep vehicle chase live
         </p>
       </div>
     </div>
