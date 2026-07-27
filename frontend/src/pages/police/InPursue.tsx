@@ -292,7 +292,7 @@ const InPursue: React.FC = () => {
                 <span>
                   No rounds, no clock. Once a wave is caught or gone, dispatch calls in a new one. Tap{' '}
                   <span className="text-neon-amber font-semibold">bars / clubs / factories / projects</span>{' '}
-                  for a 3-floor turn-based raid.
+                  for an on-foot turn-based raid.
                 </span>
               </li>
             </ol>
@@ -523,7 +523,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap cruiser → tap road ahead to drive · Tap landmarks for 3-floor turn raids
+          Tap cruiser → tap road ahead to drive · Tap landmarks for on-foot raids
         </p>
       </div>
     </div>
