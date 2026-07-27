@@ -1,8 +1,10 @@
 import {
   RoadNetwork,
   buildOsmRoadRoute,
+  buildRoadNodePath,
   nearestRoadNode,
   snapToNearestRoad,
+  snapToRoadSegment,
 } from './olatheRoadNetwork';
 
 /** Street grid inside the Olathe box: `size` x `size` intersections, ~55 m apart. */
@@ -46,6 +48,42 @@ describe('olathe road network', () => {
     });
     expect(snapped).toEqual(target);
     expect(nearestRoadNode(network, target).index).toBe(1234);
+  });
+
+  it('snaps to the centerline between intersections, not just to nodes', () => {
+    const a = network.nodes[0];
+    const b = network.nodes[1];
+    // Mid-block, a few meters off the centerline: on the street, far from either node.
+    const tap = { lat: (a.lat + b.lat) / 2 + 0.00002, lng: (a.lng + b.lng) / 2 };
+    const snap = snapToRoadSegment(network, tap);
+
+    expect(snap).not.toBeNull();
+    expect(snap!.distM).toBeLessThan(5);
+    expect(nearestRoadNode(network, tap).dist).toBeGreaterThan(20);
+  });
+
+  it('reports how far a tap sits from the nearest street', () => {
+    const corner = network.nodes[0];
+    // Deep inside a block, away from every centerline.
+    const snap = snapToRoadSegment(network, { lat: corner.lat + 0.00025, lng: corner.lng + 0.00025 });
+
+    expect(snap!.distM).toBeGreaterThan(15);
+  });
+
+  it('accepts a single long hop between intersections', () => {
+    const a = { lat: 38.88, lng: -94.82 };
+    const b = { lat: 38.88, lng: -94.8175 };
+    const long: RoadNetwork = {
+      nodes: [a, b],
+      adjacency: new Map([
+        [0, [{ to: 1, weight: 217 }]],
+        [1, [{ to: 0, weight: 217 }]],
+      ]),
+    };
+
+    // The plausibility filter distrusts long two-point routes; a drive order must not.
+    expect(buildOsmRoadRoute(long, a, b)).toEqual([]);
+    expect(buildRoadNodePath(long, a, b)).toEqual([a, b]);
   });
 
   it('routes corner to corner along connected roads', () => {

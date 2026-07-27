@@ -289,6 +289,68 @@ export function snapToNearestRoad(network: RoadNetwork, point: RoadPoint): RoadP
   return { ...network.nodes[index] };
 }
 
+export interface RoadSnap {
+  /** Closest point on a road centerline. */
+  point: RoadPoint;
+  /** Meters from the queried point to that centerline. */
+  distM: number;
+}
+
+/** Perpendicular projection of `point` onto segment a→b, clamped to the segment. */
+function projectOnSegment(point: RoadPoint, a: RoadPoint, b: RoadPoint): RoadPoint {
+  // Local flat projection — accurate well below the scale of a city block.
+  const scale = Math.cos(a.lat * (Math.PI / 180));
+  const ax = a.lng * scale;
+  const ay = a.lat;
+  const bx = b.lng * scale;
+  const by = b.lat;
+  const px = point.lng * scale;
+  const py = point.lat;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return { ...a };
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return { lat: ay + dy * t, lng: (ax + dx * t) / scale };
+}
+
+/**
+ * Closest point on any nearby road centerline, not just the closest road node. Node spacing
+ * follows OSM geometry vertices, so long straight roads have gaps of 100 m or more between
+ * nodes — snapping to nodes alone would call a tap in the middle of a street "off road".
+ */
+export function snapToRoadSegment(network: RoadNetwork, point: RoadPoint): RoadSnap | null {
+  const candidates = nearestRoadNodeCandidates(network, point, 8);
+  if (!candidates.length) return null;
+
+  let best: RoadSnap | null = null;
+  const consider = (a: RoadPoint, b: RoadPoint) => {
+    const proj = projectOnSegment(point, a, b);
+    const distM = haversineMeters(point.lat, point.lng, proj.lat, proj.lng);
+    if (!best || distM < best.distM) best = { point: proj, distM };
+  };
+
+  for (const candidate of candidates) {
+    const node = network.nodes[candidate.index];
+    if (!best || candidate.dist < best.distM) best = { point: { ...node }, distM: candidate.dist };
+    for (const edge of network.adjacency.get(candidate.index) || []) {
+      consider(node, network.nodes[edge.to]);
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Road path with no plausibility filtering. Every vertex is a connected road node, so this is
+ * always road-legal; use it when the caller already knows both ends sit on the network and a
+ * short two-node hop is a valid answer.
+ */
+export function buildRoadNodePath(network: RoadNetwork, start: RoadPoint, dest: RoadPoint): RoadPoint[] {
+  return findBestRoadPath(network, start, dest) ?? [];
+}
+
 /** Binary min-heap keyed by f-score — replaces sorting the open set every pop. */
 class MinHeap {
   private ids: number[] = [];
