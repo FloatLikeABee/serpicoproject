@@ -2,10 +2,54 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider } from '../../contexts/AuthContext';
 import InPursue from './InPursue';
-import { MAX_DRIVE_ORDER_M, OLATHE_BOUNDS, ensureRoadNetwork } from '../../utils/pursuitSim';
+import {
+  MAX_DRIVE_ORDER_M,
+  OLATHE_BOUNDS,
+  ROAD_TAP_TOLERANCE_M,
+  ensureRoadNetwork,
+} from '../../utils/pursuitSim';
+import { getRoadNetwork, snapToRoadSegment } from '../../utils/olatheRoadNetwork';
 import type { PursuitMapVehicle } from '../../components/PursuitMapCanvas';
 
 const STEP_DEG = 0.0025;
+
+function offsetMeters(lat: number, lng: number, meters: number, bearingDeg: number) {
+  const rad = (bearingDeg * Math.PI) / 180;
+  return {
+    lat: lat + (meters * Math.cos(rad)) / 111320,
+    lng: lng + (meters * Math.sin(rad)) / (111320 * Math.cos((lat * Math.PI) / 180)),
+  };
+}
+
+/**
+ * The drive ring is only a block wide, so the fixture has to look for a real street inside it
+ * rather than assume one lies a fixed distance north. Prefixed `mock` so the jest.mock factory
+ * below may reference it.
+ */
+function mockStreetInRing(lat: number, lng: number) {
+  const network = getRoadNetwork();
+  if (!network) return null;
+  for (let deg = 0; deg < 360; deg += 15) {
+    const aim = offsetMeters(lat, lng, MAX_DRIVE_ORDER_M * 0.7, deg);
+    const snap = snapToRoadSegment(network, aim);
+    if (snap && snap.distM <= 3) return aim;
+  }
+  return null;
+}
+
+/** A spot inside the ring that is clearly off any centerline. */
+function mockOpenGroundInRing(lat: number, lng: number) {
+  const network = getRoadNetwork();
+  if (!network) return null;
+  for (const reach of [70, 90, 110]) {
+    for (let deg = 0; deg < 360; deg += 15) {
+      const aim = offsetMeters(lat, lng, reach, deg);
+      const snap = snapToRoadSegment(network, aim);
+      if (snap && snap.distM > ROAD_TAP_TOLERANCE_M * 2) return aim;
+    }
+  }
+  return null;
+}
 
 function olatheGridResponse() {
   const lats: number[] = [];
@@ -56,8 +100,8 @@ jest.mock('../../components/PursuitMapCanvas', () => ({
           onClick={() => {
             const cop = props.vehicles.find((v) => v.id === props.driveOrderPoliceId);
             if (!cop) return;
-            // ~220 m north along a street of the synthetic grid.
-            props.onMapClick?.(cop.lat + 0.002, cop.lng);
+            const aim = mockStreetInRing(cop.lat, cop.lng);
+            if (aim) props.onMapClick?.(aim.lat, aim.lng);
           }}
         />
         <button
@@ -66,7 +110,8 @@ jest.mock('../../components/PursuitMapCanvas', () => ({
           onClick={() => {
             const cop = props.vehicles.find((v) => v.id === props.driveOrderPoliceId);
             if (!cop) return;
-            props.onMapClick?.(cop.lat + STEP_DEG / 2, cop.lng + STEP_DEG / 2);
+            const aim = mockOpenGroundInRing(cop.lat, cop.lng);
+            if (aim) props.onMapClick?.(aim.lat, aim.lng);
           }}
         />
       </div>
@@ -121,7 +166,7 @@ describe('InPursue patrol page', () => {
     await loadShift();
     fireEvent.click(policeButton());
 
-    expect(screen.getByText(new RegExp(`${MAX_DRIVE_ORDER_M} m per order`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${MAX_DRIVE_ORDER_M} m hop per tap`))).toBeInTheDocument();
     expect(screen.getByText('Holding position')).toBeInTheDocument();
     expect(lastCanvasProps!.driveOrderPoliceId).toBeTruthy();
     expect(lastCanvasProps!.driveOrderRangeM).toBe(MAX_DRIVE_ORDER_M);
@@ -137,6 +182,17 @@ describe('InPursue patrol page', () => {
     fireEvent.click(screen.getByText('Hold here'));
     await waitFor(() => expect(screen.getByText('Holding position')).toBeInTheDocument());
   });
+
+  it('parks itself at the end of a hop so the next move needs another tap', async () => {
+    await loadShift();
+    fireEvent.click(policeButton());
+    fireEvent.click(screen.getByLabelText('tap street ahead'));
+
+    await waitFor(() => expect(screen.getByText(/Rolling · \d+ m left/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Holding position')).toBeInTheDocument(), {
+      timeout: 15000,
+    });
+  }, 20000);
 
   it('calls out a refused order instead of moving', async () => {
     await loadShift();

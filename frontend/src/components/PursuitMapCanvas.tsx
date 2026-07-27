@@ -50,6 +50,9 @@ const OLATHE_LATLNG_BOUNDS = L.latLngBounds(
   [OLATHE_BOUNDS.latMax, OLATHE_BOUNDS.lngMax]
 );
 
+/** Close enough that a block-long drive ring is a comfortable tap target. */
+const DRIVE_ORDER_ZOOM = OLATHE_MAX_ZOOM;
+
 /** Hard-lock pan/zoom so the camera cannot leave the Olathe city box. */
 const OlatheMapLock: React.FC = () => {
   const map = useMap();
@@ -382,6 +385,31 @@ const FollowUnit: React.FC<{ target?: PursuitMapVehicle | null }> = ({ target })
   return null;
 };
 
+/**
+ * Taking the wheel pulls the camera in close, once per selection. The drive ring is only a block
+ * wide, so from the opening city-wide fit it would be too small to aim a tap at.
+ */
+const DriveOrderFocus: React.FC<{ unitId: string | null; lat?: number; lng?: number }> = ({
+  unitId,
+  lat,
+  lng,
+}) => {
+  const map = useMap();
+  const focusedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!unitId || lat === undefined || lng === undefined) {
+      focusedRef.current = null;
+      return;
+    }
+    if (focusedRef.current === unitId) return;
+    focusedRef.current = unitId;
+    if (map.getZoom() < DRIVE_ORDER_ZOOM) map.setView([lat, lng], DRIVE_ORDER_ZOOM, { animate: true });
+  }, [map, unitId, lat, lng]);
+
+  return null;
+};
+
 const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   center = OLATHE_CENTER,
   zoom = 15,
@@ -457,6 +485,11 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
       />
       <MapClickHandler enabled={deployMode || !!driveOrderUnit} onMapClick={onMapClick} />
       <FollowUnit target={followUnit} />
+      <DriveOrderFocus
+        unitId={driveOrderUnit?.id ?? null}
+        lat={driveOrderUnit?.lat}
+        lng={driveOrderUnit?.lng}
+      />
 
       {/* How far ahead the selected cruiser may be sent with one tap. */}
       {driveOrderUnit && driveOrderRangeM > 0 && (

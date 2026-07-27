@@ -275,8 +275,9 @@ const InPursue: React.FC = () => {
                 <span className="font-mono text-neon-cyan flex-shrink-0 w-4">2</span>
                 <span>
                   <span className="text-serpico-blue font-semibold">Tap your cruiser</span>, then tap the{' '}
-                  <span className="text-neon-cyan font-semibold">road ahead</span> — within{' '}
-                  {MAX_DRIVE_ORDER_M} m, on a street. Keep tapping to keep rolling.
+                  <span className="text-neon-cyan font-semibold">road just ahead</span> — inside the{' '}
+                  {MAX_DRIVE_ORDER_M} m ring, on a street. It drives that one short hop and parks
+                  again, so keep tapping to keep it rolling.
                 </span>
               </li>
               <li className="flex gap-2.5">
@@ -368,7 +369,7 @@ const InPursue: React.FC = () => {
         ) : selectedPolice ? (
           <div className="mt-2 flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-neon-cyan/40 bg-neon-cyan/10">
             <p className="text-[10px] sm:text-xs text-neon-cyan font-display uppercase tracking-wide">
-              Tap the road inside the ring to drive · {MAX_DRIVE_ORDER_M} m per order
+              Tap the road inside the ring · one {MAX_DRIVE_ORDER_M} m hop per tap
             </p>
             <button
               type="button"
@@ -523,7 +524,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap cruiser → tap road ahead to drive · Tap landmarks for on-foot raids
+          Tap cruiser → tap the road just ahead, hop by hop · Tap landmarks for on-foot raids
         </p>
       </div>
     </div>

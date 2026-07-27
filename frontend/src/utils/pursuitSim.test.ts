@@ -1,7 +1,8 @@
-import { getRoadNetwork } from './olatheRoadNetwork';
+import { getRoadNetwork, snapToRoadSegment } from './olatheRoadNetwork';
 import {
   MAX_DRIVE_ORDER_M,
   OLATHE_BOUNDS,
+  ROAD_TAP_TOLERANCE_M,
   SimLatLng,
   SimSession,
   SimVehicle,
@@ -70,26 +71,38 @@ function routeLength(v: SimVehicle): number {
   return total;
 }
 
-/** A real road node roughly `targetM` from `from` — the kind of point a player would tap. */
+function offsetMeters(from: SimLatLng, meters: number, bearingDeg: number): SimLatLng {
+  const rad = (bearingDeg * Math.PI) / 180;
+  return {
+    lat: from.lat + (meters * Math.cos(rad)) / 111320,
+    lng: from.lng + (meters * Math.sin(rad)) / (111320 * Math.cos((from.lat * Math.PI) / 180)),
+  };
+}
+
+/** A point sitting on a street exactly `targetM` from `from` — the kind of spot a player taps. */
 function roadPointNear(from: SimLatLng, targetM: number): SimLatLng {
   const network = getRoadNetwork();
   if (!network) throw new Error('road network not loaded');
-  let best: SimLatLng | null = null;
-  let bestErr = Infinity;
-  for (const node of network.nodes) {
-    const err = Math.abs(metersBetween(from, node) - targetM);
-    if (err < bestErr) {
-      bestErr = err;
-      best = { lat: node.lat, lng: node.lng };
-    }
+  for (let deg = 0; deg < 360; deg += 5) {
+    const candidate = offsetMeters(from, targetM, deg);
+    const snap = snapToRoadSegment(network, candidate);
+    if (snap && snap.distM <= 3) return candidate;
   }
-  if (!best) throw new Error('empty road network');
-  return best;
+  throw new Error(`no street ${targetM} m from the cruiser`);
 }
 
-/** Middle of a block in the synthetic grid — nowhere near a centerline. */
+/** A spot inside the drive ring that is well off any centerline. */
 function offRoadPointNear(from: SimLatLng): SimLatLng {
-  return { lat: from.lat + STEP_DEG / 2, lng: from.lng + STEP_DEG / 2 };
+  const network = getRoadNetwork();
+  if (!network) throw new Error('road network not loaded');
+  for (const reach of [70, 90, 110, 130]) {
+    for (let deg = 0; deg < 360; deg += 5) {
+      const candidate = offsetMeters(from, reach, deg);
+      const snap = snapToRoadSegment(network, candidate);
+      if (snap && snap.distM > ROAD_TAP_TOLERANCE_M * 2) return candidate;
+    }
+  }
+  throw new Error('no off-road point inside the ring');
 }
 
 function run(session: SimSession, seconds: number, dt = 1 / 30): SimSession {
@@ -169,7 +182,7 @@ describe('manual patrol simulation', () => {
   it('drives a tapped order along the road and parks at the end of it', () => {
     let session = createSimSession('test-user');
     const policeId = firstPolice(session).id;
-    const target = roadPointNear(firstPolice(session), 400);
+    const target = roadPointNear(firstPolice(session), MAX_DRIVE_ORDER_M * 0.8);
 
     const ordered = orderPoliceTo(session, policeId, target.lat, target.lng);
     expect(ordered.ok).toBe(true);
@@ -180,9 +193,10 @@ describe('manual patrol simulation', () => {
     // The path starts exactly under the car and stays inside one order's budget.
     expect(metersBetween(police, police.route[0])).toBeLessThan(1);
     expect(routeLength(police)).toBeLessThanOrEqual(MAX_DRIVE_ORDER_M + 1);
-    // Road-legal: no long chords between waypoints.
-    for (let i = 1; i < police.route.length; i++) {
-      expect(metersBetween(police.route[i - 1], police.route[i])).toBeLessThan(450);
+    // Road-legal: every waypoint sits on a street rather than cutting across a block.
+    const network = getRoadNetwork()!;
+    for (const point of police.route) {
+      expect(snapToRoadSegment(network, point)?.distM ?? Infinity).toBeLessThan(5);
     }
 
     const dt = 1 / 30;
@@ -201,6 +215,26 @@ describe('manual patrol simulation', () => {
     expect(remainingRouteMeters(parked)).toBe(0);
     // One frame may never advance the car further than its own speed allows.
     expect(worstJump).toBeLessThan(1.3);
+  });
+
+  it('parks again after one short hop instead of driving on by itself', () => {
+    let session = createSimSession('test-user');
+    const policeId = firstPolice(session).id;
+    const start = { lat: firstPolice(session).lat, lng: firstPolice(session).lng };
+
+    const hop = roadPointNear(start, MAX_DRIVE_ORDER_M * 0.9);
+    session = orderPoliceTo(session, policeId, hop.lat, hop.lng).session;
+
+    // A hop is short enough to be a few seconds of driving, not a cross-town route.
+    session = run(session, 12);
+    const parked = unit(session, policeId);
+    expect(parked.status).toBe('holding');
+    expect(metersBetween(start, parked)).toBeLessThanOrEqual(MAX_DRIVE_ORDER_M);
+
+    // With no further taps the cruiser stays put, however long the shift runs.
+    const restedAt = { lat: parked.lat, lng: parked.lng };
+    session = run(session, 60);
+    expect(metersBetween(restedAt, unit(session, policeId))).toBe(0);
   });
 
   it('stops a suspect that drives into a parked cruiser', () => {
@@ -249,9 +283,9 @@ describe('manual patrol simulation', () => {
   it('lets the player cancel an order and hold position', () => {
     let session = createSimSession('test-user');
     const policeId = firstPolice(session).id;
-    const target = roadPointNear(firstPolice(session), 400);
+    const target = roadPointNear(firstPolice(session), MAX_DRIVE_ORDER_M * 0.8);
     session = orderPoliceTo(session, policeId, target.lat, target.lng).session;
-    session = run(session, 2);
+    session = run(session, 1);
     expect(remainingRouteMeters(unit(session, policeId))).toBeGreaterThan(0);
 
     session = holdPolice(session, policeId);

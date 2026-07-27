@@ -39,18 +39,40 @@ function metersBetween(a: SimLatLng, b: SimLatLng) {
   return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
-function towards(from: SimLatLng, to: SimLatLng, meters: number): SimLatLng {
-  const total = metersBetween(from, to);
-  if (total <= meters) return { ...to };
-  const f = meters / total;
-  return { lat: from.lat + (to.lat - from.lat) * f, lng: from.lng + (to.lng - from.lng) * f };
+function offsetMeters(from: SimLatLng, meters: number, bearingDeg: number): SimLatLng {
+  const rad = (bearingDeg * Math.PI) / 180;
+  return {
+    lat: from.lat + (meters * Math.cos(rad)) / 111320,
+    lng: from.lng + (meters * Math.sin(rad)) / (111320 * Math.cos((from.lat * Math.PI) / 180)),
+  };
 }
 
-/** Stand-in for a player's eye: sight up the street toward the suspect, then tap it. */
-function tapPoint(cop: SimVehicle, target: SimLatLng, reach: number): SimLatLng | null {
+/**
+ * Stand-in for a player's eye: scan the streets inside the drive ring and tap whichever one
+ * closes the most ground on the suspect. Only the outer part of the ring counts, since a player
+ * reaching for the next hop aims as far up the street as the order allows.
+ */
+function tapPoint(cop: SimVehicle, target: SimLatLng): SimLatLng | null {
   const network = getRoadNetwork();
   if (!network) return null;
-  return snapToRoadSegment(network, towards(cop, target, reach))?.point ?? null;
+  const gapNow = metersBetween(cop, target);
+  let best: SimLatLng | null = null;
+  let bestGain = -Infinity;
+
+  for (const reach of [0.9, 0.7, 0.5].map((f) => MAX_DRIVE_ORDER_M * f)) {
+    for (let deg = 0; deg < 360; deg += 15) {
+      const snap = snapToRoadSegment(network, offsetMeters(cop, reach, deg));
+      if (!snap) continue;
+      const hop = metersBetween(cop, snap.point);
+      if (hop > MAX_DRIVE_ORDER_M || hop < MAX_DRIVE_ORDER_M * 0.6) continue;
+      const gain = gapNow - metersBetween(snap.point, target);
+      if (gain > bestGain) {
+        bestGain = gain;
+        best = snap.point;
+      }
+    }
+  }
+  return best;
 }
 
 interface BotRun {
@@ -76,22 +98,17 @@ function playChasingNearest(minutes: number): BotRun {
       .map((p) => ({ p, d: metersBetween(cop, p) }))
       .sort((a, b) => a.d - b.d)[0];
 
-    // Re-tap as the current order runs out, which is how the controls are meant to be used.
-    if (nearest && remainingRouteMeters(cop) < 90) {
-      let issued = false;
-      for (const reach of [0.9, 0.6, 0.3].map((f) => MAX_DRIVE_ORDER_M * f)) {
-        const aim = tapPoint(cop, nearest.p, reach);
-        if (!aim) continue;
+    // Tap again as the cruiser finishes its hop, which is how the controls are meant to be used.
+    if (nearest && remainingRouteMeters(cop) < 15) {
+      const aim = tapPoint(cop, nearest.p);
+      if (!aim) {
+        tapsWithNoUsableRoad += 1;
+      } else {
         const res = orderPoliceTo(session, policeId, aim.lat, aim.lng);
         session = res.session;
         orders += 1;
-        if (res.ok) {
-          issued = true;
-          break;
-        }
-        refusedOrders += 1;
+        if (!res.ok) refusedOrders += 1;
       }
-      if (!issued) tapsWithNoUsableRoad += 1;
     }
 
     session = tickSimSession(session, dt);
@@ -114,12 +131,15 @@ describe('hand-driven patrol is playable', () => {
     const { session, orders, refusedOrders, tapsWithNoUsableRoad } = playChasingNearest(10);
 
     expect(session.caughtTotal).toBeGreaterThanOrEqual(2);
-    // Aiming up the street always leaves a legal order to give; long sightlines that snap
-    // outside the ring are the only refusals, and a shorter tap covers them.
+    // Scanning the ring the way a player reads the street always leaves a legal hop to tap.
     expect(tapsWithNoUsableRoad).toBe(0);
-    expect(refusedOrders / orders).toBeLessThan(0.25);
+    expect(refusedOrders / orders).toBeLessThan(0.05);
     // Suspects still get away, so there is something to play for.
     expect(session.caughtTotal + session.escapedTotal).toBeGreaterThan(session.caughtTotal);
+    // Hand-driven means hand-driven: a shift is many short hops, not a few long routes.
+    const tapsPerMinute = orders / 10;
+    expect(tapsPerMinute).toBeGreaterThan(8);
+    expect(tapsPerMinute).toBeLessThan(40);
   }, 60000);
 
   it('keeps sending waves through a long shift without piling up units', () => {

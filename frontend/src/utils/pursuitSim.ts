@@ -86,12 +86,16 @@ export const MAX_POLICE_REINFORCEMENTS = 2;
 /** Suspects per wave — a fresh wave spawns as soon as the last one is resolved. */
 export const WAVE_PERP_COUNT = 5;
 
-/** Furthest a single tapped drive order may sit from the cruiser. */
-export const MAX_DRIVE_ORDER_M = 500;
+/**
+ * Furthest a single tapped drive order may sit from the cruiser. This is deliberately about a
+ * block of road: the car should cover a tapped hop in a few seconds and then wait for the next
+ * tap, rather than disappearing up a long route on its own.
+ */
+export const MAX_DRIVE_ORDER_M = 150;
 /** How far off a road centerline a tap may land and still count as "on the road". */
-export const ROAD_TAP_TOLERANCE_M = 35;
+export const ROAD_TAP_TOLERANCE_M = 30;
 /** Ignore taps basically on top of the car so a mis-tap never cancels momentum. */
-const MIN_DRIVE_ORDER_M = 25;
+const MIN_DRIVE_ORDER_M = 12;
 
 const CATCH_METERS = 60;
 const DEST_ARRIVAL_M = 45;
@@ -127,11 +131,19 @@ const MIN_VEHICLE_SPAWN_SEP_M = 100;
 /** Later waves appear around the cruiser, close enough to be reachable by hand. */
 const WAVE_SPAWN_MIN_M = 450;
 const WAVE_SPAWN_MAX_M = 1200;
-const PERP_DEST_MIN_M = 1200;
-const PERP_DEST_MAX_M = 2600;
+/**
+ * How far a suspect has to crawl before it is gone. This is the shift's only clock: suspects stay
+ * slow, but a near drop point gives the player barely two minutes to reach that one.
+ */
+const PERP_DEST_MIN_M = 800;
+const PERP_DEST_MAX_M = 1800;
 
-/** Hand-driven cruising speed, and the slow suspect roll the player has to cut off. */
-const POLICE_DRIVE_MPH = 32;
+/**
+ * Hand-driven cruising speed, and the slow suspect roll the player has to cut off. The cruiser
+ * clears a full-length tapped hop in roughly five seconds, so the move reads as an answer to the
+ * tap rather than a route the car drives off on by itself.
+ */
+const POLICE_DRIVE_MPH = 60;
 const PERP_CRUISE_MPH = 17;
 /** Reference figures the fleet tables are scaled against. */
 const POLICE_PURSUIT_REFERENCE_MPH = 85;
