@@ -240,8 +240,8 @@ html.synth-world .bg-serpico-blue.bg-opacity-10 {
 html.synth-world .from-serpico-red { --tw-gradient-from: #ff2bd6 !important; }
 html.synth-world .to-serpico-blue { --tw-gradient-to: #00f5ff !important; }
 
-/* Leaflet synth map filter */
-html.synth-world .leaflet-container {
+/* Leaflet synth map filter — tiles only, so marker and route colors stay true. */
+html.synth-world .leaflet-container .leaflet-tile-pane {
   filter: saturate(1.25) hue-rotate(200deg) brightness(0.75) contrast(1.15);
 }
 

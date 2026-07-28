@@ -179,81 +179,70 @@ const MapClickHandler: React.FC<{
   return null;
 };
 
-/** Squad and helper cruisers share the same blue look; helpers get a small H badge. */
+/**
+ * Cop markers: big solid blue discs so they read instantly against multicolor suspects.
+ * Helpers keep the same blue look with an H pip.
+ */
 const policeVehicleSvg = (
   heading: number,
   selected: boolean,
   size: number,
-  helper: boolean,
-  gradId: string
+  helper: boolean
 ) => `
   <div style="
-    transform: rotate(${heading}deg);
-    transform-origin: center center;
     width: ${size}px;
     height: ${size}px;
-    filter: drop-shadow(0 0 ${selected ? '9px' : '6px'} #3b82f6);
+    filter: drop-shadow(0 0 ${selected ? '10px' : '7px'} #1d4ed8);
     pointer-events: auto;
   ">
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">
-      <defs>
-        <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#60a5fa"/>
-          <stop offset="55%" style="stop-color:#2563eb"/>
-          <stop offset="100%" style="stop-color:#1d4ed8"/>
-        </linearGradient>
-      </defs>
-      <ellipse cx="24" cy="24" rx="22" ry="22" fill="rgba(37,99,235,0.22)" stroke="#60a5fa" stroke-width="${selected ? 3 : 2}"/>
-      <ellipse cx="24" cy="24" rx="17" ry="17" fill="rgba(14,165,233,0.12)" stroke="#93c5fd" stroke-width="1"/>
-      <path d="M9 27h30l-3-10H12l-3 10z" fill="url(#${gradId})" stroke="#eff6ff" stroke-width="1.2"/>
-      <rect x="13" y="15" width="22" height="7" rx="2" fill="#1e3a8a" stroke="#93c5fd" stroke-width="0.9"/>
-      <rect x="15" y="10" width="6" height="3.5" rx="1" fill="#ef4444"/>
-      <rect x="27" y="10" width="6" height="3.5" rx="1" fill="#38bdf8"/>
-      <circle cx="15" cy="29" r="3.4" fill="#0f172a" stroke="#93c5fd" stroke-width="1.1"/>
-      <circle cx="33" cy="29" r="3.4" fill="#0f172a" stroke="#93c5fd" stroke-width="1.1"/>
-      <polygon points="24,5 27,11 21,11" fill="#93c5fd"/>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 56 56">
+      <circle cx="28" cy="28" r="26" fill="#1d4ed8" stroke="${selected ? '#93c5fd' : '#60a5fa'}" stroke-width="${selected ? 4 : 3}"/>
+      <circle cx="28" cy="28" r="20" fill="#2563eb"/>
+      <g transform="rotate(${heading} 28 28)">
+        <path d="M14 32h28l-3.5-10H17.5L14 32z" fill="#dbeafe" stroke="#eff6ff" stroke-width="1"/>
+        <rect x="18" y="20" width="20" height="6" rx="2" fill="#1e3a8a"/>
+        <rect x="19" y="16" width="6" height="3" rx="1" fill="#ef4444"/>
+        <rect x="31" y="16" width="6" height="3" rx="1" fill="#38bdf8"/>
+        <circle cx="19" cy="34" r="3.2" fill="#0f172a"/>
+        <circle cx="37" cy="34" r="3.2" fill="#0f172a"/>
+        <polygon points="28,12 31,18 25,18" fill="#eff6ff"/>
+      </g>
       ${
         helper
-          ? `<circle cx="39" cy="10" r="6" fill="#0ea5e9" stroke="#e0f2fe" stroke-width="1.2"/>
-             <text x="39" y="13" text-anchor="middle" fill="#fff" font-size="8" font-weight="700">H</text>`
-          : ''
+          ? `<circle cx="44" cy="12" r="9" fill="#0ea5e9" stroke="#e0f2fe" stroke-width="2"/>
+             <text x="44" y="16" text-anchor="middle" fill="#fff" font-size="11" font-weight="800" font-family="Arial,sans-serif">H</text>`
+          : `<text x="28" y="50" text-anchor="middle" fill="#dbeafe" font-size="8" font-weight="800" font-family="Arial,sans-serif">COP</text>`
       }
     </svg>
   </div>`;
 
+/** Suspect markers: smaller discs tinted with each perp's own color. */
 const perpVehicleSvg = (
   heading: number,
   pursued: boolean,
   lockOn: boolean,
   size: number,
-  tint = '#ff2bd6',
-  gradId = 'perpBody'
+  tint = '#ff2bd6'
 ) => {
-  const outer = lockOn ? size + 8 : size;
+  const outer = lockOn ? size + 10 : size;
   return `
   <div style="
-    transform: rotate(${heading}deg);
-    transform-origin: center center;
     width: ${outer}px;
     height: ${outer}px;
-    filter: drop-shadow(0 0 ${lockOn ? `8px ${tint}` : pursued ? `5px ${tint}` : `3px ${tint}99`});
+    filter: drop-shadow(0 0 ${lockOn || pursued ? '8px' : '4px'} ${tint});
     pointer-events: auto;
     cursor: ${lockOn ? 'crosshair' : 'pointer'};
   ">
-    ${lockOn ? `<div style="position:absolute;inset:-3px;border:2px dashed ${tint};border-radius:50%;animation:pulse 1s infinite;"></div>` : ''}
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 40 40" style="margin:${lockOn ? '4px' : '0'}">
-      <defs>
-        <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${tint}"/>
-          <stop offset="100%" style="stop-color:#7f1d1d"/>
-        </linearGradient>
-      </defs>
-      <ellipse cx="20" cy="20" rx="17" ry="17" fill="${tint}18" stroke="${tint}" stroke-width="${lockOn || pursued ? 2 : 1.2}"/>
-      <path d="M9 22h22l-2-7H11l-2 7z" fill="url(#${gradId})" stroke="#fff" stroke-width="0.8"/>
-      <rect x="12" y="13" width="16" height="5" rx="1.5" fill="#292524" stroke="${tint}" stroke-width="0.7"/>
-      <circle cx="13" cy="24" r="2.4" fill="#111" stroke="${tint}" stroke-width="0.8"/>
-      <circle cx="27" cy="24" r="2.4" fill="#111" stroke="${tint}" stroke-width="0.8"/>
-      ${pursued ? `<text x="20" y="8" text-anchor="middle" fill="${tint}" font-size="7" font-weight="bold">!</text>` : ''}
+    ${lockOn ? `<div style="position:absolute;inset:0;border:2px dashed ${tint};border-radius:50%;animation:pulse 1s infinite;"></div>` : ''}
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 40 40" style="margin:${lockOn ? '5px' : '0'}">
+      <circle cx="20" cy="20" r="18" fill="${tint}" stroke="#fff" stroke-width="${pursued || lockOn ? 2.5 : 1.5}" opacity="0.95"/>
+      <g transform="rotate(${heading} 20 20)">
+        <path d="M9 23h22l-2.2-7H11.2L9 23z" fill="#111827" opacity="0.85"/>
+        <rect x="12" y="14" width="16" height="4.5" rx="1.2" fill="#0f172a"/>
+        <circle cx="13" cy="25" r="2.2" fill="#020617"/>
+        <circle cx="27" cy="25" r="2.2" fill="#020617"/>
+      </g>
+      ${pursued ? `<text x="20" y="11" text-anchor="middle" fill="#fff" font-size="8" font-weight="800">!</text>` : ''}
     </svg>
   </div>`;
 };
@@ -271,12 +260,12 @@ const escapedOverlay = (size: number) => `
   </div>`;
 
 function iconSizeForZoom(zoom: number) {
-  return Math.round(Math.max(12, Math.min(22, 6 + zoom * 0.75)));
+  return Math.round(Math.max(14, Math.min(24, 8 + zoom * 0.85)));
 }
 
-/** Police markers read larger and more special than suspect cars. */
+/** Police markers are deliberately much larger than suspects. */
 function policeIconSize(base: number) {
-  return Math.round(base * 1.65);
+  return Math.round(base * 2.15);
 }
 
 function buildIcon(
@@ -303,15 +292,13 @@ function buildIcon(
     });
   }
 
-  const safeId = vehicle.id.replace(/[^a-zA-Z0-9_-]/g, '');
   if (vehicle.role === 'police') {
     const size = policeIconSize(iconSize);
     const html = policeVehicleSvg(
       vehicle.heading,
       selected || armed,
       size,
-      vehicle.policeKind === 'helper',
-      `pol-${safeId}`
+      vehicle.policeKind === 'helper'
     );
     return L.divIcon({
       className: 'custom-marker pursuit-vehicle-marker',
@@ -326,10 +313,9 @@ function buildIcon(
     vehicle.beingPursued || false,
     pursueTarget,
     iconSize,
-    vehicle.color,
-    `perp-${safeId}`
+    vehicle.color
   );
-  const size = pursueTarget ? iconSize + 8 : iconSize;
+  const size = pursueTarget ? iconSize + 10 : iconSize;
   return L.divIcon({
     className: 'custom-marker pursuit-vehicle-marker',
     html,
