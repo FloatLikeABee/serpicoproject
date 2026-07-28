@@ -13,6 +13,7 @@ import {
   SimVehicle,
   WEAPON_COSTS,
   WEAPON_LABELS,
+  WEAPON_SHORT_LABELS,
   WeaponKind,
   canAffordWeapon,
   createSimSession,
@@ -41,6 +42,7 @@ function toMapVehicle(v: SimVehicle): PursuitMapVehicle {
   return {
     id: v.id,
     role: v.role,
+    policeKind: v.policeKind,
     lat: v.lat,
     lng: v.lng,
     heading: v.heading,
@@ -277,7 +279,7 @@ const InPursue: React.FC = () => {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-display font-bold text-serpico-red tracking-wide">
-              Pursue Exam
+              Patrol Shift
             </h1>
             <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate">
               Endless auto-chase · {helperCopy}
@@ -321,7 +323,7 @@ const InPursue: React.FC = () => {
                     : 'border-white/10 bg-white/5 text-synth-muted opacity-60'
                 }`}
               >
-                <span className="block truncate">{WEAPON_LABELS[kind]}</span>
+                <span className="block truncate">{WEAPON_SHORT_LABELS[kind]}</span>
                 <span className="block font-mono opacity-80">-{WEAPON_COSTS[kind]}</span>
               </button>
             );

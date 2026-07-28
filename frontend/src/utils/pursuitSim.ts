@@ -92,6 +92,13 @@ export const WEAPON_LABELS: Record<WeaponKind, string> = {
   laser: 'Satellite lasers',
 };
 
+/** Compact button labels for the toolbar. */
+export const WEAPON_SHORT_LABELS: Record<WeaponKind, string> = {
+  drone: 'Drones',
+  robocop: 'Robocops',
+  laser: 'Sat Laser',
+};
+
 /** Playable Olathe city box — map pan/zoom is locked to this. */
 export const OLATHE_BOUNDS = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
 export const OLATHE_CENTER: [number, number] = [38.8814, -94.8191];

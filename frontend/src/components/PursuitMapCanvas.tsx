@@ -13,6 +13,7 @@ import {
 export interface PursuitMapVehicle {
   id: string;
   role: 'police' | 'perp';
+  policeKind?: 'squad' | 'helper';
   lat: number;
   lng: number;
   heading: number;
@@ -23,6 +24,7 @@ export interface PursuitMapVehicle {
   routeIndex?: number;
   routeProgress?: number;
   destination?: { lat: number; lng: number };
+  /** Suspect tint — never blue. */
   color?: string;
 }
 
@@ -177,51 +179,56 @@ const MapClickHandler: React.FC<{
   return null;
 };
 
-const policeDownSvg = (heading: number, size: number) => `
+/** Squad and helper cruisers share the same blue look; helpers get a small H badge. */
+const policeVehicleSvg = (
+  heading: number,
+  selected: boolean,
+  size: number,
+  helper: boolean,
+  gradId: string
+) => `
   <div style="
     transform: rotate(${heading}deg);
     transform-origin: center center;
     width: ${size}px;
     height: ${size}px;
-    filter: drop-shadow(0 0 4px rgba(100,100,100,0.5));
-    opacity: 0.65;
+    filter: drop-shadow(0 0 ${selected ? '9px' : '6px'} #3b82f6);
     pointer-events: auto;
   ">
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 44 44">
-      <ellipse cx="22" cy="22" rx="20" ry="20" fill="rgba(80,80,80,0.2)" stroke="#666" stroke-width="1.5" stroke-dasharray="4 3"/>
-      <path d="M10 24h24l-2.5-8H12.5l-2.5 8z" fill="#444" stroke="#888" stroke-width="1"/>
-      <text x="22" y="20" text-anchor="middle" fill="#ef4444" font-size="10" font-weight="bold">✕</text>
-    </svg>
-  </div>`;
-
-const policeVehicleSvg = (heading: number, glow: string, selected: boolean, size: number) => `
-  <div style="
-    transform: rotate(${heading}deg);
-    transform-origin: center center;
-    width: ${size}px;
-    height: ${size}px;
-    filter: drop-shadow(0 0 ${selected ? '6px' : '4px'} ${glow});
-    pointer-events: auto;
-  ">
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 44 44">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">
       <defs>
-        <linearGradient id="polBody" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#00f5ff"/>
-          <stop offset="100%" style="stop-color:#2563eb"/>
+        <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#60a5fa"/>
+          <stop offset="55%" style="stop-color:#2563eb"/>
+          <stop offset="100%" style="stop-color:#1d4ed8"/>
         </linearGradient>
       </defs>
-      <ellipse cx="22" cy="22" rx="20" ry="20" fill="rgba(0,245,255,0.15)" stroke="#00f5ff" stroke-width="${selected ? 2.5 : 1.5}"/>
-      <path d="M10 24h24l-2.5-8H12.5l-2.5 8z" fill="url(#polBody)" stroke="#fff" stroke-width="1"/>
-      <rect x="13" y="14" width="18" height="6" rx="2" fill="#1e3a8a" stroke="#00f5ff" stroke-width="0.8"/>
-      <rect x="15" y="10" width="5" height="3" rx="1" fill="#ef4444"/>
-      <rect x="24" y="10" width="5" height="3" rx="1" fill="#3b82f6"/>
-      <circle cx="14" cy="26" r="3" fill="#111" stroke="#00f5ff" stroke-width="1"/>
-      <circle cx="30" cy="26" r="3" fill="#111" stroke="#00f5ff" stroke-width="1"/>
-      <polygon points="22,6 24,10 20,10" fill="#00f5ff" opacity="0.9"/>
+      <ellipse cx="24" cy="24" rx="22" ry="22" fill="rgba(37,99,235,0.22)" stroke="#60a5fa" stroke-width="${selected ? 3 : 2}"/>
+      <ellipse cx="24" cy="24" rx="17" ry="17" fill="rgba(14,165,233,0.12)" stroke="#93c5fd" stroke-width="1"/>
+      <path d="M9 27h30l-3-10H12l-3 10z" fill="url(#${gradId})" stroke="#eff6ff" stroke-width="1.2"/>
+      <rect x="13" y="15" width="22" height="7" rx="2" fill="#1e3a8a" stroke="#93c5fd" stroke-width="0.9"/>
+      <rect x="15" y="10" width="6" height="3.5" rx="1" fill="#ef4444"/>
+      <rect x="27" y="10" width="6" height="3.5" rx="1" fill="#38bdf8"/>
+      <circle cx="15" cy="29" r="3.4" fill="#0f172a" stroke="#93c5fd" stroke-width="1.1"/>
+      <circle cx="33" cy="29" r="3.4" fill="#0f172a" stroke="#93c5fd" stroke-width="1.1"/>
+      <polygon points="24,5 27,11 21,11" fill="#93c5fd"/>
+      ${
+        helper
+          ? `<circle cx="39" cy="10" r="6" fill="#0ea5e9" stroke="#e0f2fe" stroke-width="1.2"/>
+             <text x="39" y="13" text-anchor="middle" fill="#fff" font-size="8" font-weight="700">H</text>`
+          : ''
+      }
     </svg>
   </div>`;
 
-const perpVehicleSvg = (heading: number, pursued: boolean, lockOn: boolean, size: number, tint = '#ff2bd6') => {
+const perpVehicleSvg = (
+  heading: number,
+  pursued: boolean,
+  lockOn: boolean,
+  size: number,
+  tint = '#ff2bd6',
+  gradId = 'perpBody'
+) => {
   const outer = lockOn ? size + 8 : size;
   return `
   <div style="
@@ -229,24 +236,24 @@ const perpVehicleSvg = (heading: number, pursued: boolean, lockOn: boolean, size
     transform-origin: center center;
     width: ${outer}px;
     height: ${outer}px;
-    filter: drop-shadow(0 0 ${lockOn ? `8px ${tint}` : pursued ? `6px ${tint}` : `4px ${tint}99`});
+    filter: drop-shadow(0 0 ${lockOn ? `8px ${tint}` : pursued ? `5px ${tint}` : `3px ${tint}99`});
     pointer-events: auto;
     cursor: ${lockOn ? 'crosshair' : 'pointer'};
   ">
     ${lockOn ? `<div style="position:absolute;inset:-3px;border:2px dashed ${tint};border-radius:50%;animation:pulse 1s infinite;"></div>` : ''}
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 44 44" style="margin:${lockOn ? '4px' : '0'}">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 40 40" style="margin:${lockOn ? '4px' : '0'}">
       <defs>
-        <linearGradient id="perpBody" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" style="stop-color:${tint}"/>
-          <stop offset="100%" style="stop-color:#991b1b"/>
+          <stop offset="100%" style="stop-color:#7f1d1d"/>
         </linearGradient>
       </defs>
-      <ellipse cx="22" cy="22" rx="20" ry="20" fill="${tint}22" stroke="${tint}" stroke-width="${lockOn || pursued ? 2.5 : 1.5}"/>
-      <path d="M10 24h24l-2.5-8H12.5l-2.5 8z" fill="url(#perpBody)" stroke="#fff" stroke-width="1"/>
-      <rect x="13" y="14" width="18" height="6" rx="2" fill="#450a0a" stroke="${tint}" stroke-width="0.8"/>
-      <circle cx="14" cy="26" r="3" fill="#111" stroke="${tint}" stroke-width="1"/>
-      <circle cx="30" cy="26" r="3" fill="#111" stroke="${tint}" stroke-width="1"/>
-      ${pursued ? `<text x="22" y="8" text-anchor="middle" fill="${tint}" font-size="8" font-weight="bold">!</text>` : ''}
+      <ellipse cx="20" cy="20" rx="17" ry="17" fill="${tint}18" stroke="${tint}" stroke-width="${lockOn || pursued ? 2 : 1.2}"/>
+      <path d="M9 22h22l-2-7H11l-2 7z" fill="url(#${gradId})" stroke="#fff" stroke-width="0.8"/>
+      <rect x="12" y="13" width="16" height="5" rx="1.5" fill="#292524" stroke="${tint}" stroke-width="0.7"/>
+      <circle cx="13" cy="24" r="2.4" fill="#111" stroke="${tint}" stroke-width="0.8"/>
+      <circle cx="27" cy="24" r="2.4" fill="#111" stroke="${tint}" stroke-width="0.8"/>
+      ${pursued ? `<text x="20" y="8" text-anchor="middle" fill="${tint}" font-size="7" font-weight="bold">!</text>` : ''}
     </svg>
   </div>`;
 };
@@ -264,7 +271,12 @@ const escapedOverlay = (size: number) => `
   </div>`;
 
 function iconSizeForZoom(zoom: number) {
-  return Math.round(Math.max(14, Math.min(26, 8 + zoom * 0.85)));
+  return Math.round(Math.max(12, Math.min(22, 6 + zoom * 0.75)));
+}
+
+/** Police markers read larger and more special than suspect cars. */
+function policeIconSize(base: number) {
+  return Math.round(base * 1.65);
 }
 
 function buildIcon(
@@ -290,20 +302,34 @@ function buildIcon(
       iconAnchor: [iconSize / 2, iconSize / 2],
     });
   }
-  if (vehicle.role === 'police' && vehicle.status === 'down') {
+
+  const safeId = vehicle.id.replace(/[^a-zA-Z0-9_-]/g, '');
+  if (vehicle.role === 'police') {
+    const size = policeIconSize(iconSize);
+    const html = policeVehicleSvg(
+      vehicle.heading,
+      selected || armed,
+      size,
+      vehicle.policeKind === 'helper',
+      `pol-${safeId}`
+    );
     return L.divIcon({
       className: 'custom-marker pursuit-vehicle-marker',
-      html: policeDownSvg(vehicle.heading, iconSize),
-      iconSize: [iconSize, iconSize],
-      iconAnchor: [iconSize / 2, iconSize / 2],
+      html,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
     });
   }
-  const isPolice = vehicle.role === 'police';
-  const html = isPolice
-    ? policeVehicleSvg(vehicle.heading, armed ? '#00f5ff' : '#2563eb', selected || armed, iconSize)
-    : perpVehicleSvg(vehicle.heading, vehicle.beingPursued || false, pursueTarget, iconSize, vehicle.color);
 
-  const size = !isPolice && pursueTarget ? iconSize + 8 : iconSize;
+  const html = perpVehicleSvg(
+    vehicle.heading,
+    vehicle.beingPursued || false,
+    pursueTarget,
+    iconSize,
+    vehicle.color,
+    `perp-${safeId}`
+  );
+  const size = pursueTarget ? iconSize + 8 : iconSize;
   return L.divIcon({
     className: 'custom-marker pursuit-vehicle-marker',
     html,
@@ -329,7 +355,7 @@ const MovingVehicleMarker: React.FC<{
     marker.setLatLng([vehicle.lat, vehicle.lng]);
     marker.setIcon(buildIcon(vehicle, selected, armed, pursueTarget, iconSize));
     marker.setZIndexOffset(pursueTarget ? 2000 : selected || armed ? 1000 : vehicle.role === 'police' ? 500 : 400);
-  }, [vehicle.lat, vehicle.lng, vehicle.heading, vehicle.status, vehicle.beingPursued, vehicle.color, selected, armed, pursueTarget, vehicle, iconSize]);
+  }, [vehicle.lat, vehicle.lng, vehicle.heading, vehicle.status, vehicle.beingPursued, vehicle.color, vehicle.policeKind, selected, armed, pursueTarget, vehicle, iconSize]);
 
   return (
     <Marker
