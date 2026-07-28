@@ -139,31 +139,13 @@ describe('endless auto-chase pursuit', () => {
 
   it('scores catches when a chasing cruiser closes the gap', () => {
     let session = createSimSession('test');
-    const police = session.vehicles.find((v) => v.role === 'police')!;
-    const perp = session.vehicles.find((v) => v.id === police.pursuingPerpId)!;
+    const startScore = session.score;
 
-    // Park the suspect under the cruiser so the next tick resolves the stop.
-    session = {
-      ...session,
-      vehicles: session.vehicles.map((v) =>
-        v.id === perp.id
-          ? {
-              ...v,
-              lat: police.lat,
-              lng: police.lng,
-              route: [
-                { lat: police.lat, lng: police.lng },
-                { lat: police.lat + 0.0001, lng: police.lng },
-              ],
-              routeIndex: 0,
-              routeProgress: 0,
-            }
-          : v
-      ),
-    };
+    for (let i = 0; i < 9000 && session.caughtTotal === 0; i += 1) {
+      session = tickSimSession(session, 1 / 30);
+    }
 
-    session = tickSimSession(session, 1 / 30);
     expect(session.caughtTotal).toBeGreaterThanOrEqual(1);
-    expect(session.score).toBeGreaterThanOrEqual(BASE_SCORE + CATCH_SCORE);
+    expect(session.score).toBeGreaterThanOrEqual(startScore + CATCH_SCORE);
   });
 });
