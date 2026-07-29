@@ -2,9 +2,12 @@ import React, { useEffect, useMemo } from 'react';
 import {
   LocationAIEvaluation,
   LocationTacticsGame,
+  MOVE_BLOCKS_PER_TURN,
+  SHOOT_RANGE_BLOCKS,
   reachableCells,
   selectTacticsOfficer,
   shootTargets,
+  tacticsCancelOfficer,
   tacticsInteractCell,
   tacticsWait,
   tickBullets,
@@ -36,6 +39,9 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
   onClose,
 }) => {
   const selected = game.units.find((u) => u.id === game.selectedUnitId && u.side === 'cop');
+  const activeCops = game.units.filter((u) => u.side === 'cop' && u.status === 'active');
+  const actedSet = useMemo(() => new Set(game.actedOfficerIds ?? []), [game.actedOfficerIds]);
+  const pendingOfficers = activeCops.filter((o) => !actedSet.has(o.id)).length;
   const reach = useMemo(
     () => (selected && game.phase === 'active' ? reachableCells(game, selected.id) : []),
     [game, selected]
@@ -129,41 +135,62 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                 <span className="text-neon-green">Caught {caught}</span>
                 <span className="text-neon-magenta">Loose {activePerps}</span>
                 <span className="text-gray-400">Esc {escaped}</span>
+                <span className="text-neon-amber">
+                  {pendingOfficers} officer{pendingOfficers === 1 ? '' : 's'} left
+                </span>
                 {selected && (
-                  <span className="text-neon-amber">
-                    AP {selected.ap}
-                    {game.mode === 'gunfight' ? ` · Ammo ${selected.ammo}` : ''}
+                  <span className="text-gray-300">
+                    {actedSet.has(selected.id) ? 'Acted' : '1 block / hold'}
+                    {game.mode === 'gunfight' && selected.status === 'active' ? ` · Ammo ${selected.ammo}` : ''}
                   </span>
                 )}
               </div>
 
+              <p className="text-[9px] text-synth-muted px-1 leading-snug">
+                Turn-based: each officer moves {MOVE_BLOCKS_PER_TURN} block, shoots (≤{SHOOT_RANGE_BLOCKS} blocks), or holds — then suspects push toward the main entrance (IN).
+              </p>
+
               <div className="flex flex-wrap gap-1 px-1">
                 {game.units
                   .filter((u) => u.side === 'cop')
-                  .map((o) => (
-                    <button
-                      key={o.id}
-                      type="button"
-                      disabled={o.status !== 'active'}
-                      onClick={() => onChange(selectTacticsOfficer(game, o.id))}
-                      className={`px-2 py-1 rounded text-[10px] border min-h-0 min-w-0 ${
-                        o.status !== 'active'
-                          ? 'border-gray-600 text-gray-500'
-                          : selected?.id === o.id
-                          ? 'border-neon-cyan bg-neon-cyan/20 text-neon-cyan'
-                          : 'border-white/15 text-gray-200'
-                      }`}
-                    >
-                      {o.name}
-                      {o.status !== 'active' ? ' (down)' : ''}
-                    </button>
-                  ))}
+                  .map((o) => {
+                    const acted = actedSet.has(o.id);
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        disabled={o.status !== 'active' || acted}
+                        onClick={() => onChange(selectTacticsOfficer(game, o.id))}
+                        className={`px-2 py-1 rounded text-[10px] border min-h-0 min-w-0 ${
+                          o.status !== 'active'
+                            ? 'border-gray-600 text-gray-500'
+                            : acted
+                            ? 'border-white/10 text-gray-500'
+                            : selected?.id === o.id
+                            ? 'border-neon-cyan bg-neon-cyan/20 text-neon-cyan'
+                            : 'border-white/15 text-gray-200'
+                        }`}
+                      >
+                        {o.name}
+                        {o.status !== 'active' ? ' (down)' : acted ? ' ✓' : ''}
+                      </button>
+                    );
+                  })}
+                {selected && selected.status === 'active' && !actedSet.has(selected.id) && (
+                  <button
+                    type="button"
+                    onClick={() => onChange(tacticsCancelOfficer(game, selected.id))}
+                    className="px-2 py-1 rounded text-[10px] border border-neon-amber/40 text-neon-amber min-h-0 min-w-0"
+                  >
+                    Hold
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onChange(tacticsWait(game))}
                   className="px-2 py-1 rounded text-[10px] border border-white/15 text-gray-300 min-h-0 min-w-0"
                 >
-                  End turn
+                  End round
                 </button>
               </div>
 
@@ -205,6 +232,11 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                         {cell.kind === 'exit' && !fog && (
                           <span className="absolute inset-0 flex items-center justify-center text-[8px] text-red-200 font-bold">
                             E
+                          </span>
+                        )}
+                        {cell.kind === 'spawn' && !fog && (
+                          <span className="absolute inset-0 flex items-center justify-center text-[8px] text-cyan-100 font-bold">
+                            IN
                           </span>
                         )}
                       </button>
@@ -272,7 +304,8 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                 <span><i className="inline-block w-2 h-2 rounded-sm bg-cyan-400 mr-1" />Cops</span>
                 <span><i className="inline-block w-2 h-2 rounded-sm bg-pink-400 mr-1" />Perps (when spotted)</span>
                 <span><i className="inline-block w-2 h-2 rounded-sm bg-stone-500 mr-1" />Cover</span>
-                <span><i className="inline-block w-2 h-2 rounded-sm bg-red-900 mr-1" />Exit</span>
+                <span><i className="inline-block w-2 h-2 rounded-sm bg-cyan-950 mr-1 border border-cyan-400/40" />Main entrance (IN)</span>
+                <span><i className="inline-block w-2 h-2 rounded-sm bg-red-900 mr-1" />Side exit</span>
               </div>
 
               <ul className="space-y-0.5 max-h-20 overflow-y-auto px-1">
