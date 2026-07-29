@@ -520,16 +520,18 @@ func (s *MysteriesService) ListCases(category string) ([]MysteryCase, error) {
 		return nil, err
 	}
 	// First visitors often hit an empty DB while bootstrap is still running.
+	// Never block the HTTP request on a full AI news scan — seed instantly and refresh async.
 	if len(list) == 0 {
-		_ = s.RefreshCases(true)
+		_ = s.ensureStarterCases()
 		list, err = s.queryCases(category)
 		if err != nil {
 			return nil, err
 		}
-		if len(list) == 0 {
-			_ = s.ensureStarterCases()
-			list, err = s.queryCases(category)
-		}
+		go func() {
+			if refreshErr := s.RefreshCases(true); refreshErr != nil {
+				log.Printf("mysteries: background cases refresh: %v", refreshErr)
+			}
+		}()
 	}
 	return list, err
 }
@@ -905,15 +907,16 @@ func (s *MysteriesService) ListBriefings(limit int) ([]MysteryBriefing, error) {
 		return nil, err
 	}
 	if len(list) == 0 {
-		_ = s.RefreshBriefing(true)
+		_ = s.ensureStarterBriefing()
 		list, err = s.queryBriefings(limit)
 		if err != nil {
 			return nil, err
 		}
-		if len(list) == 0 {
-			_ = s.ensureStarterBriefing()
-			list, err = s.queryBriefings(limit)
-		}
+		go func() {
+			if refreshErr := s.RefreshBriefing(true); refreshErr != nil {
+				log.Printf("mysteries: background briefing refresh: %v", refreshErr)
+			}
+		}()
 	}
 	return list, err
 }

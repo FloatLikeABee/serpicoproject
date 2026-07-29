@@ -71,6 +71,7 @@ const Mysteries: React.FC = () => {
   const [insights, setInsights] = useState<MysteryInsight[]>([]);
   const [status, setStatus] = useState<MysteriesStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bootstrapping, setBootstrapping] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -98,44 +99,60 @@ const Mysteries: React.FC = () => {
     if (!opts?.silent) setLoading(true);
     setError('');
     try {
-      let [casesRes, briefRes, insightRes] = await Promise.all([
-        mysteriesAPI.listCases(caseFilter),
+      // Always fetch the full case list once — category tabs filter client-side.
+      const [casesRes, briefRes, insightRes] = await Promise.all([
+        mysteriesAPI.listCases('all'),
         mysteriesAPI.listBriefings(),
         mysteriesAPI.listInsights(),
       ]);
+      applyPayload(casesRes, briefRes, insightRes);
+      // Drop the blocking overlay as soon as the first payload lands.
+      if (!opts?.silent) setLoading(false);
 
-      // If the desk is still empty (bootstrap / news scan), kick a refresh and poll briefly.
       const needCases = (casesRes.cases || []).length === 0;
       const needBriefs = (briefRes.briefings || []).length === 0 && !briefRes.latest;
-      if (needCases || needBriefs) {
-        try {
-          if (needCases) await mysteriesAPI.refreshCases();
-          if (needBriefs) await mysteriesAPI.refreshBriefing();
-        } catch {
-          /* ignore */
-        }
-        for (let i = 0; i < 8; i++) {
-          await new Promise((r) => setTimeout(r, 2000));
-          const [c2, b2] = await Promise.all([
-            mysteriesAPI.listCases(caseFilter),
-            mysteriesAPI.listBriefings(),
-          ]);
-          casesRes = c2;
-          briefRes = b2;
-          const casesReady = (casesRes.cases || []).length > 0;
-          const briefsReady = (briefRes.briefings || []).length > 0 || !!briefRes.latest;
-          if ((!needCases || casesReady) && (!needBriefs || briefsReady)) break;
-        }
+      const alreadyRefreshing = !!(casesRes.status?.casesRefreshing || briefRes.status?.briefingRefreshing);
+
+      if (!needCases && !needBriefs && !alreadyRefreshing) {
+        setBootstrapping(false);
+        return;
       }
 
-      applyPayload(casesRes, briefRes, insightRes);
+      // Kick AI refresh in the background — never block the UI for the scan.
+      setBootstrapping(true);
+      try {
+        if (needCases || casesRes.status?.casesRefreshing) await mysteriesAPI.refreshCases();
+        if (needBriefs || briefRes.status?.briefingRefreshing) await mysteriesAPI.refreshBriefing();
+      } catch {
+        /* ignore — status poll will surface progress */
+      }
+
+      for (let i = 0; i < 6; i++) {
+        await new Promise((r) => setTimeout(r, 1500));
+        try {
+          const [c2, b2, i2] = await Promise.all([
+            mysteriesAPI.listCases('all'),
+            mysteriesAPI.listBriefings(),
+            mysteriesAPI.listInsights(),
+          ]);
+          applyPayload(c2, b2, i2);
+          const casesReady = (c2.cases || []).length > 0;
+          const briefsReady = (b2.briefings || []).length > 0 || !!b2.latest;
+          const stillScanning = !!(c2.status?.casesRefreshing || b2.status?.briefingRefreshing);
+          if (casesReady && briefsReady && !stillScanning) break;
+          if (casesReady && briefsReady && i >= 2) break;
+        } catch {
+          break;
+        }
+      }
+      setBootstrapping(false);
     } catch (err) {
       console.error(err);
       setError('Unable to reach the Board desk. Check backend connection.');
-    } finally {
+      setBootstrapping(false);
       if (!opts?.silent) setLoading(false);
     }
-  }, [applyPayload, caseFilter]);
+  }, [applyPayload]);
 
   useEffect(() => {
     loadAll();
@@ -155,6 +172,9 @@ const Mysteries: React.FC = () => {
   }, [cases, caseFilter]);
 
   const showOverlay = loading;
+
+  const scanning =
+    bootstrapping || !!(status?.casesRefreshing || status?.briefingRefreshing);
 
   const onSubmitInsight = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,9 +230,7 @@ const Mysteries: React.FC = () => {
           <div className="mx-4 w-full max-w-sm rounded-2xl border border-serpico-blue/30 bg-black/60 px-6 py-8 text-center shadow-[0_0_40px_rgba(0,245,255,0.15)]">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-serpico-blue/30 border-t-serpico-blue" />
             <p className="font-display text-sm font-semibold tracking-wide text-white">Loading Board</p>
-            <p className="mt-2 text-xs text-gray-400">
-              Scanning recent US missing-person, cold-case, and fugitive news…
-            </p>
+            <p className="mt-2 text-xs text-gray-400">Opening the desk…</p>
           </div>
         </div>
       )}
@@ -249,7 +267,7 @@ const Mysteries: React.FC = () => {
               <span className="rounded-full border border-white/10 bg-black/25 px-2.5 py-1 text-gray-300">
                 Briefing {relativeRefresh(status.briefingNextRefresh)}
               </span>
-              {(status.casesRefreshing || status.briefingRefreshing) && (
+              {(status.casesRefreshing || status.briefingRefreshing || bootstrapping) && (
                 <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-amber-200">
                   AI scanning news…
                 </span>
@@ -311,8 +329,12 @@ const Mysteries: React.FC = () => {
 
               {filteredCases.length === 0 && !loading ? (
                 <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-center text-sm text-gray-400">
-                  No cases yet — AI is gathering recent US missing-person and cold-case news.
-                  This feed refreshes every 2 hours (max 50).
+                  {scanning
+                    ? 'AI is gathering recent US missing-person and cold-case news…'
+                    : 'No cases yet — tap Refresh to scan the news desk.'}
+                  <span className="mt-1 block text-[11px] text-gray-500">
+                    This feed refreshes every 2 hours (max 50).
+                  </span>
                 </div>
               ) : (
                 filteredCases.map((item, idx) => {
