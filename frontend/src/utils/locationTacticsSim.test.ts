@@ -6,6 +6,7 @@ import {
   SHOOT_RANGE_BLOCKS,
   beginTacticsRaid,
   computeShotHitChance,
+  resolvePerpTurn,
   reachableCells,
   shootTargets,
   startLocationTactics,
@@ -52,12 +53,17 @@ describe('turn-based location tactics', () => {
 
   it('runs suspect phase after all officers act', () => {
     let game = beginTacticsRaid(startLocationTactics(testLandmark(), new Date('2026-07-28T12:00:00Z')));
+    expect(game.roundPhase).toBe('player');
     const turnBefore = game.turn;
     const perpsBefore = game.units
       .filter((u) => u.side === 'perp' && u.status === 'active')
       .map((p) => ({ id: p.id, x: p.x, y: p.y }));
 
     game = tacticsWait(game);
+    expect(game.roundPhase).toBe('perp');
+
+    game = resolvePerpTurn(game);
+    expect(game.roundPhase).toBe('player');
     expect(game.turn).toBeGreaterThan(turnBefore);
     expect(game.actedOfficerIds).toHaveLength(0);
 
@@ -137,6 +143,16 @@ describe('turn-based location tactics', () => {
     const copAfter = game.units.find((u) => u.id === cop.id)!;
     expect(game.actedOfficerIds).toContain(cop.id);
     expect(copAfter.ammo).toBe(2);
+  });
+
+  it('blocks moves during the suspect turn', () => {
+    let game = beginTacticsRaid(startLocationTactics(testLandmark(), new Date('2026-07-28T12:00:00Z')));
+    game = tacticsWait(game);
+    expect(game.roundPhase).toBe('perp');
+
+    const cop = game.units.find((u) => u.side === 'cop' && u.status === 'active')!;
+    game = { ...game, selectedUnitId: cop.id };
+    expect(reachableCells(game, cop.id)).toHaveLength(0);
   });
 
   it('tracks main entrance for suspect escape routing', () => {

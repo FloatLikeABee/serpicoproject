@@ -6,6 +6,7 @@ import {
   SHOOT_RANGE_BLOCKS,
   computeShotHitChance,
   reachableCells,
+  resolvePerpTurn,
   selectTacticsOfficer,
   shootTargets,
   tacticsCancelOfficer,
@@ -44,11 +45,11 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
   const actedSet = useMemo(() => new Set(game.actedOfficerIds ?? []), [game.actedOfficerIds]);
   const pendingOfficers = activeCops.filter((o) => !actedSet.has(o.id)).length;
   const reach = useMemo(
-    () => (selected && game.phase === 'active' ? reachableCells(game, selected.id) : []),
+    () => (selected && game.phase === 'active' && game.roundPhase === 'player' ? reachableCells(game, selected.id) : []),
     [game, selected]
   );
   const targets = useMemo(
-    () => (selected && game.phase === 'active' ? shootTargets(game, selected.id) : []),
+    () => (selected && game.phase === 'active' && game.roundPhase === 'player' ? shootTargets(game, selected.id) : []),
     [game, selected]
   );
   const reachSet = useMemo(() => new Set(reach.map((c) => `${c.x},${c.y}`)), [reach]);
@@ -77,6 +78,15 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
     }, 70);
     return () => window.clearTimeout(id);
   }, [game.phase, game.bullets, onChange, game]);
+
+  // Suspect turn — brief pause, then resolve movement
+  useEffect(() => {
+    if (game.phase !== 'active' || game.roundPhase !== 'perp') return;
+    const id = window.setTimeout(() => {
+      onChange(resolvePerpTurn(game));
+    }, 850);
+    return () => window.clearTimeout(id);
+  }, [game.phase, game.roundPhase, game.turn, onChange, game]);
 
   if (collapsed) {
     return (
@@ -141,6 +151,13 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
 
               <div className="flex flex-wrap gap-2 text-[10px] font-mono px-1">
                 <span className="text-neon-cyan">T{game.turn}/{game.maxTurns}</span>
+                <span
+                  className={
+                    game.roundPhase === 'player' ? 'text-neon-green font-semibold' : 'text-neon-magenta animate-pulse'
+                  }
+                >
+                  {game.roundPhase === 'player' ? 'Your turn' : 'Suspects moving…'}
+                </span>
                 <span className="text-neon-green">Caught {caught}</span>
                 <span className="text-neon-magenta">Loose {activePerps}</span>
                 <span className="text-gray-400">Esc {escaped}</span>
@@ -196,7 +213,7 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                       <button
                         key={o.id}
                         type="button"
-                        disabled={o.status !== 'active' || acted}
+                        disabled={o.status !== 'active' || acted || game.roundPhase !== 'player'}
                         onClick={() => onChange(selectTacticsOfficer(game, o.id))}
                         className={`px-2 py-1 rounded text-[10px] border min-h-0 min-w-0 ${
                           o.status !== 'active'
@@ -217,22 +234,31 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => onChange(tacticsCancelOfficer(game, selected.id))}
-                    className="px-2 py-1 rounded text-[10px] border border-neon-amber/40 text-neon-amber min-h-0 min-w-0"
+                    disabled={game.roundPhase !== 'player'}
+                    className="px-2 py-1 rounded text-[10px] border border-neon-amber/40 text-neon-amber min-h-0 min-w-0 disabled:opacity-40"
                   >
-                    Hold
+                    Skip
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => onChange(tacticsWait(game))}
-                  className="px-2 py-1 rounded text-[10px] border border-white/15 text-gray-300 min-h-0 min-w-0"
+                  disabled={game.roundPhase !== 'player'}
+                  className="px-2 py-1 rounded text-[10px] border border-white/15 text-gray-300 min-h-0 min-w-0 disabled:opacity-40"
                 >
-                  End round
+                  Skip all
                 </button>
               </div>
 
               {/* Building-block map */}
               <div className="relative mx-auto rounded-md border border-white/10 bg-[#07050f] p-1 overflow-auto">
+                {game.roundPhase === 'perp' && (
+                  <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 rounded-md pointer-events-none">
+                    <p className="text-[11px] font-display uppercase tracking-wider text-neon-magenta animate-pulse">
+                      Suspects moving…
+                    </p>
+                  </div>
+                )}
                 <div
                   className="relative grid gap-[2px]"
                   style={{
@@ -258,7 +284,11 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                       <button
                         key={`${cell.x}-${cell.y}`}
                         type="button"
-                        disabled={game.phase !== 'active' || (fog && game.mode === 'hide' && !canMove)}
+                        disabled={
+                          game.phase !== 'active' ||
+                          game.roundPhase !== 'player' ||
+                          (fog && game.mode === 'hide' && !canMove)
+                        }
                         onClick={() => onChange(tacticsInteractCell(game, cell.x, cell.y))}
                         className="relative min-h-0 min-w-0 p-0 border-0"
                         style={{ width: cellSize, height: cellSize, background: bg }}

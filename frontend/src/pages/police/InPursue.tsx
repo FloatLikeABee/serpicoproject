@@ -267,7 +267,7 @@ const InPursue: React.FC = () => {
               </li>
               <li>Tap a blue cruiser, then tap a colored suspect to redirect that unit.</li>
               <li>
-                Use the <span className="text-neon-amber font-semibold">Special tactics</span> dock —
+                Use header <span className="text-neon-amber font-semibold">Tactics</span> buttons —
                 drones, robocops, or satellite lasers — to instantly remove a tapped suspect for score.
               </li>
               <li>{HELPER_COUNT} helper cars periodically arrive, chase, then get recalled.</li>
@@ -280,7 +280,7 @@ const InPursue: React.FC = () => {
 
   return (
     <div className="page-fill">
-      <div className="game-header p-2 sm:p-3 flex-shrink-0">
+      <div className="game-header p-2 sm:p-3 flex-shrink-0 space-y-1.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-display font-bold text-serpico-red tracking-wide">
@@ -304,6 +304,43 @@ const InPursue: React.FC = () => {
             </button>
           </div>
         </div>
+
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[8px] font-display uppercase tracking-wider text-neon-amber/90 mr-0.5">
+            Tactics
+          </span>
+          {weaponKinds.map((kind) => {
+            const affordable = canAffordWeapon(session, kind);
+            const active = weaponMode === kind;
+            const glyph = kind === 'drone' ? 'DR' : kind === 'robocop' ? 'RC' : 'SL';
+            return (
+              <button
+                key={kind}
+                type="button"
+                disabled={!affordable && !active}
+                title={`${WEAPON_LABELS[kind]} (−${WEAPON_COSTS[kind]} pts)`}
+                onClick={() => {
+                  setWeaponMode((cur) => (cur === kind ? null : kind));
+                  weaponModeRef.current = weaponMode === kind ? null : kind;
+                  setRedirectPoliceId(null);
+                  redirectPoliceRef.current = null;
+                }}
+                className={`px-1.5 py-0.5 rounded border text-[8px] font-display font-bold uppercase tracking-wide touch-manipulation min-h-0 min-w-0 ${
+                  active
+                    ? 'border-neon-amber bg-neon-amber/30 text-neon-amber'
+                    : affordable
+                    ? 'border-neon-amber/35 bg-black/30 text-neon-amber/90 hover:bg-neon-amber/15'
+                    : 'border-white/10 bg-black/20 text-synth-muted opacity-50'
+                }`}
+              >
+                {glyph} −{WEAPON_COSTS[kind]}
+              </button>
+            );
+          })}
+          <span className="text-[8px] text-synth-muted ml-1 truncate">
+            {weaponMode ? `Tap suspect · ${WEAPON_SHORT_LABELS[weaponMode]}` : 'Arm → tap suspect'}
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 relative">
@@ -320,57 +357,6 @@ const InPursue: React.FC = () => {
           onVehicleClick={handleVehicleClick}
           onLandmarkClick={handleLandmarkClick}
         />
-
-        {/* Special tactics dock — always on the map so drones / robocops / lasers are obvious. */}
-        <div className="absolute bottom-3 right-2 z-[1200] w-[min(168px,44vw)] pointer-events-auto">
-          <div className="game-panel p-2 border border-neon-amber/50 shadow-lg space-y-1.5">
-            <p className="text-[9px] font-display uppercase tracking-wider text-neon-amber text-center">
-              Special tactics
-            </p>
-            {weaponKinds.map((kind) => {
-              const affordable = canAffordWeapon(session, kind);
-              const active = weaponMode === kind;
-              const glyph = kind === 'drone' ? 'DR' : kind === 'robocop' ? 'RC' : 'SL';
-              return (
-                <button
-                  key={kind}
-                  type="button"
-                  disabled={!affordable && !active}
-                  onClick={() => {
-                    setWeaponMode((cur) => (cur === kind ? null : kind));
-                    weaponModeRef.current = weaponMode === kind ? null : kind;
-                    setRedirectPoliceId(null);
-                    redirectPoliceRef.current = null;
-                  }}
-                  className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left border transition-colors touch-manipulation min-h-0 min-w-0 ${
-                    active
-                      ? 'border-neon-amber bg-neon-amber/35 text-neon-amber'
-                      : affordable
-                      ? 'border-neon-amber/40 bg-black/40 text-neon-amber hover:bg-neon-amber/20'
-                      : 'border-white/10 bg-black/30 text-synth-muted opacity-55'
-                  }`}
-                >
-                  <span
-                    className={`flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-display font-bold border ${
-                      active ? 'border-neon-amber bg-neon-amber/20' : 'border-neon-amber/30 bg-neon-amber/10'
-                    }`}
-                  >
-                    {glyph}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[10px] font-display uppercase tracking-wide truncate">
-                      {WEAPON_SHORT_LABELS[kind]}
-                    </span>
-                    <span className="block text-[9px] font-mono opacity-80">-{WEAPON_COSTS[kind]} pts</span>
-                  </span>
-                </button>
-              );
-            })}
-            <p className="text-[8px] text-synth-muted text-center leading-snug">
-              {weaponMode ? 'Tap a colored suspect' : 'Arm one, then tap a suspect'}
-            </p>
-          </div>
-        </div>
 
         {(redirectPoliceId || weaponMode) && (
           <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1200] w-[min(320px,88vw)] pointer-events-auto">
@@ -506,7 +492,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
         <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap a blue COP to redirect · Special tactics dock takes out suspects · Landmarks open raids
+          Tap a blue COP to redirect · Header tactics take out suspects · Landmarks open turn-based raids
         </p>
       </div>
     </div>

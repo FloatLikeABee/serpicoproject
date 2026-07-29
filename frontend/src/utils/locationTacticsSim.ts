@@ -4,6 +4,7 @@ import { LandmarkKind, MapLandmark } from './pursuitSim';
 
 export type ScenarioMode = 'chase' | 'gunfight' | 'hide';
 export type TacticsPhase = 'briefing' | 'active' | 'completed';
+export type RoundPhase = 'player' | 'perp';
 export type CellKind = 'floor' | 'wall' | 'cover' | 'exit' | 'spawn';
 
 export interface GridCell {
@@ -102,6 +103,8 @@ export interface LocationTacticsGame {
   briefing: string;
   mode: ScenarioMode;
   phase: TacticsPhase;
+  /** Player round vs suspect round within active play. */
+  roundPhase: RoundPhase;
   turn: number;
   maxTurns: number;
   width: number;
@@ -741,20 +744,27 @@ function checkEnd(game: LocationTacticsGame): LocationTacticsGame {
   return game;
 }
 
-function finishOfficerAction(g: LocationTacticsGame, officerId: string): LocationTacticsGame {
-  markOfficerActed(g, officerId);
-  g.selectedUnitId = nextUnactedOfficer(g) ?? g.selectedUnitId;
-  if (allOfficersActed(g)) return endPlayerTurn(g);
-  return checkEnd(g);
+function playerTurnActive(game: LocationTacticsGame): boolean {
+  return game.phase === 'active' && game.roundPhase === 'player';
 }
 
-function endPlayerTurn(game: LocationTacticsGame): LocationTacticsGame {
+function beginPerpPhase(game: LocationTacticsGame): LocationTacticsGame {
   applyBulletHits(game);
   catchAdjacent(game);
   let g = checkEnd(game);
   if (g.phase === 'completed') return g;
 
-  pushLog(g, 'Suspects move — pushing for the main entrance.', 'warn');
+  g.roundPhase = 'perp';
+  pushLog(g, 'Officers set — suspects take their turn.', 'warn');
+  return g;
+}
+
+/** Run suspect movement after the player round (call from UI after a short pause). */
+export function resolvePerpTurn(game: LocationTacticsGame): LocationTacticsGame {
+  if (game.phase !== 'active' || game.roundPhase !== 'perp') return game;
+  const g = cloneGame(game);
+
+  pushLog(g, 'Suspects move one block toward the main entrance.', 'warn');
   aiPerps(g);
   applyBulletHits(g);
   for (const p of livingPerps(g)) {
@@ -765,6 +775,7 @@ function endPlayerTurn(game: LocationTacticsGame): LocationTacticsGame {
 
   g.turn += 1;
   g.actedOfficerIds = [];
+  g.roundPhase = 'player';
   for (const c of livingCops(g)) {
     c.ap = 1;
     c.inCover = cellAt(g.cells, g.width, c.x, c.y)?.kind === 'cover';
@@ -773,9 +784,16 @@ function endPlayerTurn(game: LocationTacticsGame): LocationTacticsGame {
     p.inCover = cellAt(g.cells, g.width, p.x, p.y)?.kind === 'cover';
   }
   g.selectedUnitId = nextUnactedOfficer(g) ?? livingCops(g)[0]?.id;
+  pushLog(g, 'Your turn — move each officer one block or skip.', 'info');
 
-  g = checkEnd(g);
-  return g;
+  return checkEnd(g);
+}
+
+function finishOfficerAction(g: LocationTacticsGame, officerId: string): LocationTacticsGame {
+  markOfficerActed(g, officerId);
+  g.selectedUnitId = nextUnactedOfficer(g) ?? g.selectedUnitId;
+  if (allOfficersActed(g)) return beginPerpPhase(g);
+  return checkEnd(g);
 }
 
 export function startLocationTactics(landmark: MapLandmark, now = new Date()): LocationTacticsGame {
@@ -883,6 +901,7 @@ export function startLocationTactics(landmark: MapLandmark, now = new Date()): L
     briefing: meta.briefing(landmark.name),
     mode,
     phase: 'briefing',
+    roundPhase: 'player',
     turn: 1,
     maxTurns,
     width,
@@ -907,6 +926,7 @@ export function beginTacticsRaid(game: LocationTacticsGame): LocationTacticsGame
   if (game.phase !== 'briefing') return game;
   const g = cloneGame(game);
   g.phase = 'active';
+  g.roundPhase = 'player';
   g.selectedUnitId = livingCops(g)[0]?.id;
   g.decisions.push(`Started ${g.mode} scenario`);
   pushLog(g, g.briefing, 'warn');
@@ -923,13 +943,14 @@ export function beginTacticsRaid(game: LocationTacticsGame): LocationTacticsGame
 }
 
 export function selectTacticsOfficer(game: LocationTacticsGame, officerId: string): LocationTacticsGame {
-  if (game.phase !== 'active') return game;
+  if (!playerTurnActive(game)) return game;
   const unit = game.units.find((u) => u.id === officerId && u.side === 'cop' && u.status === 'active');
   if (!unit || officerHasActed(game, officerId)) return game;
   return { ...game, selectedUnitId: officerId };
 }
 
 export function reachableCells(game: LocationTacticsGame, unitId: string): Array<{ x: number; y: number }> {
+  if (!playerTurnActive(game)) return [];
   const unit = game.units.find((u) => u.id === unitId && u.status === 'active');
   if (!unit || officerHasActed(game, unitId)) return [];
   const out: Array<{ x: number; y: number }> = [];
@@ -943,6 +964,7 @@ export function reachableCells(game: LocationTacticsGame, unitId: string): Array
 }
 
 export function shootTargets(game: LocationTacticsGame, unitId: string): TacticsUnit[] {
+  if (!playerTurnActive(game)) return [];
   const unit = game.units.find((u) => u.id === unitId && u.side === 'cop' && u.status === 'active');
   if (!unit || officerHasActed(game, unitId) || unit.ammo <= 0) return [];
   if (game.mode !== 'gunfight') return [];
@@ -956,16 +978,16 @@ export function shootTargets(game: LocationTacticsGame, unitId: string): Tactics
 }
 
 export function tacticsCancelOfficer(game: LocationTacticsGame, officerId?: string): LocationTacticsGame {
-  if (game.phase !== 'active') return game;
+  if (!playerTurnActive(game)) return game;
   const g = cloneGame(game);
   const id = officerId ?? g.selectedUnitId;
   const officer = g.units.find((u) => u.id === id && u.side === 'cop' && u.status === 'active');
   if (!officer || officerHasActed(g, officer.id)) return g;
   markOfficerActed(g, officer.id);
   g.decisions.push(`${officer.name} held position`);
-  pushLog(g, `${officer.name} holds — waiting on the stack.`, 'info');
+  pushLog(g, `${officer.name} skips — holds position.`, 'info');
   g.selectedUnitId = nextUnactedOfficer(g) ?? g.selectedUnitId;
-  if (allOfficersActed(g)) return endPlayerTurn(g);
+  if (allOfficersActed(g)) return beginPerpPhase(g);
   return g;
 }
 
@@ -975,7 +997,7 @@ export function tacticsInteractCell(
   x: number,
   y: number
 ): LocationTacticsGame {
-  if (game.phase !== 'active') return game;
+  if (!playerTurnActive(game)) return game;
   const g = cloneGame(game);
   const selected = g.units.find((u) => u.id === g.selectedUnitId && u.side === 'cop' && u.status === 'active');
   if (!selected) {
@@ -1048,17 +1070,16 @@ export function tacticsInteractCell(
 }
 
 export function tacticsWait(game: LocationTacticsGame): LocationTacticsGame {
-  if (game.phase !== 'active') return game;
+  if (!playerTurnActive(game)) return game;
   const g = cloneGame(game);
   for (const c of livingCops(g)) {
     if (!officerHasActed(g, c.id)) {
       markOfficerActed(g, c.id);
-      pushLog(g, `${c.name} holds.`, 'info');
+      pushLog(g, `${c.name} skips.`, 'info');
     }
   }
-  g.decisions.push('Ended round — all officers held or acted');
-  pushLog(g, 'Round complete — suspects push for the main entrance.', 'warn');
-  return endPlayerTurn(g);
+  g.decisions.push('Skipped remaining officers');
+  return beginPerpPhase(g);
 }
 
 /** Advance flying bullets (call from UI animation tick). */
