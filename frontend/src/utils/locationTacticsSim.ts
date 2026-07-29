@@ -81,11 +81,16 @@ export interface LocationTacticsStats {
 export const SHOOT_RANGE_BLOCKS = 2;
 export const MOVE_BLOCKS_PER_TURN = 1;
 
-/** Hit chance by Manhattan distance (blocks). Shots only valid within SHOOT_RANGE_BLOCKS. */
+/** Base hit chance by Manhattan distance (blocks). Closer = more accurate. */
 export const SHOOT_HIT_BY_DISTANCE: Record<number, number> = {
-  1: 0.82,
-  2: 0.48,
+  1: 0.88,
+  2: 0.52,
 };
+
+/** Target hunkered in cover — harder to hit. */
+export const COVER_DEFENSE_FACTOR = 0.48;
+/** Shooter firing from cover — peek-and-shoot penalty. */
+export const COVER_SHOOTER_PENALTY = 0.72;
 
 export interface LocationTacticsGame {
   id: string;
@@ -177,7 +182,7 @@ const MODE_META: Record<
   gunfight: {
     title: 'Cover Gunfight',
     briefing: (place) =>
-      `${place}: turn-based gunfight. Each officer moves one block, shoots (≤2 blocks — farther = more likely to miss), or holds. Suspects push one block per round toward the main entrance behind you.`,
+      `${place}: turn-based gunfight. Officers can move one block or fire (≤2 blocks — closer is deadlier). Cover protects both sides: harder to get hit, but also harder to drop suspects from cover.`,
   },
   hide: {
     title: 'Hide & Seek',
@@ -421,10 +426,32 @@ function nextUnactedOfficer(game: LocationTacticsGame): string | undefined {
   return livingCops(game).find((c) => !officerHasActed(game, c.id))?.id;
 }
 
-function shootHitChance(from: { x: number; y: number }, to: { x: number; y: number }): number {
+function unitInCover(game: LocationTacticsGame, unit: TacticsUnit): boolean {
+  return cellAt(game.cells, game.width, unit.x, unit.y)?.kind === 'cover';
+}
+
+function refreshUnitCover(game: LocationTacticsGame, unit: TacticsUnit) {
+  unit.inCover = unitInCover(game, unit);
+}
+
+/** Hit chance for a shot — distance, target cover (harder to hit), shooter cover (harder to aim). */
+export function computeShotHitChance(
+  game: LocationTacticsGame,
+  from: TacticsUnit,
+  to: TacticsUnit
+): number {
   const blocks = dist(from, to);
   if (blocks > SHOOT_RANGE_BLOCKS || blocks < 1) return 0;
-  return SHOOT_HIT_BY_DISTANCE[blocks] ?? 0;
+  if (!hasLos(game.cells, game.width, game.height, from.x, from.y, to.x, to.y)) return 0;
+
+  let chance = SHOOT_HIT_BY_DISTANCE[blocks] ?? 0;
+  if (unitInCover(game, to)) chance *= COVER_DEFENSE_FACTOR;
+  if (unitInCover(game, from)) chance *= COVER_SHOOTER_PENALTY;
+  return Math.max(0.05, Math.min(0.95, chance));
+}
+
+function shootHitChance(game: LocationTacticsGame, from: TacticsUnit, to: TacticsUnit): number {
+  return computeShotHitChance(game, from, to);
 }
 
 function mainEntranceGoal(game: LocationTacticsGame) {
@@ -555,6 +582,9 @@ function spawnBullet(game: LocationTacticsGame, from: TacticsUnit, to: TacticsUn
 }
 
 function resolveShot(game: LocationTacticsGame, from: TacticsUnit, to: TacticsUnit, damage: number): boolean {
+  refreshUnitCover(game, from);
+  refreshUnitCover(game, to);
+
   const blocks = dist(from, to);
   if (blocks > SHOOT_RANGE_BLOCKS || blocks < 1) {
     pushLog(game, 'Out of range — shots only land within 2 blocks.', 'warn');
@@ -564,11 +594,17 @@ function resolveShot(game: LocationTacticsGame, from: TacticsUnit, to: TacticsUn
     pushLog(game, 'No line of sight.', 'warn');
     return false;
   }
-  const chance = shootHitChance(from, to);
+
+  const chance = shootHitChance(game, from, to);
+  const coverNotes: string[] = [];
+  if (unitInCover(game, to)) coverNotes.push('target in cover');
+  if (unitInCover(game, from)) coverNotes.push('shooter in cover');
+  const coverSuffix = coverNotes.length ? ` · ${coverNotes.join(', ')}` : '';
+
   if (Math.random() >= chance) {
     pushLog(
       game,
-      `${from.name}'s shot at ${to.name} misses (${blocks} block${blocks > 1 ? 's' : ''}, ${Math.round(chance * 100)}% chance).`,
+      `${from.name}'s shot at ${to.name} misses (${blocks} block${blocks > 1 ? 's' : ''}, ${Math.round(chance * 100)}%${coverSuffix}).`,
       'info'
     );
     return false;
@@ -876,9 +912,12 @@ export function beginTacticsRaid(game: LocationTacticsGame): LocationTacticsGame
   pushLog(g, g.briefing, 'warn');
   pushLog(
     g,
-    'Turn-based: each officer gets one move, shot (≤2 blocks), search, or hold — then suspects move 1 block toward the main entrance.',
+    'Turn-based: each officer moves 1 block, fires at suspects (≤2 blocks), or holds — then suspects move toward the main entrance.',
     'info'
   );
+  if (g.mode === 'gunfight') {
+    pushLog(g, 'Gunfight: tap a red suspect cell to shoot. Closer = more accurate. Cover protects everyone but makes hits harder both ways.', 'info');
+  }
   refreshSpotting(g);
   return g;
 }
@@ -948,14 +987,22 @@ export function tacticsInteractCell(
     return g;
   }
 
-  // Gunfight shoot if tapping a perp cell
+  // Gunfight shoot if tapping a perp cell (shooting uses the officer's one action for the round)
   if (g.mode === 'gunfight') {
     const perp = livingPerps(g).find((p) => p.x === x && p.y === y && p.spotted);
-    if (perp && selected.ammo > 0) {
-      selected.inCover = cellAt(g.cells, g.width, selected.x, selected.y)?.kind === 'cover';
+    if (perp) {
+      if (selected.ammo <= 0) {
+        pushLog(g, 'Out of ammo — move to cover or end the round.', 'warn');
+        return g;
+      }
+      refreshUnitCover(g, selected);
+      refreshUnitCover(g, perp);
       selected.ammo -= 1;
+      const hitPct = Math.round(computeShotHitChance(g, selected, perp) * 100);
       if (resolveShot(g, selected, perp, selected.inCover ? 2 : 1)) {
-        g.decisions.push(`Shot at ${perp.name}`);
+        g.decisions.push(`Shot at ${perp.name} (${hitPct}% hit)`);
+      } else {
+        g.decisions.push(`Missed ${perp.name} (${hitPct}% hit)`);
       }
       applyBulletHits(g);
       return finishOfficerAction(g, selected.id);

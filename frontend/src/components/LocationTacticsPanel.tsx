@@ -4,6 +4,7 @@ import {
   LocationTacticsGame,
   MOVE_BLOCKS_PER_TURN,
   SHOOT_RANGE_BLOCKS,
+  computeShotHitChance,
   reachableCells,
   selectTacticsOfficer,
   shootTargets,
@@ -52,6 +53,14 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
   );
   const reachSet = useMemo(() => new Set(reach.map((c) => `${c.x},${c.y}`)), [reach]);
   const targetSet = useMemo(() => new Set(targets.map((t) => `${t.x},${t.y}`)), [targets]);
+  const targetHitPct = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!selected || game.mode !== 'gunfight' || game.phase !== 'active') return map;
+    for (const t of targets) {
+      map.set(`${t.x},${t.y}`, Math.round(computeShotHitChance(game, selected, t) * 100));
+    }
+    return map;
+  }, [game, selected, targets]);
 
   const caught = game.units.filter((u) => u.side === 'perp' && u.status === 'caught').length;
   const escaped = game.units.filter((u) => u.side === 'perp' && u.status === 'escaped').length;
@@ -147,8 +156,36 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
               </div>
 
               <p className="text-[9px] text-synth-muted px-1 leading-snug">
-                Turn-based: each officer moves {MOVE_BLOCKS_PER_TURN} block, shoots (≤{SHOOT_RANGE_BLOCKS} blocks), or holds — then suspects push toward the main entrance (IN).
+                {game.mode === 'gunfight' ? (
+                  <>
+                    Gunfight: move {MOVE_BLOCKS_PER_TURN} block, <span className="text-red-300">tap red suspect to fire</span> (≤
+                    {SHOOT_RANGE_BLOCKS} blocks), or hold. Closer = more accurate. Cover protects both sides.
+                  </>
+                ) : (
+                  <>
+                    Turn-based: each officer moves {MOVE_BLOCKS_PER_TURN} block, searches, or holds — then suspects push toward the
+                    main entrance (IN).
+                  </>
+                )}
               </p>
+
+              {game.mode === 'gunfight' && selected && selected.status === 'active' && !actedSet.has(selected.id) && (
+                <p className="text-[9px] px-1 leading-snug">
+                  {targets.length > 0 ? (
+                    <span className="text-red-200">
+                      {selected.name}: {selected.ammo} rounds · tap red cells to shoot (
+                      {targets.map((t) => `${t.name.split(' ').pop()} ${targetHitPct.get(`${t.x},${t.y}`) ?? 0}%`).join(', ')})
+                    </span>
+                  ) : selected.ammo > 0 ? (
+                    <span className="text-neon-amber">No shot — move within {SHOOT_RANGE_BLOCKS} blocks with line of sight.</span>
+                  ) : (
+                    <span className="text-gray-400">Out of ammo — reposition or end the round.</span>
+                  )}
+                  {selected.inCover && (
+                    <span className="block text-stone-300 mt-0.5">In cover — safer, but your shots are less accurate.</span>
+                  )}
+                </p>
+              )}
 
               <div className="flex flex-wrap gap-1 px-1">
                 {game.units
@@ -207,6 +244,7 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                     const fog = !game.revealed[cell.y]?.[cell.x] && game.mode !== 'gunfight';
                     const canMove = reachSet.has(`${cell.x},${cell.y}`);
                     const canShoot = targetSet.has(`${cell.x},${cell.y}`);
+                    const hitPct = targetHitPct.get(`${cell.x},${cell.y}`);
                     let bg = '#1a1430';
                     if (cell.kind === 'wall') bg = '#3f3f46';
                     else if (cell.kind === 'cover') bg = '#78716c';
@@ -237,6 +275,11 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                         {cell.kind === 'spawn' && !fog && (
                           <span className="absolute inset-0 flex items-center justify-center text-[8px] text-cyan-100 font-bold">
                             IN
+                          </span>
+                        )}
+                        {canShoot && hitPct !== undefined && (
+                          <span className="absolute inset-0 flex items-end justify-center pb-0.5 text-[7px] text-red-100 font-bold leading-none z-[2]">
+                            {hitPct}%
                           </span>
                         )}
                       </button>

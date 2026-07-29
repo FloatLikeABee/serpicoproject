@@ -1,8 +1,11 @@
 import {
+  COVER_DEFENSE_FACTOR,
+  COVER_SHOOTER_PENALTY,
   MOVE_BLOCKS_PER_TURN,
   SHOOT_HIT_BY_DISTANCE,
   SHOOT_RANGE_BLOCKS,
   beginTacticsRaid,
+  computeShotHitChance,
   reachableCells,
   shootTargets,
   startLocationTactics,
@@ -82,6 +85,58 @@ describe('turn-based location tactics', () => {
 
   it('uses lower hit chance at two blocks than one', () => {
     expect(SHOOT_HIT_BY_DISTANCE[1]).toBeGreaterThan(SHOOT_HIT_BY_DISTANCE[2]);
+  });
+
+  it('reduces hit chance when target or shooter uses cover', () => {
+    let game = beginTacticsRaid(startLocationTactics(testLandmark(), new Date('2026-07-29T12:00:00Z')));
+    game = { ...game, mode: 'gunfight' };
+    const cop = game.units.find((u) => u.side === 'cop' && u.status === 'active')!;
+    const perp = game.units.find((u) => u.side === 'perp' && u.status === 'active')!;
+
+    perp.x = cop.x + 1;
+    perp.y = cop.y;
+    perp.inCover = false;
+
+    const openOpen = computeShotHitChance(game, cop, perp);
+    expect(openOpen).toBeCloseTo(SHOOT_HIT_BY_DISTANCE[1], 2);
+
+    const coverCell = game.cells.find((c) => c.kind === 'cover');
+    if (coverCell) {
+      perp.x = coverCell.x;
+      perp.y = coverCell.y;
+      perp.inCover = true;
+      const targetInCover = computeShotHitChance(game, cop, perp);
+      expect(targetInCover).toBeLessThan(openOpen);
+      expect(targetInCover).toBeCloseTo(openOpen * COVER_DEFENSE_FACTOR, 2);
+
+      cop.x = coverCell.x - 1;
+      cop.y = coverCell.y;
+      cop.inCover = false;
+      perp.x = coverCell.x;
+      perp.y = coverCell.y;
+      const bothFactors = computeShotHitChance(game, cop, perp);
+      expect(bothFactors).toBeLessThan(openOpen * COVER_DEFENSE_FACTOR);
+    }
+  });
+
+  it('lets gunfight officers shoot spotted suspects within range', () => {
+    let game = beginTacticsRaid(startLocationTactics(testLandmark(), new Date('2026-07-29T12:00:00Z')));
+    game = { ...game, mode: 'gunfight' };
+    const cop = game.units.find((u) => u.side === 'cop' && u.status === 'active')!;
+    const perp = game.units.find((u) => u.side === 'perp' && u.status === 'active')!;
+    cop.ammo = 3;
+    perp.spotted = true;
+    perp.x = cop.x + 1;
+    perp.y = cop.y;
+    game = { ...game, selectedUnitId: cop.id };
+
+    const targets = shootTargets(game, cop.id);
+    expect(targets.some((t) => t.id === perp.id)).toBe(true);
+
+    game = tacticsInteractCell(game, perp.x, perp.y);
+    const copAfter = game.units.find((u) => u.id === cop.id)!;
+    expect(game.actedOfficerIds).toContain(cop.id);
+    expect(copAfter.ammo).toBe(2);
   });
 
   it('tracks main entrance for suspect escape routing', () => {
