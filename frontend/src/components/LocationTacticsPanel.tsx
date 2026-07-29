@@ -62,7 +62,7 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
   const arrestSet = useMemo(() => new Set(arrests.map((t) => `${t.x},${t.y}`)), [arrests]);
   const targetHitPct = useMemo(() => {
     const map = new Map<string, number>();
-    if (!selected || game.mode !== 'gunfight' || game.phase !== 'active') return map;
+    if (!selected || game.phase !== 'active') return map;
     for (const t of targets) {
       map.set(`${t.x},${t.y}`, Math.round(computeShotHitChance(game, selected, t) * 100));
     }
@@ -186,18 +186,19 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                   </>
                 ) : game.mode === 'hide' ? (
                   <>
-                    Hide &amp; seek: move {MOVE_BLOCKS_PER_TURN} block or search. Get next to a suspect and{' '}
-                    <span className="text-neon-green">tap them to arrest</span>. Found suspects stay visible and flee to IN.
+                    Hide &amp; seek: move {MOVE_BLOCKS_PER_TURN} block. Adjacent ={' '}
+                    <span className="text-neon-green">cuff</span>, 2 blocks ={' '}
+                    <span className="text-red-300">shoot</span>. Suspects flee to IN with {2} rounds/turn.
                   </>
                 ) : (
                   <>
-                    Foot chase: each officer moves {MOVE_BLOCKS_PER_TURN} block or skips — then suspects push toward the
-                    main entrance (IN). Tap an adjacent suspect to arrest.
+                    Foot chase: move or skip, then suspects push for escape and{' '}
+                    <span className="text-red-300">return fire</span> (2 rounds/turn). Cuff adjacent or shoot at range.
                   </>
                 )}
               </p>
 
-              {game.mode === 'gunfight' && selected && selected.status === 'active' && !actedSet.has(selected.id) && (
+              {selected && selected.status === 'active' && !actedSet.has(selected.id) && game.mode === 'gunfight' && (
                 <p className="text-[9px] px-1 leading-snug">
                   {targets.length > 0 ? (
                     <span className="text-red-200">
@@ -220,14 +221,17 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                 selected.status === 'active' &&
                 !actedSet.has(selected.id) && (
                   <p className="text-[9px] px-1 leading-snug">
+                    <span className="text-gray-300">{selected.name}: {selected.ammo} rounds · </span>
                     {arrests.length > 0 ? (
                       <span className="text-neon-green">
-                        Tap green suspect cell to arrest ({arrests.map((t) => t.name).join(', ')})
+                        cuff {arrests.map((t) => t.name).join(', ')}
+                      </span>
+                    ) : targets.length > 0 ? (
+                      <span className="text-red-200">
+                        shoot ({targets.map((t) => `${t.name} ${targetHitPct.get(`${t.x},${t.y}`) ?? 0}%`).join(', ')})
                       </span>
                     ) : (
-                      <span className="text-synth-muted">
-                        Move adjacent to a found suspect, then tap them to cuff.
-                      </span>
+                      <span className="text-synth-muted">find suspects — they shoot back when close</span>
                     )}
                   </p>
                 )}

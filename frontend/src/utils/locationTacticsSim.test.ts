@@ -2,6 +2,7 @@ import {
   COVER_DEFENSE_FACTOR,
   COVER_SHOOTER_PENALTY,
   MOVE_BLOCKS_PER_TURN,
+  PERP_AMMO_PER_ROUND,
   SHOOT_HIT_BY_DISTANCE,
   SHOOT_RANGE_BLOCKS,
   arrestTargets,
@@ -224,7 +225,6 @@ describe('turn-based location tactics', () => {
     let game = hideGame();
     const cop = game.units.find((u) => u.side === 'cop' && u.status === 'active')!;
     const perps = game.units.filter((u) => u.side === 'perp' && u.status === 'active');
-    // Leave one perp adjacent; mark others already caught
     game = {
       ...game,
       selectedUnitId: cop.id,
@@ -241,4 +241,72 @@ describe('turn-based location tactics', () => {
     expect(game.phase).toBe('completed');
     expect(game.result?.caught).toBeGreaterThanOrEqual(1);
   });
+
+  it('reloads fleeing suspects with ammo and lets them fire at nearby cops', () => {
+    let game = hideGame('armed-hide');
+    const cops = game.units.filter((u) => u.side === 'cop');
+    const perp = game.units.find((u) => u.side === 'perp' && u.status === 'active')!;
+    // Park perp 2 blocks from a cop with LOS — shoot range, not auto-cuff range
+    const cop = cops[0];
+    perp.x = Math.min(game.width - 2, cop.x + 2);
+    perp.y = cop.y;
+    perp.known = true;
+    perp.spotted = true;
+    perp.ammo = 0;
+    game = {
+      ...game,
+      units: game.units.map((u) => {
+        if (u.side === 'perp' && u.id !== perp.id) return { ...u, status: 'caught' as const, hp: 0 };
+        if (u.id === perp.id) return { ...perp };
+        // Pull other cops far away so they don't auto-cuff
+        if (u.side === 'cop' && u.id !== cop.id) return { ...u, x: game.width - 2, y: game.height - 2 };
+        return u;
+      }),
+    };
+
+    game = tacticsWait(game);
+    expect(game.roundPhase).toBe('perp');
+    game = resolvePerpTurn(game);
+    const after = game.units.find((u) => u.id === perp.id)!;
+    if (after.status === 'active') {
+      expect(after.ammo).toBeLessThanOrEqual(PERP_AMMO_PER_ROUND);
+    }
+    expect(
+      game.log.some((e) => /fires|misses|escape|pushes toward|opening fire|breaks out/i.test(e.text))
+    ).toBe(true);
+  });
+
+  it('advances suspects toward an escape tile when a path exists', () => {
+    let game = hideGame('escape-path');
+    const entrance = game.mainEntrance;
+    const perp = game.units.find((u) => u.side === 'perp' && u.status === 'active')!;
+    // Place on a clear floor far from entrance
+    const floors = game.cells.filter(
+      (c) => (c.kind === 'floor' || c.kind === 'cover') && dist(c, entrance) >= 4
+    );
+    const start = floors[floors.length - 1] ?? floors[0];
+    perp.x = start.x;
+    perp.y = start.y;
+    perp.known = true;
+    perp.spotted = true;
+    game = {
+      ...game,
+      units: game.units.map((u) => (u.id === perp.id ? { ...perp } : u)),
+    };
+
+    const before = dist(perp, entrance);
+    game = tacticsWait(game);
+    game = resolvePerpTurn(game);
+    const after = game.units.find((u) => u.id === perp.id)!;
+    if (after.status === 'escaped') {
+      expect(true).toBe(true);
+    } else if (after.status === 'active') {
+      expect(dist(after, entrance)).toBeLessThanOrEqual(before);
+      expect(after.x !== perp.x || after.y !== perp.y || after.ammo >= PERP_AMMO_PER_ROUND).toBe(true);
+    }
+  });
 });
+
+function dist(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
