@@ -4,6 +4,7 @@ import {
   MOVE_BLOCKS_PER_TURN,
   SHOOT_HIT_BY_DISTANCE,
   SHOOT_RANGE_BLOCKS,
+  arrestTargets,
   beginTacticsRaid,
   computeShotHitChance,
   resolvePerpTurn,
@@ -19,6 +20,17 @@ import { createCityLandmarks } from './pursuitSim';
 function testLandmark(id = 'test-bar') {
   const lm = createCityLandmarks().find((l) => l.kind === 'bar')!;
   return { ...lm, id, name: 'Test Bar' };
+}
+
+function hideGame(id = 'hide-site') {
+  const lm = createCityLandmarks().find((l) => l.kind === 'projects')!;
+  let game = beginTacticsRaid(startLocationTactics({ ...lm, id, name: 'Hide Site' }, new Date('2026-07-28T12:00:00Z')));
+  game = {
+    ...game,
+    mode: 'hide',
+    scenarioTitle: `Hide & Seek — ${game.landmarkName}`,
+  };
+  return game;
 }
 
 describe('turn-based location tactics', () => {
@@ -162,5 +174,71 @@ describe('turn-based location tactics', () => {
     expect(spawn).toBeTruthy();
     expect(game.mainEntrance.x).toBe(spawn!.x);
     expect(game.mainEntrance.y).toBe(spawn!.y);
+  });
+
+  it('lets an officer arrest a spotted adjacent suspect by tapping them', () => {
+    let game = hideGame();
+    const cop = game.units.find((u) => u.side === 'cop' && u.status === 'active')!;
+    const perp = game.units.find((u) => u.side === 'perp' && u.status === 'active')!;
+    perp.x = cop.x + 1;
+    perp.y = cop.y;
+    perp.spotted = true;
+    perp.known = true;
+    game = { ...game, selectedUnitId: cop.id, units: [...game.units] };
+
+    expect(arrestTargets(game, cop.id).some((p) => p.id === perp.id)).toBe(true);
+    game = tacticsInteractCell(game, perp.x, perp.y);
+    const after = game.units.find((u) => u.id === perp.id)!;
+    expect(after.status).toBe('caught');
+    expect(game.actedOfficerIds).toContain(cop.id);
+  });
+
+  it('keeps found suspects visible while they flee toward the entrance', () => {
+    let game = hideGame();
+    const entrance = game.mainEntrance;
+    const perp = game.units.find((u) => u.side === 'perp' && u.status === 'active')!;
+    perp.known = true;
+    perp.spotted = true;
+    // Place far from entrance but on a walkable path
+    perp.x = Math.min(game.width - 2, entrance.x + 4);
+    perp.y = Math.min(game.height - 2, entrance.y + 3);
+    game = { ...game, units: [...game.units] };
+
+    const before = { x: perp.x, y: perp.y };
+    game = tacticsWait(game);
+    expect(game.roundPhase).toBe('perp');
+    game = resolvePerpTurn(game);
+
+    const after = game.units.find((u) => u.id === perp.id)!;
+    expect(after.spotted || after.status === 'escaped').toBe(true);
+    if (after.status === 'active') {
+      expect(after.known).toBe(true);
+      const closer =
+        Math.abs(after.x - entrance.x) + Math.abs(after.y - entrance.y) <=
+        Math.abs(before.x - entrance.x) + Math.abs(before.y - entrance.y);
+      expect(closer || (after.x === before.x && after.y === before.y)).toBe(true);
+    }
+  });
+
+  it('ends the raid when the last suspect is arrested', () => {
+    let game = hideGame();
+    const cop = game.units.find((u) => u.side === 'cop' && u.status === 'active')!;
+    const perps = game.units.filter((u) => u.side === 'perp' && u.status === 'active');
+    // Leave one perp adjacent; mark others already caught
+    game = {
+      ...game,
+      selectedUnitId: cop.id,
+      units: game.units.map((u) => {
+        if (u.side !== 'perp') return u;
+        if (u.id === perps[0].id) {
+          return { ...u, x: cop.x + 1, y: cop.y, spotted: true, known: true, status: 'active' as const };
+        }
+        return { ...u, status: 'caught' as const, hp: 0 };
+      }),
+    };
+
+    game = tacticsInteractCell(game, cop.x + 1, cop.y);
+    expect(game.phase).toBe('completed');
+    expect(game.result?.caught).toBeGreaterThanOrEqual(1);
   });
 });

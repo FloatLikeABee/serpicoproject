@@ -24,6 +24,8 @@ export interface TacticsUnit {
   status: 'active' | 'hurt' | 'caught' | 'escaped' | 'down';
   /** Player-visible this frame (fog / intermittent spotting). */
   spotted: boolean;
+  /** Hide/chase: once found, stay visible so the player can chase / arrest. */
+  known?: boolean;
   ap: number;
   ammo: number;
   inCover: boolean;
@@ -190,7 +192,7 @@ const MODE_META: Record<
   hide: {
     title: 'Hide & Seek',
     briefing: (place) =>
-      `${place}: turn-based search. Each officer moves one block, searches, or holds — then suspects creep one block toward the main entrance behind the stack.`,
+      `${place}: turn-based search. Move next to a suspect and tap them to arrest. Once found they stay visible and will try to slip out through the main entrance (IN) behind your stack.`,
   },
 };
 
@@ -481,19 +483,23 @@ function refreshSpotting(game: LocationTacticsGame) {
   for (const p of livingPerps(game)) {
     if (game.mode === 'gunfight') {
       p.spotted = true;
+      p.known = true;
       continue;
     }
     if (game.mode === 'hide') {
-      // Visible only if adjacent to a cop or on a revealed searched cell near cop.
-      p.spotted = livingCops(game).some((c) => dist(c, p) <= 1);
+      const adjacent = livingCops(game).some((c) => dist(c, p) <= 1);
+      if (adjacent) p.known = true;
+      // Once found, stay visible so the player can arrest or watch them flee to the entrance.
+      p.spotted = !!p.known;
       continue;
     }
-    // Chase: LOS or periodic glimpse
+    // Chase: LOS or periodic glimpse — once seen, keep known for pursuit.
     const inLos = livingCops(game).some((c) =>
       hasLos(game.cells, game.width, game.height, c.x, c.y, p.x, p.y) && dist(c, p) <= 5
     );
     const glimpse = game.turn >= game.nextGlimpseTurn;
-    p.spotted = inLos || glimpse;
+    if (inLos || glimpse) p.known = true;
+    p.spotted = !!p.known || inLos || glimpse;
   }
   if (game.mode === 'chase' && game.turn >= game.nextGlimpseTurn) {
     game.nextGlimpseTurn = game.turn + 2 + Math.floor(Math.random() * 2);
@@ -521,6 +527,46 @@ function pathStepToward(
   goal: { x: number; y: number },
   unitId: string
 ): { x: number; y: number } {
+  // BFS so suspects can route around walls toward the main entrance.
+  const queue: Array<{ x: number; y: number }> = [{ x: from.x, y: from.y }];
+  const prev = new Map<string, string | null>();
+  const key = (x: number, y: number) => `${x},${y}`;
+  prev.set(key(from.x, from.y), null);
+
+  let found: { x: number; y: number } | null = null;
+  while (queue.length && !found) {
+    const cur = queue.shift()!;
+    if (cur.x === goal.x && cur.y === goal.y) {
+      found = cur;
+      break;
+    }
+    for (const n of neighbors(cur.x, cur.y)) {
+      const k = key(n.x, n.y);
+      if (prev.has(k)) continue;
+      const cell = cellAt(game.cells, game.width, n.x, n.y);
+      if (!cell || !walkable(cell.kind)) continue;
+      // May step onto the entrance even if a cop is there (breakout); otherwise avoid units.
+      const isGoal = n.x === goal.x && n.y === goal.y;
+      if (!isGoal && occupied(game, n.x, n.y, unitId)) continue;
+      prev.set(k, key(cur.x, cur.y));
+      queue.push(n);
+    }
+  }
+
+  if (found) {
+    // Walk back to the first step from `from`.
+    let curKey = key(found.x, found.y);
+    let parent = prev.get(curKey) ?? null;
+    if (!parent) return from;
+    while (parent && parent !== key(from.x, from.y)) {
+      curKey = parent;
+      parent = prev.get(curKey) ?? null;
+    }
+    const [sx, sy] = curKey.split(',').map(Number);
+    return { x: sx, y: sy };
+  }
+
+  // Fallback: greedy step if BFS blocked (e.g. cops sealing rooms).
   const options = neighbors(from.x, from.y)
     .map((n) => ({ n, cell: cellAt(game.cells, game.width, n.x, n.y) }))
     .filter(
@@ -529,8 +575,7 @@ function pathStepToward(
     );
   if (!options.length) return from;
   options.sort((a, b) => dist(a.n, goal) - dist(b.n, goal));
-  // Slight randomness so packs don't lockstep
-  if (options.length > 1 && Math.random() < 0.25) return options[1].n;
+  if (options.length > 1 && Math.random() < 0.2) return options[1].n;
   return options[0].n;
 }
 
@@ -541,11 +586,19 @@ function nearestExit(game: LocationTacticsGame, from: { x: number; y: number }) 
 function aiPerps(game: LocationTacticsGame) {
   const entrance = mainEntranceGoal(game);
   for (const p of livingPerps(game)) {
+    const before = { x: p.x, y: p.y };
     const step = pathStepToward(game, p, entrance, p.id);
     if (step.x !== p.x || step.y !== p.y) {
       p.x = step.x;
       p.y = step.y;
       p.inCover = cellAt(game.cells, game.width, p.x, p.y)?.kind === 'cover';
+      if (p.spotted || p.known) {
+        pushLog(game, `${p.name} slips toward the main entrance.`, 'warn');
+      }
+    } else if (before.x === entrance.x && before.y === entrance.y) {
+      // already on entrance
+    } else if (p.spotted || p.known) {
+      pushLog(game, `${p.name} is blocked — hunting for another angle.`, 'info');
     }
     if (perpEscapedThroughEntrance(game, p)) continue;
 
@@ -652,21 +705,23 @@ function applyBulletHits(game: LocationTacticsGame) {
   game.bullets = remaining;
 }
 
+function arrestPerp(game: LocationTacticsGame, cop: TacticsUnit, perp: TacticsUnit): void {
+  if (perp.status !== 'active') return;
+  perp.status = 'caught';
+  perp.hp = 0;
+  pushLog(game, `${cop.name} arrests ${perp.name}!`, 'good');
+}
+
 function catchAdjacent(game: LocationTacticsGame) {
   for (const c of livingCops(game)) {
     for (const p of livingPerps(game)) {
-      if (dist(c, p) === 0) {
-        // Same cell — shove
-        p.status = 'caught';
-        pushLog(game, `${c.name} grabs ${p.name}!`, 'good');
-      } else if (dist(c, p) === 1 && (game.mode === 'chase' || game.mode === 'hide')) {
-        if (game.mode === 'hide' && !p.spotted) continue;
-        if (Math.random() < (game.mode === 'hide' ? 0.85 : 0.7)) {
-          p.status = 'caught';
-          pushLog(game, `${c.name} cuffs ${p.name}!`, 'good');
-        } else {
-          pushLog(game, `${p.name} slips ${c.name}'s grab.`, 'warn');
-        }
+      const d = dist(c, p);
+      if (d === 0) {
+        arrestPerp(game, c, p);
+      } else if (d === 1 && (game.mode === 'chase' || game.mode === 'hide')) {
+        // Auto-cuff only when the suspect is already known / spotted.
+        if (game.mode === 'hide' && !p.spotted && !p.known) continue;
+        arrestPerp(game, c, p);
       }
     }
   }
@@ -932,11 +987,14 @@ export function beginTacticsRaid(game: LocationTacticsGame): LocationTacticsGame
   pushLog(g, g.briefing, 'warn');
   pushLog(
     g,
-    'Turn-based: each officer moves 1 block, fires at suspects (≤2 blocks), or holds — then suspects move toward the main entrance.',
+    'Turn-based: each officer moves 1 block, arrests/fires, or skips — then suspects move toward the main entrance.',
     'info'
   );
   if (g.mode === 'gunfight') {
     pushLog(g, 'Gunfight: tap a red suspect cell to shoot. Closer = more accurate. Cover protects everyone but makes hits harder both ways.', 'info');
+  }
+  if (g.mode === 'hide' || g.mode === 'chase') {
+    pushLog(g, 'Get next to a suspect and tap them to arrest. Found suspects stay visible and run for the main entrance (IN).', 'info');
   }
   refreshSpotting(g);
   return g;
@@ -957,6 +1015,13 @@ export function reachableCells(game: LocationTacticsGame, unitId: string): Array
   for (const n of neighbors(unit.x, unit.y)) {
     const cell = cellAt(game.cells, game.width, n.x, n.y);
     if (!cell || !walkable(cell.kind)) continue;
+    const perpThere = livingPerps(game).find((p) => p.x === n.x && p.y === n.y);
+    if (perpThere) {
+      // Can step onto a perp cell to arrest (hide/chase), or if already known.
+      if (game.mode === 'gunfight') continue;
+      out.push(n);
+      continue;
+    }
     if (occupied(game, n.x, n.y, unit.id)) continue;
     out.push(n);
   }
@@ -975,6 +1040,15 @@ export function shootTargets(game: LocationTacticsGame, unitId: string): Tactics
       dist(unit, p) >= 1 &&
       hasLos(game.cells, game.width, game.height, unit.x, unit.y, p.x, p.y)
   );
+}
+
+/** Spotted suspects the selected officer can cuff (hide / chase). */
+export function arrestTargets(game: LocationTacticsGame, unitId: string): TacticsUnit[] {
+  if (!playerTurnActive(game)) return [];
+  if (game.mode === 'gunfight') return [];
+  const unit = game.units.find((u) => u.id === unitId && u.side === 'cop' && u.status === 'active');
+  if (!unit || officerHasActed(game, unitId)) return [];
+  return livingPerps(game).filter((p) => (p.spotted || p.known) && dist(unit, p) <= 1);
 }
 
 export function tacticsCancelOfficer(game: LocationTacticsGame, officerId?: string): LocationTacticsGame {
@@ -1031,6 +1105,25 @@ export function tacticsInteractCell(
     }
   }
 
+  // Hide / chase: tap a spotted suspect within 1 block to arrest
+  if (g.mode === 'hide' || g.mode === 'chase') {
+    const perp = livingPerps(g).find(
+      (p) => p.x === x && p.y === y && (p.spotted || p.known)
+    );
+    if (perp) {
+      const range = dist(selected, perp);
+      if (range > 1) {
+        pushLog(g, 'Get adjacent, then tap the suspect to arrest.', 'warn');
+        return g;
+      }
+      perp.known = true;
+      perp.spotted = true;
+      arrestPerp(g, selected, perp);
+      g.decisions.push(`Arrested ${perp.name}`);
+      return finishOfficerAction(g, selected.id);
+    }
+  }
+
   const cell = cellAt(g.cells, g.width, x, y);
   if (!cell || !walkable(cell.kind)) {
     pushLog(g, 'Blocked.', 'warn');
@@ -1053,6 +1146,25 @@ export function tacticsInteractCell(
     pushLog(g, 'One block per move — pick an adjacent cell.', 'warn');
     return g;
   }
+
+  // Stepping onto a spotted suspect = arrest
+  const perpOnCell = livingPerps(g).find((p) => p.x === x && p.y === y);
+  if (perpOnCell) {
+    if (!(perpOnCell.spotted || perpOnCell.known) && g.mode === 'hide') {
+      // Bump into a hidden suspect — reveal and cuff
+      perpOnCell.known = true;
+      perpOnCell.spotted = true;
+    }
+    selected.x = x;
+    selected.y = y;
+    selected.inCover = cell.kind === 'cover';
+    arrestPerp(g, selected, perpOnCell);
+    g.decisions.push(`Arrested ${perpOnCell.name}`);
+    if (g.mode !== 'gunfight') revealAround(g, x, y, g.mode === 'hide' ? 1 : 2);
+    refreshSpotting(g);
+    return finishOfficerAction(g, selected.id);
+  }
+
   if (occupied(g, x, y, selected.id)) {
     pushLog(g, 'Cell occupied.', 'warn');
     return g;

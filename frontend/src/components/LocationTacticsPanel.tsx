@@ -4,6 +4,7 @@ import {
   LocationTacticsGame,
   MOVE_BLOCKS_PER_TURN,
   SHOOT_RANGE_BLOCKS,
+  arrestTargets,
   computeShotHitChance,
   reachableCells,
   resolvePerpTurn,
@@ -52,8 +53,13 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
     () => (selected && game.phase === 'active' && game.roundPhase === 'player' ? shootTargets(game, selected.id) : []),
     [game, selected]
   );
+  const arrests = useMemo(
+    () => (selected && game.phase === 'active' && game.roundPhase === 'player' ? arrestTargets(game, selected.id) : []),
+    [game, selected]
+  );
   const reachSet = useMemo(() => new Set(reach.map((c) => `${c.x},${c.y}`)), [reach]);
   const targetSet = useMemo(() => new Set(targets.map((t) => `${t.x},${t.y}`)), [targets]);
+  const arrestSet = useMemo(() => new Set(arrests.map((t) => `${t.x},${t.y}`)), [arrests]);
   const targetHitPct = useMemo(() => {
     const map = new Map<string, number>();
     if (!selected || game.mode !== 'gunfight' || game.phase !== 'active') return map;
@@ -178,10 +184,15 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                     Gunfight: move {MOVE_BLOCKS_PER_TURN} block, <span className="text-red-300">tap red suspect to fire</span> (≤
                     {SHOOT_RANGE_BLOCKS} blocks), or hold. Closer = more accurate. Cover protects both sides.
                   </>
+                ) : game.mode === 'hide' ? (
+                  <>
+                    Hide &amp; seek: move {MOVE_BLOCKS_PER_TURN} block or search. Get next to a suspect and{' '}
+                    <span className="text-neon-green">tap them to arrest</span>. Found suspects stay visible and flee to IN.
+                  </>
                 ) : (
                   <>
-                    Turn-based: each officer moves {MOVE_BLOCKS_PER_TURN} block, searches, or holds — then suspects push toward the
-                    main entrance (IN).
+                    Foot chase: each officer moves {MOVE_BLOCKS_PER_TURN} block or skips — then suspects push toward the
+                    main entrance (IN). Tap an adjacent suspect to arrest.
                   </>
                 )}
               </p>
@@ -203,6 +214,23 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                   )}
                 </p>
               )}
+
+              {(game.mode === 'hide' || game.mode === 'chase') &&
+                selected &&
+                selected.status === 'active' &&
+                !actedSet.has(selected.id) && (
+                  <p className="text-[9px] px-1 leading-snug">
+                    {arrests.length > 0 ? (
+                      <span className="text-neon-green">
+                        Tap green suspect cell to arrest ({arrests.map((t) => t.name).join(', ')})
+                      </span>
+                    ) : (
+                      <span className="text-synth-muted">
+                        Move adjacent to a found suspect, then tap them to cuff.
+                      </span>
+                    )}
+                  </p>
+                )}
 
               <div className="flex flex-wrap gap-1 px-1">
                 {game.units
@@ -270,6 +298,7 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                     const fog = !game.revealed[cell.y]?.[cell.x] && game.mode !== 'gunfight';
                     const canMove = reachSet.has(`${cell.x},${cell.y}`);
                     const canShoot = targetSet.has(`${cell.x},${cell.y}`);
+                    const canArrest = arrestSet.has(`${cell.x},${cell.y}`);
                     const hitPct = targetHitPct.get(`${cell.x},${cell.y}`);
                     let bg = '#1a1430';
                     if (cell.kind === 'wall') bg = '#3f3f46';
@@ -279,6 +308,7 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                     if (fog) bg = '#09090b';
                     if (canMove) bg = '#155e75';
                     if (canShoot) bg = '#9f1239';
+                    if (canArrest) bg = '#166534';
 
                     return (
                       <button
@@ -310,6 +340,11 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                         {canShoot && hitPct !== undefined && (
                           <span className="absolute inset-0 flex items-end justify-center pb-0.5 text-[7px] text-red-100 font-bold leading-none z-[2]">
                             {hitPct}%
+                          </span>
+                        )}
+                        {canArrest && (
+                          <span className="absolute inset-0 flex items-end justify-center pb-0.5 text-[7px] text-green-100 font-bold leading-none z-[2]">
+                            CUFF
                           </span>
                         )}
                       </button>
