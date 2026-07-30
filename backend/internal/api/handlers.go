@@ -128,18 +128,22 @@ func handleUpdateUser(c *gin.Context) {
 }
 
 func handleGetCases(c *gin.Context, db *database.Database) {
-	rows, err := db.SQLite.Query("SELECT id, type, location, date, status, description, solved FROM cases ORDER BY date DESC")
+	rows, err := db.SQLite.Query(`
+		SELECT c.id, c.type, c.location, c.date, c.status, COALESCE(c.description,''), c.solved,
+			(SELECT COUNT(*) FROM investigation_notes n WHERE n.case_id = c.id) AS note_count
+		FROM cases c
+		ORDER BY c.date DESC`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	var cases []gin.H
+	cases := []gin.H{}
 	for rows.Next() {
 		var id, caseType, location, date, status, description string
-		var solved int
-		if err := rows.Scan(&id, &caseType, &location, &date, &status, &description, &solved); err != nil {
+		var solved, noteCount int
+		if err := rows.Scan(&id, &caseType, &location, &date, &status, &description, &solved, &noteCount); err != nil {
 			continue
 		}
 		cases = append(cases, gin.H{
@@ -150,6 +154,7 @@ func handleGetCases(c *gin.Context, db *database.Database) {
 			"status":      status,
 			"description": description,
 			"solved":      solved == 1,
+			"noteCount":   noteCount,
 		})
 	}
 

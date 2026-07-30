@@ -24,12 +24,22 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		users.PUT("/me", handleUpdateUser)
 	}
 
-	// Cases routes
+	// Cases routes (investigation parent nodes for notes)
 	cases := r.Group("/cases")
 	{
 		cases.GET("", func(c *gin.Context) { handleGetCases(c, db) })
+		cases.GET("/tree", func(c *gin.Context) { handleGetCasesTree(c, db) })
 		cases.GET("/:id", func(c *gin.Context) { handleGetCase(c, db) })
 		cases.POST("", func(c *gin.Context) { handleCreateCase(c, db) })
+		cases.GET("/:id/notes", func(c *gin.Context) { handleListCaseNotes(c, db) })
+		cases.POST("/:id/notes", func(c *gin.Context) { handleCreateCaseNote(c, db) })
+	}
+
+	// Investigation notes (children of cases)
+	notes := r.Group("/notes")
+	{
+		notes.PUT("/:id", func(c *gin.Context) { handleUpdateNote(c, db) })
+		notes.DELETE("/:id", func(c *gin.Context) { handleDeleteNote(c, db) })
 	}
 
 	// Perps routes

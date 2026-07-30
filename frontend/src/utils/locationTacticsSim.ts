@@ -461,10 +461,6 @@ function shootHitChance(game: LocationTacticsGame, from: TacticsUnit, to: Tactic
   return computeShotHitChance(game, from, to);
 }
 
-function mainEntranceGoal(game: LocationTacticsGame) {
-  return game.mainEntrance;
-}
-
 function occupied(game: LocationTacticsGame, x: number, y: number, ignoreId?: string) {
   return game.units.some(
     (u) => u.id !== ignoreId && u.status === 'active' && u.x === x && u.y === y

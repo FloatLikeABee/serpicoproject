@@ -158,6 +158,17 @@ func createTables(db *sql.DB) error {
 			fact_check_notes TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS investigation_notes (
+			id TEXT PRIMARY KEY,
+			case_id TEXT NOT NULL,
+			author_name TEXT NOT NULL,
+			title TEXT NOT NULL,
+			body TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_investigation_notes_case_id ON investigation_notes(case_id)`,
 	}
 
 	for _, query := range queries {

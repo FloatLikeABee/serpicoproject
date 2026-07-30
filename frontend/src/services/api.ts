@@ -351,5 +351,61 @@ export const mysteriesAPI = {
   },
 };
 
+/** Investigation case (parent node for notes). */
+export interface InvestigationCase {
+  id: string;
+  type: string;
+  location: string;
+  date: string;
+  status: string;
+  description: string;
+  solved: boolean;
+  noteCount?: number;
+  notes?: InvestigationNote[];
+}
+
+export interface InvestigationNote {
+  id: string;
+  caseId: string;
+  authorName: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const investigationAPI = {
+  getTree: async (): Promise<{ cases: InvestigationCase[] }> => {
+    const response = await api.get<{ cases: InvestigationCase[] }>('/cases/tree');
+    return response.data;
+  },
+  createCase: async (payload: {
+    type: string;
+    location: string;
+    date: string;
+    description?: string;
+  }): Promise<InvestigationCase> => {
+    const response = await api.post<InvestigationCase>('/cases', payload);
+    return response.data;
+  },
+  createNote: async (
+    caseId: string,
+    payload: { authorName: string; title: string; body: string }
+  ): Promise<{ note: InvestigationNote }> => {
+    const response = await api.post<{ note: InvestigationNote }>(`/cases/${caseId}/notes`, payload);
+    return response.data;
+  },
+  updateNote: async (
+    noteId: string,
+    payload: { title: string; body: string }
+  ): Promise<{ note: InvestigationNote }> => {
+    const response = await api.put<{ note: InvestigationNote }>(`/notes/${noteId}`, payload);
+    return response.data;
+  },
+  deleteNote: async (noteId: string): Promise<void> => {
+    await api.delete(`/notes/${noteId}`);
+  },
+};
+
 export default api;
 
