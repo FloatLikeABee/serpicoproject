@@ -169,6 +169,21 @@ func createTables(db *sql.DB) error {
 			FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_investigation_notes_case_id ON investigation_notes(case_id)`,
+		`CREATE TABLE IF NOT EXISTS investigation_nodes (
+			id TEXT PRIMARY KEY,
+			case_id TEXT NOT NULL,
+			author_name TEXT NOT NULL,
+			place TEXT,
+			location TEXT,
+			person_name TEXT,
+			event_time TEXT NOT NULL,
+			event TEXT NOT NULL,
+			analysis TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_investigation_nodes_case_time ON investigation_nodes(case_id, event_time)`,
 	}
 
 	for _, query := range queries {

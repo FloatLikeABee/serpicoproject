@@ -128,7 +128,7 @@ const Navigation: React.FC = () => {
           </React.Fragment>
         ))}
 
-        {renderNavButton('/notes', 'Notes', 'Note', <NotesIcon />)}
+        {renderNavButton('/notes', 'Cases', 'Case', <NotesIcon />)}
       </div>
     </nav>
   );

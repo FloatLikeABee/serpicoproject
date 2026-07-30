@@ -10,6 +10,7 @@ import NearbyOfficers from '../pages/civilian/NearbyOfficers';
 import NearbyPerps from '../pages/civilian/NearbyPerps';
 import SafeRoutes from '../pages/civilian/SafeRoutes';
 import Notes from '../pages/Notes';
+import CaseDetail from '../pages/CaseDetail';
 import AIChat from '../pages/AIChat';
 
 const Dashboard: React.FC = () => {
@@ -42,6 +43,7 @@ const Dashboard: React.FC = () => {
           {/* Common routes */}
           <Route path="/ai-chat" element={<AIChat />} />
           <Route path="/notes" element={<Notes />} />
+          <Route path="/notes/:caseId" element={<CaseDetail />} />
           <Route path="/settings" element={<Notes />} />
           <Route path="/" element={getDefaultView()} />
         </Routes>
