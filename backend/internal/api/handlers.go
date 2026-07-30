@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -130,7 +131,7 @@ func handleUpdateUser(c *gin.Context) {
 func handleGetCases(c *gin.Context, db *database.Database) {
 	rows, err := db.SQLite.Query(`
 		SELECT c.id, c.type, c.location, c.date, c.status, COALESCE(c.description,''), c.solved,
-			(SELECT COUNT(*) FROM investigation_notes n WHERE n.case_id = c.id) AS note_count
+			(SELECT COUNT(*) FROM investigation_nodes n WHERE n.case_id = c.id) AS node_count
 		FROM cases c
 		ORDER BY c.date DESC`)
 	if err != nil {
@@ -142,8 +143,8 @@ func handleGetCases(c *gin.Context, db *database.Database) {
 	cases := []gin.H{}
 	for rows.Next() {
 		var id, caseType, location, date, status, description string
-		var solved, noteCount int
-		if err := rows.Scan(&id, &caseType, &location, &date, &status, &description, &solved, &noteCount); err != nil {
+		var solved, nodeCount int
+		if err := rows.Scan(&id, &caseType, &location, &date, &status, &description, &solved, &nodeCount); err != nil {
 			continue
 		}
 		cases = append(cases, gin.H{
@@ -154,7 +155,7 @@ func handleGetCases(c *gin.Context, db *database.Database) {
 			"status":      status,
 			"description": description,
 			"solved":      solved == 1,
-			"noteCount":   noteCount,
+			"nodeCount":   nodeCount,
 		})
 	}
 
@@ -201,6 +202,22 @@ func handleCreateCase(c *gin.Context, db *database.Database) {
 		return
 	}
 
+	req.Type = strings.TrimSpace(req.Type)
+	req.Location = strings.TrimSpace(req.Location)
+	req.Date = strings.TrimSpace(req.Date)
+	req.Description = strings.TrimSpace(req.Description)
+
+	if req.Type == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type (case title) is required"})
+		return
+	}
+	if req.Location == "" {
+		req.Location = "TBD"
+	}
+	if req.Date == "" {
+		req.Date = time.Now().UTC().Format("2006-01-02")
+	}
+
 	id := "case-" + uuid.New().String()
 	_, err := db.SQLite.Exec("INSERT INTO cases (id, type, location, date, status, description, solved) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		id, req.Type, req.Location, req.Date, "Open", req.Description, 0)
@@ -217,6 +234,7 @@ func handleCreateCase(c *gin.Context, db *database.Database) {
 		"status":      "Open",
 		"description": req.Description,
 		"solved":      false,
+		"nodeCount":   0,
 	})
 }
 

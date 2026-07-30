@@ -2,30 +2,44 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"serpico/backend/internal/ai"
 	"serpico/backend/internal/database"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-type investigationNote struct {
+// Investigation timeline node under a case (ordered by event_time).
+type investigationNode struct {
 	ID         string `json:"id"`
 	CaseID     string `json:"caseId"`
 	AuthorName string `json:"authorName"`
-	Title      string `json:"title"`
-	Body       string `json:"body"`
+	Place      string `json:"place"`
+	Location   string `json:"location"`
+	PersonName string `json:"name"`
+	EventTime  string `json:"time"`
+	Event      string `json:"event"`
+	Analysis   string `json:"analysis"`
 	CreatedAt  string `json:"createdAt"`
 	UpdatedAt  string `json:"updatedAt"`
 }
 
-func scanNote(rows interface {
+func scanNode(scanner interface {
 	Scan(dest ...interface{}) error
-}) (investigationNote, error) {
-	var n investigationNote
-	err := rows.Scan(&n.ID, &n.CaseID, &n.AuthorName, &n.Title, &n.Body, &n.CreatedAt, &n.UpdatedAt)
+}) (investigationNode, error) {
+	var n investigationNode
+	err := scanner.Scan(
+		&n.ID, &n.CaseID, &n.AuthorName,
+		&n.Place, &n.Location, &n.PersonName,
+		&n.EventTime, &n.Event, &n.Analysis,
+		&n.CreatedAt, &n.UpdatedAt,
+	)
 	return n, err
 }
 
@@ -35,181 +49,293 @@ func caseExists(db *database.Database, caseID string) bool {
 	return err == nil
 }
 
-// GET /cases/tree — cases as parent nodes with nested investigation notes.
-func handleGetCasesTree(c *gin.Context, db *database.Database) {
-	caseRows, err := db.SQLite.Query(`
-		SELECT id, type, location, date, status, COALESCE(description,''), solved
-		FROM cases ORDER BY date DESC`)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	defer caseRows.Close()
-
-	type caseNode struct {
-		ID          string              `json:"id"`
-		Type        string              `json:"type"`
-		Location    string              `json:"location"`
-		Date        string              `json:"date"`
-		Status      string              `json:"status"`
-		Description string              `json:"description"`
-		Solved      bool                `json:"solved"`
-		Notes       []investigationNote `json:"notes"`
-	}
-
-	tree := []caseNode{}
-	for caseRows.Next() {
-		var node caseNode
-		var solved int
-		if err := caseRows.Scan(&node.ID, &node.Type, &node.Location, &node.Date, &node.Status, &node.Description, &solved); err != nil {
-			continue
-		}
-		node.Solved = solved == 1
-		node.Notes = []investigationNote{}
-
-		noteRows, err := db.SQLite.Query(`
-			SELECT id, case_id, author_name, title, body, created_at, updated_at
-			FROM investigation_notes WHERE case_id = ? ORDER BY updated_at DESC`, node.ID)
-		if err == nil {
-			for noteRows.Next() {
-				n, err := scanNote(noteRows)
-				if err == nil {
-					node.Notes = append(node.Notes, n)
-				}
-			}
-			_ = noteRows.Close()
-		}
-		tree = append(tree, node)
-	}
-
-	c.JSON(http.StatusOK, gin.H{"cases": tree})
-}
-
-func handleListCaseNotes(c *gin.Context, db *database.Database) {
-	caseID := c.Param("id")
-	if !caseExists(db, caseID) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Case not found — notes require a parent case"})
-		return
-	}
-
+func listNodesForCase(db *database.Database, caseID string) ([]investigationNode, error) {
 	rows, err := db.SQLite.Query(`
-		SELECT id, case_id, author_name, title, body, created_at, updated_at
-		FROM investigation_notes WHERE case_id = ? ORDER BY updated_at DESC`, caseID)
+		SELECT id, case_id, author_name,
+			COALESCE(place,''), COALESCE(location,''), COALESCE(person_name,''),
+			event_time, event, COALESCE(analysis,''),
+			created_at, updated_at
+		FROM investigation_nodes
+		WHERE case_id = ?
+		ORDER BY event_time ASC, created_at ASC`, caseID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, err
 	}
 	defer rows.Close()
 
-	notes := []investigationNote{}
+	nodes := []investigationNode{}
 	for rows.Next() {
-		n, err := scanNote(rows)
+		n, err := scanNode(rows)
 		if err == nil {
-			notes = append(notes, n)
+			nodes = append(nodes, n)
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"caseId": caseID, "notes": notes})
+	return nodes, nil
 }
 
-func handleCreateCaseNote(c *gin.Context, db *database.Database) {
+// GET /cases/:id — case detail with timeline nodes ordered by time.
+func handleGetCaseWithNodes(c *gin.Context, db *database.Database) {
+	id := c.Param("id")
+
+	var caseType, location, date, status, description string
+	var solved int
+	err := db.SQLite.QueryRow(
+		`SELECT type, location, date, status, COALESCE(description,''), solved FROM cases WHERE id = ?`, id,
+	).Scan(&caseType, &location, &date, &status, &description, &solved)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Case not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	nodes, err := listNodesForCase(db, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"case": gin.H{
+			"id":          id,
+			"type":        caseType,
+			"location":    location,
+			"date":        date,
+			"status":      status,
+			"description": description,
+			"solved":      solved == 1,
+			"nodeCount":   len(nodes),
+		},
+		"nodes": nodes,
+	})
+}
+
+func handleListCaseNodes(c *gin.Context, db *database.Database) {
 	caseID := c.Param("id")
 	if !caseExists(db, caseID) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Notes must belong to a case (parent node required)"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Case not found"})
+		return
+	}
+	nodes, err := listNodesForCase(db, caseID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"caseId": caseID, "nodes": nodes})
+}
+
+func handleCreateCaseNode(c *gin.Context, db *database.Database) {
+	caseID := c.Param("id")
+	if !caseExists(db, caseID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nodes must belong to a case"})
 		return
 	}
 
 	var req struct {
 		AuthorName string `json:"authorName"`
-		Title      string `json:"title"`
-		Body       string `json:"body"`
+		Place      string `json:"place"`
+		Location   string `json:"location"`
+		Name       string `json:"name"`
+		Time       string `json:"time"`
+		Event      string `json:"event"`
+		Analysis   string `json:"analysis"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if req.Title == "" || req.Body == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "title and body are required"})
+	if strings.TrimSpace(req.Event) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "event is required"})
 		return
+	}
+	if strings.TrimSpace(req.Time) == "" {
+		req.Time = time.Now().UTC().Format("2006-01-02T15:04")
 	}
 	if req.AuthorName == "" {
 		req.AuthorName = "Officer"
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	id := "note-" + uuid.New().String()[:8]
+	id := "node-" + uuid.New().String()[:8]
 	_, err := db.SQLite.Exec(`
-		INSERT INTO investigation_notes (id, case_id, author_name, title, body, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		id, caseID, req.AuthorName, req.Title, req.Body, now, now)
+		INSERT INTO investigation_nodes
+			(id, case_id, author_name, place, location, person_name, event_time, event, analysis, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, caseID, req.AuthorName, req.Place, req.Location, req.Name,
+		req.Time, req.Event, req.Analysis, now, now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"note": investigationNote{
+		"node": investigationNode{
 			ID: id, CaseID: caseID, AuthorName: req.AuthorName,
-			Title: req.Title, Body: req.Body, CreatedAt: now, UpdatedAt: now,
+			Place: req.Place, Location: req.Location, PersonName: req.Name,
+			EventTime: req.Time, Event: req.Event, Analysis: req.Analysis,
+			CreatedAt: now, UpdatedAt: now,
 		},
 	})
 }
 
-func handleUpdateNote(c *gin.Context, db *database.Database) {
+func handleUpdateNode(c *gin.Context, db *database.Database) {
 	id := c.Param("id")
 	var req struct {
-		Title string `json:"title"`
-		Body  string `json:"body"`
+		Place    string `json:"place"`
+		Location string `json:"location"`
+		Name     string `json:"name"`
+		Time     string `json:"time"`
+		Event    string `json:"event"`
+		Analysis string `json:"analysis"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if req.Title == "" || req.Body == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "title and body are required"})
+	if strings.TrimSpace(req.Event) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "event is required"})
 		return
+	}
+	if strings.TrimSpace(req.Time) == "" {
+		req.Time = time.Now().UTC().Format("2006-01-02T15:04")
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	res, err := db.SQLite.Exec(`
-		UPDATE investigation_notes SET title = ?, body = ?, updated_at = ? WHERE id = ?`,
-		req.Title, req.Body, now, id)
+		UPDATE investigation_nodes
+		SET place = ?, location = ?, person_name = ?, event_time = ?, event = ?, analysis = ?, updated_at = ?
+		WHERE id = ?`,
+		req.Place, req.Location, req.Name, req.Time, req.Event, req.Analysis, now, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Node not found"})
 		return
 	}
 
-	var note investigationNote
+	var node investigationNode
 	err = db.SQLite.QueryRow(`
-		SELECT id, case_id, author_name, title, body, created_at, updated_at
-		FROM investigation_notes WHERE id = ?`, id).
-		Scan(&note.ID, &note.CaseID, &note.AuthorName, &note.Title, &note.Body, &note.CreatedAt, &note.UpdatedAt)
+		SELECT id, case_id, author_name,
+			COALESCE(place,''), COALESCE(location,''), COALESCE(person_name,''),
+			event_time, event, COALESCE(analysis,''),
+			created_at, updated_at
+		FROM investigation_nodes WHERE id = ?`, id).
+		Scan(&node.ID, &node.CaseID, &node.AuthorName,
+			&node.Place, &node.Location, &node.PersonName,
+			&node.EventTime, &node.Event, &node.Analysis,
+			&node.CreatedAt, &node.UpdatedAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
-			return
-		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"note": note})
+	c.JSON(http.StatusOK, gin.H{"node": node})
 }
 
-func handleDeleteNote(c *gin.Context, db *database.Database) {
+func handleDeleteNode(c *gin.Context, db *database.Database) {
 	id := c.Param("id")
-	res, err := db.SQLite.Exec(`DELETE FROM investigation_notes WHERE id = ?`, id)
+	res, err := db.SQLite.Exec(`DELETE FROM investigation_nodes WHERE id = ?`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Node not found"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// POST /cases/:id/nodes/assist — AI drafts event + analysis from partial node fields.
+func handleAssistCaseNode(c *gin.Context, db *database.Database, aiService interface{}) {
+	caseID := c.Param("id")
+	if !caseExists(db, caseID) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Case not found"})
+		return
+	}
+
+	var req struct {
+		Place    string `json:"place"`
+		Location string `json:"location"`
+		Name     string `json:"name"`
+		Time     string `json:"time"`
+		Event    string `json:"event"`
+		Analysis string `json:"analysis"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var caseType, caseLoc, caseDate, caseDesc string
+	_ = db.SQLite.QueryRow(
+		`SELECT type, location, date, COALESCE(description,'') FROM cases WHERE id = ?`, caseID,
+	).Scan(&caseType, &caseLoc, &caseDate, &caseDesc)
+
+	aiSvc, ok := aiService.(interface {
+		ProcessChat(userMessage string, context string, history []ai.ChatHistoryMessage) (string, error)
+	})
+	if !ok {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI service not available"})
+		return
+	}
+
+	userMsg := fmt.Sprintf(
+		`Return ONLY valid JSON with keys "event" and "analysis" (no markdown).
+
+Case: %s | %s | %s
+Summary: %s
+
+Node fields:
+place=%s; location=%s; person=%s; time=%s
+event draft=%s
+analysis draft=%s
+
+Write a clear factual event description and a short investigative analysis (leads, gaps, next checks).`,
+		caseType, caseLoc, caseDate, caseDesc,
+		req.Place, req.Location, req.Name, req.Time, req.Event, req.Analysis,
+	)
+
+	content, err := aiSvc.ProcessChat(userMsg, "investigation-node-assist", nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	eventOut, analysisOut := parseAssistJSON(content, req.Event, req.Analysis)
+	c.JSON(http.StatusOK, gin.H{
+		"event":    eventOut,
+		"analysis": analysisOut,
+	})
+}
+
+func parseAssistJSON(raw, fallbackEvent, fallbackAnalysis string) (string, string) {
+	raw = strings.TrimSpace(raw)
+	raw = strings.TrimPrefix(raw, "```json")
+	raw = strings.TrimPrefix(raw, "```")
+	raw = strings.TrimSuffix(strings.TrimSpace(raw), "```")
+	raw = strings.TrimSpace(raw)
+
+	var parsed struct {
+		Event    string `json:"event"`
+		Analysis string `json:"analysis"`
+	}
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		if fallbackEvent != "" {
+			return fallbackEvent, raw
+		}
+		return raw, fallbackAnalysis
+	}
+	if parsed.Event == "" {
+		parsed.Event = fallbackEvent
+	}
+	if parsed.Analysis == "" {
+		parsed.Analysis = fallbackAnalysis
+	}
+	return parsed.Event, parsed.Analysis
 }

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
 import Navigation from '../components/Navigation';
 import InPursue from '../pages/police/InPursue';
 import Mysteries from '../pages/police/Mysteries';
@@ -14,7 +13,6 @@ import AIChat from '../pages/AIChat';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const { theme } = useTheme();
 
   const getDefaultView = () => {
     if (user?.role === 'police') {
@@ -24,7 +22,7 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className={`app-shell synth-grid-bg synth-scanlines ${theme === 'dark' ? '' : 'synth-light'}`}>
+    <div className="app-shell synth-grid-bg synth-scanlines">
       <div className="flex-1 min-h-0 overflow-hidden relative">
         <Routes>
           {/* Police routes */}
@@ -42,6 +40,7 @@ const Dashboard: React.FC = () => {
           {/* Common routes */}
           <Route path="/ai-chat" element={<AIChat />} />
           <Route path="/notes" element={<Notes />} />
+          <Route path="/notes/:caseId" element={<Notes />} />
           <Route path="/settings" element={<Notes />} />
           <Route path="/" element={getDefaultView()} />
         </Routes>

@@ -9,7 +9,10 @@ const Navigation: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) =>
+    path === '/notes'
+      ? location.pathname === '/notes' || location.pathname.startsWith('/notes/')
+      : location.pathname === path;
 
   const PursueIcon = () => (
     <svg {...iconProps}>
@@ -128,7 +131,7 @@ const Navigation: React.FC = () => {
           </React.Fragment>
         ))}
 
-        {renderNavButton('/notes', 'Notes', 'Note', <NotesIcon />)}
+        {renderNavButton('/notes', 'Cases', 'Case', <NotesIcon />)}
       </div>
     </nav>
   );

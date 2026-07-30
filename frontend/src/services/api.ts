@@ -351,7 +351,7 @@ export const mysteriesAPI = {
   },
 };
 
-/** Investigation case (parent node for notes). */
+/** Investigation case (parent for timeline nodes). */
 export interface InvestigationCase {
   id: string;
   type: string;
@@ -360,23 +360,35 @@ export interface InvestigationCase {
   status: string;
   description: string;
   solved: boolean;
-  noteCount?: number;
-  notes?: InvestigationNote[];
+  nodeCount?: number;
 }
 
-export interface InvestigationNote {
+/** Timeline event node under a case — ordered by time. */
+export interface InvestigationNode {
   id: string;
   caseId: string;
   authorName: string;
-  title: string;
-  body: string;
+  place: string;
+  location: string;
+  name: string;
+  time: string;
+  event: string;
+  analysis: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export const investigationAPI = {
-  getTree: async (): Promise<{ cases: InvestigationCase[] }> => {
-    const response = await api.get<{ cases: InvestigationCase[] }>('/cases/tree');
+  listCases: async (): Promise<{ cases: InvestigationCase[] }> => {
+    const response = await api.get<{ cases: InvestigationCase[] }>('/cases');
+    return response.data;
+  },
+  getCase: async (
+    caseId: string
+  ): Promise<{ case: InvestigationCase; nodes: InvestigationNode[] }> => {
+    const response = await api.get<{ case: InvestigationCase; nodes: InvestigationNode[] }>(
+      `/cases/${caseId}`
+    );
     return response.data;
   },
   createCase: async (payload: {
@@ -388,22 +400,54 @@ export const investigationAPI = {
     const response = await api.post<InvestigationCase>('/cases', payload);
     return response.data;
   },
-  createNote: async (
+  createNode: async (
     caseId: string,
-    payload: { authorName: string; title: string; body: string }
-  ): Promise<{ note: InvestigationNote }> => {
-    const response = await api.post<{ note: InvestigationNote }>(`/cases/${caseId}/notes`, payload);
+    payload: {
+      authorName: string;
+      place: string;
+      location: string;
+      name: string;
+      time: string;
+      event: string;
+      analysis: string;
+    }
+  ): Promise<{ node: InvestigationNode }> => {
+    const response = await api.post<{ node: InvestigationNode }>(`/cases/${caseId}/nodes`, payload);
     return response.data;
   },
-  updateNote: async (
-    noteId: string,
-    payload: { title: string; body: string }
-  ): Promise<{ note: InvestigationNote }> => {
-    const response = await api.put<{ note: InvestigationNote }>(`/notes/${noteId}`, payload);
+  updateNode: async (
+    nodeId: string,
+    payload: {
+      place: string;
+      location: string;
+      name: string;
+      time: string;
+      event: string;
+      analysis: string;
+    }
+  ): Promise<{ node: InvestigationNode }> => {
+    const response = await api.put<{ node: InvestigationNode }>(`/nodes/${nodeId}`, payload);
     return response.data;
   },
-  deleteNote: async (noteId: string): Promise<void> => {
-    await api.delete(`/notes/${noteId}`);
+  deleteNode: async (nodeId: string): Promise<void> => {
+    await api.delete(`/nodes/${nodeId}`);
+  },
+  assistNode: async (
+    caseId: string,
+    payload: {
+      place: string;
+      location: string;
+      name: string;
+      time: string;
+      event: string;
+      analysis: string;
+    }
+  ): Promise<{ event: string; analysis: string }> => {
+    const response = await api.post<{ event: string; analysis: string }>(
+      `/cases/${caseId}/nodes/assist`,
+      payload
+    );
+    return response.data;
   },
 };
 
