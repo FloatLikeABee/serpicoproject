@@ -118,18 +118,26 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
     );
   }
 
-  const cellSize = Math.max(18, Math.min(28, Math.floor(300 / Math.max(game.width, game.height))));
+  const gap = 2;
+  // Fit the full floor plan in a larger panel — prefer showing every row/column.
+  const mapBudgetW = 460;
+  const mapBudgetH = 340;
+  const cellByW = Math.floor(mapBudgetW / game.width) - gap;
+  const cellByH = Math.floor(mapBudgetH / game.height) - gap;
+  const cellSize = Math.max(16, Math.min(30, Math.min(cellByW, cellByH)));
+  const gridW = game.width * (cellSize + gap);
+  const gridH = game.height * (cellSize + gap);
 
   return (
-    <div className="absolute inset-x-2 top-2 bottom-2 sm:inset-auto sm:top-2 sm:right-2 sm:bottom-2 sm:w-[380px] z-[1150] pointer-events-auto flex flex-col">
-      <div className="game-panel border border-neon-amber/45 flex flex-col max-h-full overflow-hidden shadow-xl">
-        <div className="px-3 py-2 border-b border-white/10 flex items-start justify-between gap-2 flex-shrink-0">
+    <div className="absolute inset-1.5 sm:inset-2 z-[1150] pointer-events-auto flex flex-col sm:left-auto sm:right-2 sm:w-[min(520px,calc(100vw-1rem))]">
+      <div className="game-panel border border-neon-amber/45 flex flex-col h-full max-h-full overflow-hidden shadow-xl">
+        <div className="px-3 py-1.5 border-b border-white/10 flex items-start justify-between gap-2 flex-shrink-0">
           <div className="min-w-0">
             <p className="text-[10px] font-display uppercase tracking-wider text-neon-amber">
               {MODE_LABEL[game.mode]} · visual tactics
             </p>
             <h3 className="font-display font-bold text-sm text-white truncate">{game.landmarkName}</h3>
-            <p className="text-[11px] text-gray-300 truncate">{game.scenarioTitle}</p>
+            <p className="text-[10px] text-gray-400 truncate">{game.scenarioTitle}</p>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
@@ -150,12 +158,10 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
           </div>
         </div>
 
-        <div className="px-2 py-2 flex-1 overflow-y-auto space-y-2 min-h-0">
-          {game.phase !== 'completed' && (
-            <>
-              <p className="text-[10px] text-gray-300 leading-snug px-1">{game.briefing}</p>
-
-              <div className="flex flex-wrap gap-2 text-[10px] font-mono px-1">
+        {game.phase !== 'completed' ? (
+          <>
+            <div className="px-2 pt-1.5 pb-1 space-y-1 flex-shrink-0 border-b border-white/5">
+              <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] font-mono px-0.5">
                 <span className="text-neon-cyan">T{game.turn}/{game.maxTurns}</span>
                 <span
                   className={
@@ -168,75 +174,62 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                 <span className="text-neon-magenta">Loose {activePerps}</span>
                 <span className="text-gray-400">Esc {escaped}</span>
                 <span className="text-neon-amber">
-                  {pendingOfficers} officer{pendingOfficers === 1 ? '' : 's'} left
+                  {pendingOfficers} left
                 </span>
-                {selected && (
-                  <span className="text-gray-300">
-                    {actedSet.has(selected.id) ? 'Acted' : '1 block / hold'}
-                    {game.mode === 'gunfight' && selected.status === 'active' ? ` · Ammo ${selected.ammo}` : ''}
-                  </span>
+                {selected && game.mode !== 'gunfight' && (
+                  <span className="text-gray-300">Ammo {selected.ammo}</span>
+                )}
+                {selected && game.mode === 'gunfight' && selected.status === 'active' && (
+                  <span className="text-gray-300">Ammo {selected.ammo}</span>
                 )}
               </div>
 
-              <p className="text-[9px] text-synth-muted px-1 leading-snug">
+              <p className="text-[9px] text-synth-muted px-0.5 leading-snug line-clamp-2">
                 {game.mode === 'gunfight' ? (
                   <>
-                    Gunfight: move {MOVE_BLOCKS_PER_TURN} block, <span className="text-red-300">tap red suspect to fire</span> (≤
-                    {SHOOT_RANGE_BLOCKS} blocks), or hold. Closer = more accurate. Cover protects both sides.
+                    Move {MOVE_BLOCKS_PER_TURN} or <span className="text-red-300">tap red to fire</span> (≤{SHOOT_RANGE_BLOCKS}).
                   </>
                 ) : game.mode === 'hide' ? (
                   <>
-                    Hide &amp; seek: move {MOVE_BLOCKS_PER_TURN} block. Adjacent ={' '}
-                    <span className="text-neon-green">cuff</span>, 2 blocks ={' '}
-                    <span className="text-red-300">shoot</span>. Suspects flee to IN with {2} rounds/turn.
+                    Adjacent = <span className="text-neon-green">cuff</span>, 2 blocks ={' '}
+                    <span className="text-red-300">shoot</span>. Suspects flee to IN.
                   </>
                 ) : (
                   <>
-                    Foot chase: move or skip, then suspects push for escape and{' '}
-                    <span className="text-red-300">return fire</span> (2 rounds/turn). Cuff adjacent or shoot at range.
+                    Move/skip, then suspects flee &amp; <span className="text-red-300">return fire</span>. Cuff or shoot.
                   </>
                 )}
               </p>
 
-              {selected && selected.status === 'active' && !actedSet.has(selected.id) && game.mode === 'gunfight' && (
-                <p className="text-[9px] px-1 leading-snug">
-                  {targets.length > 0 ? (
-                    <span className="text-red-200">
-                      {selected.name}: {selected.ammo} rounds · tap red cells to shoot (
-                      {targets.map((t) => `${t.name.split(' ').pop()} ${targetHitPct.get(`${t.x},${t.y}`) ?? 0}%`).join(', ')})
-                    </span>
-                  ) : selected.ammo > 0 ? (
-                    <span className="text-neon-amber">No shot — move within {SHOOT_RANGE_BLOCKS} blocks with line of sight.</span>
-                  ) : (
-                    <span className="text-gray-400">Out of ammo — reposition or end the round.</span>
-                  )}
-                  {selected.inCover && (
-                    <span className="block text-stone-300 mt-0.5">In cover — safer, but your shots are less accurate.</span>
-                  )}
-                </p>
-              )}
-
               {(game.mode === 'hide' || game.mode === 'chase') &&
                 selected &&
                 selected.status === 'active' &&
-                !actedSet.has(selected.id) && (
-                  <p className="text-[9px] px-1 leading-snug">
-                    <span className="text-gray-300">{selected.name}: {selected.ammo} rounds · </span>
+                !actedSet.has(selected.id) &&
+                game.roundPhase === 'player' && (
+                  <p className="text-[9px] px-0.5 leading-snug truncate">
                     {arrests.length > 0 ? (
-                      <span className="text-neon-green">
-                        cuff {arrests.map((t) => t.name).join(', ')}
-                      </span>
+                      <span className="text-neon-green">Tap green to cuff ({arrests.map((t) => t.name).join(', ')})</span>
                     ) : targets.length > 0 ? (
                       <span className="text-red-200">
-                        shoot ({targets.map((t) => `${t.name} ${targetHitPct.get(`${t.x},${t.y}`) ?? 0}%`).join(', ')})
+                        Tap red to shoot ({targets.map((t) => `${t.name} ${targetHitPct.get(`${t.x},${t.y}`) ?? 0}%`).join(', ')})
                       </span>
-                    ) : (
-                      <span className="text-synth-muted">find suspects — they shoot back when close</span>
-                    )}
+                    ) : null}
                   </p>
                 )}
 
-              <div className="flex flex-wrap gap-1 px-1">
+              {game.mode === 'gunfight' &&
+                selected &&
+                selected.status === 'active' &&
+                !actedSet.has(selected.id) &&
+                game.roundPhase === 'player' &&
+                targets.length > 0 && (
+                  <p className="text-[9px] px-0.5 text-red-200 truncate">
+                    Tap red to shoot (
+                    {targets.map((t) => `${t.name.split(' ').pop()} ${targetHitPct.get(`${t.x},${t.y}`) ?? 0}%`).join(', ')})
+                  </p>
+                )}
+
+              <div className="flex flex-wrap gap-1">
                 {game.units
                   .filter((u) => u.side === 'cop')
                   .map((o) => {
@@ -281,9 +274,14 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                   Skip all
                 </button>
               </div>
+            </div>
 
-              {/* Building-block map */}
-              <div className="relative mx-auto rounded-md border border-white/10 bg-[#07050f] p-1 overflow-auto">
+            {/* Map region — dedicated space so the full floor plan stays visible */}
+            <div className="flex-1 min-h-0 overflow-auto px-2 py-2">
+              <div
+                className="relative mx-auto rounded-md border border-white/10 bg-[#07050f] p-1.5"
+                style={{ width: gridW + 12, minHeight: gridH + 12 }}
+              >
                 {game.roundPhase === 'perp' && (
                   <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 rounded-md pointer-events-none">
                     <p className="text-[11px] font-display uppercase tracking-wider text-neon-magenta animate-pulse">
@@ -292,10 +290,13 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                   </div>
                 )}
                 <div
-                  className="relative grid gap-[2px]"
+                  className="relative grid"
                   style={{
                     gridTemplateColumns: `repeat(${game.width}, ${cellSize}px)`,
-                    width: game.width * (cellSize + 2),
+                    gridTemplateRows: `repeat(${game.height}, ${cellSize}px)`,
+                    gap: `${gap}px`,
+                    width: gridW,
+                    height: gridH,
                   }}
                 >
                   {game.cells.map((cell) => {
@@ -355,12 +356,11 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                     );
                   })}
 
-                  {/* Units */}
                   {game.units.map((u) => {
                     if (u.side === 'perp' && !u.spotted && u.status === 'active') return null;
                     if (u.status === 'escaped') return null;
-                    const left = u.x * (cellSize + 2) + 2;
-                    const top = u.y * (cellSize + 2) + 2;
+                    const left = u.x * (cellSize + gap);
+                    const top = u.y * (cellSize + gap);
                     const color =
                       u.side === 'cop'
                         ? u.status === 'hurt'
@@ -376,8 +376,8 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                         style={{
                           left,
                           top,
-                          width: cellSize - 2,
-                          height: cellSize - 2,
+                          width: cellSize - 1,
+                          height: cellSize - 1,
                           background: color,
                           color: '#0b0f1a',
                           fontSize: Math.max(8, cellSize * 0.4),
@@ -393,14 +393,13 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                     );
                   })}
 
-                  {/* Bullets */}
                   {game.bullets.map((b) => (
                     <div
                       key={b.id}
                       className="absolute rounded-full pointer-events-none"
                       style={{
-                        left: b.x * (cellSize + 2) + cellSize * 0.35,
-                        top: b.y * (cellSize + 2) + cellSize * 0.35,
+                        left: b.x * (cellSize + gap) + cellSize * 0.35,
+                        top: b.y * (cellSize + gap) + cellSize * 0.35,
                         width: Math.max(4, cellSize * 0.28),
                         height: Math.max(4, cellSize * 0.28),
                         background: b.side === 'cop' ? '#fde047' : '#fb7185',
@@ -412,37 +411,37 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 text-[9px] text-synth-muted px-1">
+              <div className="flex flex-wrap gap-2 text-[9px] text-synth-muted px-1 mt-1.5 justify-center">
                 <span><i className="inline-block w-2 h-2 rounded-sm bg-cyan-400 mr-1" />Cops</span>
-                <span><i className="inline-block w-2 h-2 rounded-sm bg-pink-400 mr-1" />Perps (when spotted)</span>
+                <span><i className="inline-block w-2 h-2 rounded-sm bg-pink-400 mr-1" />Perps</span>
                 <span><i className="inline-block w-2 h-2 rounded-sm bg-stone-500 mr-1" />Cover</span>
-                <span><i className="inline-block w-2 h-2 rounded-sm bg-cyan-950 mr-1 border border-cyan-400/40" />Main entrance (IN)</span>
-                <span><i className="inline-block w-2 h-2 rounded-sm bg-red-900 mr-1" />Side exit</span>
+                <span><i className="inline-block w-2 h-2 rounded-sm bg-cyan-950 mr-1 border border-cyan-400/40" />IN</span>
+                <span><i className="inline-block w-2 h-2 rounded-sm bg-red-900 mr-1" />Exit</span>
               </div>
+            </div>
 
-              <ul className="space-y-0.5 max-h-20 overflow-y-auto px-1">
-                {[...game.log].reverse().slice(0, 6).map((e, i) => (
-                  <li
-                    key={`${e.turn}-${i}`}
-                    className={`text-[10px] leading-snug ${
-                      e.tone === 'good'
-                        ? 'text-neon-green'
-                        : e.tone === 'bad'
-                        ? 'text-neon-magenta'
-                        : e.tone === 'warn'
-                        ? 'text-neon-amber'
-                        : 'text-gray-400'
-                    }`}
-                  >
-                    <span className="text-synth-muted">T{e.turn}</span> {e.text}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          {game.phase === 'completed' && game.result && (
-            <div className="space-y-3 px-1">
+            <ul className="flex-shrink-0 space-y-0.5 max-h-16 overflow-y-auto px-2 py-1.5 border-t border-white/5">
+              {[...game.log].reverse().slice(0, 5).map((e, i) => (
+                <li
+                  key={`${e.turn}-${i}`}
+                  className={`text-[10px] leading-snug ${
+                    e.tone === 'good'
+                      ? 'text-neon-green'
+                      : e.tone === 'bad'
+                      ? 'text-neon-magenta'
+                      : e.tone === 'warn'
+                      ? 'text-neon-amber'
+                      : 'text-gray-400'
+                  }`}
+                >
+                  <span className="text-synth-muted">T{e.turn}</span> {e.text}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          game.result && (
+            <div className="px-3 py-3 flex-1 overflow-y-auto space-y-3 min-h-0">
               <h4
                 className={`font-display font-bold text-lg ${
                   game.result.outcome === 'total_win'
@@ -467,12 +466,16 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
               {showEscapeFaces && (
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-lg border border-sky-400/30 bg-sky-500/10 p-2 text-center">
-                    <div className="text-3xl" aria-hidden>😢</div>
+                    <div className="text-3xl" aria-hidden>
+                      😢
+                    </div>
                     <p className="text-[10px] text-sky-200 mt-1 font-display uppercase">Citizens</p>
                     <p className="text-[10px] text-gray-300">Neighborhood feels less safe.</p>
                   </div>
                   <div className="rounded-lg border border-red-400/40 bg-red-500/10 p-2 text-center">
-                    <div className="text-3xl" aria-hidden>😠</div>
+                    <div className="text-3xl" aria-hidden>
+                      😠
+                    </div>
                     <p className="text-[10px] text-red-200 mt-1 font-display uppercase">Chief</p>
                     <p className="text-[10px] text-gray-300">Wants answers on the failure.</p>
                   </div>
@@ -503,8 +506,8 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                 Back to map chase
               </button>
             </div>
-          )}
-        </div>
+          )
+        )}
       </div>
     </div>
   );
