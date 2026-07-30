@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -201,6 +202,22 @@ func handleCreateCase(c *gin.Context, db *database.Database) {
 		return
 	}
 
+	req.Type = strings.TrimSpace(req.Type)
+	req.Location = strings.TrimSpace(req.Location)
+	req.Date = strings.TrimSpace(req.Date)
+	req.Description = strings.TrimSpace(req.Description)
+
+	if req.Type == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type (case title) is required"})
+		return
+	}
+	if req.Location == "" {
+		req.Location = "TBD"
+	}
+	if req.Date == "" {
+		req.Date = time.Now().UTC().Format("2006-01-02")
+	}
+
 	id := "case-" + uuid.New().String()
 	_, err := db.SQLite.Exec("INSERT INTO cases (id, type, location, date, status, description, solved) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		id, req.Type, req.Location, req.Date, "Open", req.Description, 0)
@@ -217,6 +234,7 @@ func handleCreateCase(c *gin.Context, db *database.Database) {
 		"status":      "Open",
 		"description": req.Description,
 		"solved":      false,
+		"nodeCount":   0,
 	})
 }
 

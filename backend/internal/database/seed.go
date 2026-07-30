@@ -8,9 +8,9 @@ import (
 
 // SeedDatabase populates the database with mock data for demonstration
 func SeedDatabase(db *sql.DB) error {
-	// Check if data already exists
+	// Gate on users — investigation cases intentionally start empty.
 	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM cases").Scan(&count)
+	err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
 	if err == nil && count > 0 {
 		log.Println("Database already contains data, skipping seed")
 		return nil
@@ -18,10 +18,8 @@ func SeedDatabase(db *sql.DB) error {
 
 	log.Println("Seeding database with serial killers and mysteries data...")
 
-	// Seed Cases (Serial Killer Cases)
-	if err := seedCases(db); err != nil {
-		return err
-	}
+	// Investigation Cases start empty — officers create their own from the Cases desk.
+	// (Do not seed example cases into the cases table.)
 
 	// Seed Perps (Serial Killers)
 	if err := seedPerps(db); err != nil {
