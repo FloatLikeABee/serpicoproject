@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -6,6 +6,13 @@ import {
   InvestigationNode,
   investigationAPI,
 } from '../services/api';
+import {
+  loadCachedCases,
+  loadCachedNodes,
+  saveCachedCases,
+  saveCachedNodes,
+  upsertCachedCase,
+} from '../utils/investigationStore';
 
 type NodeForm = {
   place: string;
@@ -136,8 +143,9 @@ const Notes: React.FC = () => {
   const navigate = useNavigate();
   const { caseId: routeCaseId } = useParams<{ caseId?: string }>();
 
-  const [cases, setCases] = useState<InvestigationCase[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [cases, setCases] = useState<InvestigationCase[]>(() => loadCachedCases());
+  const [loading, setLoading] = useState(() => loadCachedCases().length === 0);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [showCaseForm, setShowCaseForm] = useState(false);
   const [savingCase, setSavingCase] = useState(false);
@@ -151,6 +159,7 @@ const Notes: React.FC = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [nodesByCase, setNodesByCase] = useState<Record<string, InvestigationNode[]>>({});
   const [loadingNodes, setLoadingNodes] = useState(false);
+  const rehydrateRef = useRef(false);
 
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -158,40 +167,132 @@ const Notes: React.FC = () => {
   const [savingNote, setSavingNote] = useState(false);
   const [assisting, setAssisting] = useState(false);
 
+  /** Push browser-cached cases/notes back to API after an ephemeral DB wipe. */
+  const rehydrateServerFromCache = useCallback(async (cached: InvestigationCase[]) => {
+    if (rehydrateRef.current || cached.length === 0) return;
+    rehydrateRef.current = true;
+    const restored: InvestigationCase[] = [];
+    try {
+      for (const c of cached) {
+        const created = await investigationAPI.createCase({
+          type: c.type,
+          location: c.location || 'TBD',
+          date: c.date || new Date().toISOString().slice(0, 10),
+          description: c.description || '',
+        });
+        const oldNodes = loadCachedNodes(c.id);
+        const newNodes: InvestigationNode[] = [];
+        for (const n of oldNodes) {
+          const { node } = await investigationAPI.createNode(created.id, {
+            authorName: n.authorName || user?.name || 'Officer',
+            place: n.place || '',
+            location: n.location || '',
+            name: n.name || '',
+            time: n.time || new Date().toISOString().slice(0, 16),
+            event: n.event,
+            analysis: n.analysis || '',
+          });
+          newNodes.push(node);
+        }
+        saveCachedNodes(created.id, newNodes);
+        restored.push({ ...created, nodeCount: newNodes.length });
+      }
+      saveCachedCases(restored);
+      setCases(restored);
+      setNodesByCase((prev) => {
+        const next = { ...prev };
+        for (const c of restored) {
+          next[c.id] = loadCachedNodes(c.id);
+        }
+        return next;
+      });
+    } catch (err) {
+      console.warn('Failed to rehydrate cases to server', err);
+    }
+  }, [user?.name]);
+
   const loadCases = useCallback(async () => {
-    setLoading(true);
+    const cached = loadCachedCases();
+    if (cached.length > 0) {
+      setCases(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    setSyncing(true);
     setError('');
     try {
       const { cases: list } = await investigationAPI.listCases();
-      setCases(list || []);
+      const remote = list || [];
+      if (remote.length > 0) {
+        const byId = new Map<string, InvestigationCase>();
+        for (const c of remote) byId.set(c.id, c);
+        // Keep any device-only drafts the server does not know about yet.
+        for (const c of cached) {
+          if (c.id.startsWith('local-') && !byId.has(c.id)) byId.set(c.id, c);
+        }
+        const merged = Array.from(byId.values());
+        setCases(merged);
+        saveCachedCases(merged);
+      } else if (cached.length > 0) {
+        // Server empty (likely redeploy wiped SQLite) — keep cache and restore.
+        setCases(cached);
+        void rehydrateServerFromCache(cached);
+      } else {
+        setCases([]);
+        saveCachedCases([]);
+      }
     } catch (err) {
       console.error(err);
-      setError(apiErrorMessage(err, 'Unable to load cases. Check backend connection.'));
+      if (cached.length === 0) {
+        setError(apiErrorMessage(err, 'Unable to load cases. Check backend connection.'));
+      }
+      // Keep showing cache if API is cold/down.
     } finally {
       setLoading(false);
+      setSyncing(false);
     }
-  }, []);
+  }, [rehydrateServerFromCache]);
 
   useEffect(() => {
     void loadCases();
   }, [loadCases]);
 
   const loadNodesForCase = useCallback(async (caseId: string) => {
-    setLoadingNodes(true);
+    const cachedNodes = loadCachedNodes(caseId);
+    if (cachedNodes.length > 0) {
+      setNodesByCase((prev) => ({ ...prev, [caseId]: cachedNodes }));
+      setLoadingNodes(false);
+    } else {
+      setLoadingNodes(true);
+    }
     setError('');
     try {
       const data = await investigationAPI.getCase(caseId);
-      setNodesByCase((prev) => ({ ...prev, [caseId]: data.nodes || [] }));
+      const nodes = data.nodes || [];
+      setNodesByCase((prev) => ({ ...prev, [caseId]: nodes }));
+      saveCachedNodes(caseId, nodes);
       if (data.case) {
-        setCases((prev) =>
-          prev.map((c) =>
-            c.id === caseId ? { ...c, ...data.case, nodeCount: data.nodes?.length ?? 0 } : c
-          )
-        );
+        setCases((prev) => {
+          const next = prev.map((c) =>
+            c.id === caseId ? { ...c, ...data.case, nodeCount: nodes.length } : c
+          );
+          saveCachedCases(next);
+          return next;
+        });
       }
     } catch (err) {
       console.error(err);
-      setError(apiErrorMessage(err, 'Unable to load case notes.'));
+      if (cachedNodes.length === 0) {
+        // Case may only exist in cache after a wipe — show cache, no hard error.
+        const stillCached = loadCachedNodes(caseId);
+        if (stillCached.length > 0) {
+          setNodesByCase((prev) => ({ ...prev, [caseId]: stillCached }));
+        } else {
+          setError(apiErrorMessage(err, 'Unable to load case notes.'));
+        }
+      }
     } finally {
       setLoadingNodes(false);
     }
@@ -229,13 +330,31 @@ const Notes: React.FC = () => {
     }
     setSavingCase(true);
     setError('');
+    const draft = {
+      type: caseForm.type.trim(),
+      location: caseForm.location.trim() || 'TBD',
+      date: caseForm.date || new Date().toISOString().slice(0, 10),
+      description: caseForm.description.trim(),
+    };
     try {
-      const created = await investigationAPI.createCase({
-        type: caseForm.type.trim(),
-        location: caseForm.location.trim() || 'TBD',
-        date: caseForm.date || new Date().toISOString().slice(0, 10),
-        description: caseForm.description.trim(),
-      });
+      let created: InvestigationCase;
+      try {
+        created = await investigationAPI.createCase(draft);
+      } catch (apiErr) {
+        // Offline / cold backend — keep the case in the browser so refresh still shows it.
+        created = {
+          id: `local-${Date.now()}`,
+          type: draft.type,
+          location: draft.location,
+          date: draft.date,
+          status: 'Open',
+          description: draft.description,
+          solved: false,
+          nodeCount: 0,
+        };
+        console.warn('createCase API failed; saved locally', apiErr);
+        setError('Saved on this device — server unreachable. Will sync when backend is up.');
+      }
       setShowCaseForm(false);
       setCaseForm({
         type: '',
@@ -243,8 +362,14 @@ const Notes: React.FC = () => {
         date: new Date().toISOString().slice(0, 10),
         description: '',
       });
-      const withCount = { ...created, nodeCount: 0 };
-      setCases((prev) => [withCount, ...prev]);
+      const withCount = { ...created, nodeCount: created.nodeCount ?? 0 };
+      upsertCachedCase(withCount);
+      saveCachedNodes(created.id, []);
+      setCases((prev) => {
+        const next = [withCount, ...prev.filter((c) => c.id !== withCount.id)];
+        saveCachedCases(next);
+        return next;
+      });
       setExpandedId(created.id);
       setNodesByCase((prev) => ({ ...prev, [created.id]: [] }));
       setShowNoteForm(true);
@@ -300,17 +425,70 @@ const Notes: React.FC = () => {
         event: displayNoteText(noteForm.event.trim()),
         analysis: displayNoteText(noteForm.analysis.trim()),
       };
+
+      let nextNodes = [...(nodesByCase[expandedId] || loadCachedNodes(expandedId))];
+      const isLocalCase = expandedId.startsWith('local-');
+
       if (editingNoteId) {
-        await investigationAPI.updateNode(editingNoteId, payload);
+        try {
+          if (!isLocalCase) {
+            const { node } = await investigationAPI.updateNode(editingNoteId, payload);
+            nextNodes = nextNodes.map((n) => (n.id === editingNoteId ? node : n));
+          } else {
+            nextNodes = nextNodes.map((n) =>
+              n.id === editingNoteId
+                ? { ...n, ...payload, updatedAt: new Date().toISOString() }
+                : n
+            );
+          }
+        } catch {
+          nextNodes = nextNodes.map((n) =>
+            n.id === editingNoteId
+              ? { ...n, ...payload, updatedAt: new Date().toISOString() }
+              : n
+          );
+          setError('Note saved on this device — server sync pending.');
+        }
       } else {
-        await investigationAPI.createNode(expandedId, {
-          ...payload,
-          authorName: user?.name || 'Officer',
-        });
+        try {
+          if (!isLocalCase) {
+            const { node } = await investigationAPI.createNode(expandedId, {
+              ...payload,
+              authorName: user?.name || 'Officer',
+            });
+            nextNodes = [...nextNodes, node].sort((a, b) => a.time.localeCompare(b.time));
+          } else {
+            throw new Error('local-only case');
+          }
+        } catch {
+          const localNode: InvestigationNode = {
+            id: `local-node-${Date.now()}`,
+            caseId: expandedId,
+            authorName: user?.name || 'Officer',
+            place: payload.place,
+            location: payload.location,
+            name: payload.name,
+            time: payload.time,
+            event: payload.event,
+            analysis: payload.analysis,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          nextNodes = [...nextNodes, localNode].sort((a, b) => a.time.localeCompare(b.time));
+          setError('Note saved on this device — server sync pending.');
+        }
       }
+
+      setNodesByCase((prev) => ({ ...prev, [expandedId]: nextNodes }));
+      saveCachedNodes(expandedId, nextNodes);
+      setCases((prev) => {
+        const next = prev.map((c) =>
+          c.id === expandedId ? { ...c, nodeCount: nextNodes.length } : c
+        );
+        saveCachedCases(next);
+        return next;
+      });
       cancelNoteForm();
-      await loadNodesForCase(expandedId);
-      await loadCases();
     } catch (err) {
       console.error(err);
       setError(apiErrorMessage(err, 'Failed to save note.'));
@@ -323,9 +501,25 @@ const Notes: React.FC = () => {
     if (!expandedId || !window.confirm('Delete this note?')) return;
     setError('');
     try {
-      await investigationAPI.deleteNode(id);
-      await loadNodesForCase(expandedId);
-      await loadCases();
+      try {
+        if (!expandedId.startsWith('local-') && !id.startsWith('local-node-')) {
+          await investigationAPI.deleteNode(id);
+        }
+      } catch (err) {
+        console.warn('deleteNode API failed; removing locally', err);
+      }
+      const nextNodes = (nodesByCase[expandedId] || loadCachedNodes(expandedId)).filter(
+        (n) => n.id !== id
+      );
+      setNodesByCase((prev) => ({ ...prev, [expandedId]: nextNodes }));
+      saveCachedNodes(expandedId, nextNodes);
+      setCases((prev) => {
+        const next = prev.map((c) =>
+          c.id === expandedId ? { ...c, nodeCount: nextNodes.length } : c
+        );
+        saveCachedCases(next);
+        return next;
+      });
     } catch (err) {
       setError(apiErrorMessage(err, 'Failed to delete note.'));
     }
@@ -369,6 +563,7 @@ const Notes: React.FC = () => {
             </h1>
             <p className="text-[11px] sm:text-xs text-synth-muted mt-0.5">
               Expand a case to view and add timed notes.
+              {syncing ? ' · Syncing…' : ''}
             </p>
           </div>
           <button

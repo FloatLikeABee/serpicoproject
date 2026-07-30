@@ -380,7 +380,10 @@ export interface InvestigationNode {
 
 export const investigationAPI = {
   listCases: async (): Promise<{ cases: InvestigationCase[] }> => {
-    const response = await api.get<{ cases: InvestigationCase[] }>('/cases');
+    const response = await api.get<{ cases: InvestigationCase[] }>('/cases', {
+      // Fail over to local cache quickly instead of hanging on a cold Render wake.
+      timeout: 12000,
+    });
     return response.data;
   },
   getCase: async (
