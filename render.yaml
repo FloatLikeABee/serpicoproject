@@ -55,21 +55,28 @@ services:
         - backend/**
     buildCommand: go mod download && go build -o serpico .
     startCommand: ./serpico
+    # Persist SQLite / Badger across deploys (ephemeral disk was wiping cases).
+    disk:
+      name: serpico-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: PORT
         generateValue: true
+      - key: DATA_DIR
+        value: /var/data
       - key: GEMINI_API_KEY
         sync: false  # Set this in Render dashboard
       - key: GEMINI_DEFAULT_MODEL
         value: gemini-2.5-flash
       - key: RAG_DATA_PATH
-        value: ./data/rag
+        value: /var/data/rag
       - key: ENABLE_WEB_SEARCH
         value: "true"
       - key: ENABLE_DAILY_INTEL
         value: "true"
       - key: INTEL_DATA_PATH
-        value: ./data/intel
+        value: /var/data/intel
       - key: INTEL_INTERVAL_HOURS
         value: "12"
       - key: INTEL_PIECES_PER_RUN

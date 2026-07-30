@@ -16,18 +16,25 @@ type Database struct {
 }
 
 func Initialize() (*Database, error) {
-	// Create data directory if it doesn't exist
-	dataDir := "data"
+	// Prefer DATA_DIR (Render persistent disk). Fall back to ./data for local dev.
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir == "" {
+		dataDir = "data"
+	}
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return nil, err
 	}
 
-	// Initialize SQLite
+	// Initialize SQLite on durable path
 	sqlitePath := filepath.Join(dataDir, "serpico.db")
-	db, err := sql.Open("sqlite3", sqlitePath)
+	log.Printf("Opening SQLite at %s", sqlitePath)
+	db, err := sql.Open("sqlite3", sqlitePath+"?_busy_timeout=5000&_journal_mode=WAL")
 	if err != nil {
 		return nil, err
 	}
+	// Keep a small pool — SQLite is file-backed.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 
 	// Create tables
 	if err := createTables(db); err != nil {
@@ -44,9 +51,9 @@ func Initialize() (*Database, error) {
 		log.Printf("Warning: Failed to seed database: %v", err)
 	}
 
-	// Initialize BadgerDB for caching
+	// Initialize BadgerDB for caching (same durable root)
 	badgerPath := filepath.Join(dataDir, "cache")
-	badgerDB, err := badger.Open(badger.DefaultOptions(badgerPath))
+	badgerDB, err := badger.Open(badger.DefaultOptions(badgerPath).WithLogger(nil))
 	if err != nil {
 		return nil, err
 	}
