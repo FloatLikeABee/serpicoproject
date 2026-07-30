@@ -1,7 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
 import Navigation from '../components/Navigation';
 import InPursue from '../pages/police/InPursue';
 import Mysteries from '../pages/police/Mysteries';
@@ -14,7 +13,6 @@ import AIChat from '../pages/AIChat';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const { theme } = useTheme();
 
   const getDefaultView = () => {
     if (user?.role === 'police') {
