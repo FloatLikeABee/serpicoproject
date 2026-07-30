@@ -48,6 +48,79 @@ function formatDisplayTime(iso: string): string {
   });
 }
 
+/** Unwrap AI JSON blobs into readable prose for display / form fields. */
+function displayNoteText(value: string): string {
+  const raw = (value || '').trim();
+  if (!raw) return '';
+
+  const tryParse = (s: string): unknown => {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return null;
+    }
+  };
+
+  const flatten = (v: unknown): string => {
+    if (v == null) return '';
+    if (typeof v === 'string') {
+      const inner = v.trim();
+      if (
+        (inner.startsWith('{') && inner.endsWith('}')) ||
+        (inner.startsWith('[') && inner.endsWith(']'))
+      ) {
+        const nested = tryParse(inner);
+        if (nested != null) return flatten(nested);
+      }
+      return inner;
+    }
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    if (Array.isArray(v)) return v.map(flatten).filter(Boolean).join('; ');
+    if (typeof v === 'object') {
+      const obj = v as Record<string, unknown>;
+      // Full assist payload accidentally stored in analysis
+      if ('event' in obj || 'analysis' in obj) {
+        const analysis = obj.analysis != null ? flatten(obj.analysis) : '';
+        const event = obj.event != null ? flatten(obj.event) : '';
+        if (analysis) return analysis;
+        if (event) return event;
+      }
+      const preferred = ['summary', 'text', 'notes', 'analysis', 'leads', 'gaps', 'next', 'nextChecks', 'next_checks'];
+      const parts: string[] = [];
+      const seen = new Set<string>();
+      for (const key of preferred) {
+        if (key in obj) {
+          seen.add(key);
+          parts.push(`${key.replace(/_/g, ' ')}: ${flatten(obj[key])}`);
+        }
+      }
+      for (const [k, val] of Object.entries(obj)) {
+        if (seen.has(k)) continue;
+        parts.push(`${k.replace(/_/g, ' ')}: ${flatten(val)}`);
+      }
+      return parts.join('. ');
+    }
+    return String(v);
+  };
+
+  let candidate = raw;
+  if (candidate.startsWith('```')) {
+    candidate = candidate.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+  }
+  const start = candidate.indexOf('{');
+  const end = candidate.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    const sliced = candidate.slice(start, end + 1);
+    const parsed = tryParse(sliced);
+    if (parsed != null) return flatten(parsed);
+  }
+  if (candidate.startsWith('[') && candidate.endsWith(']')) {
+    const parsed = tryParse(candidate);
+    if (parsed != null) return flatten(parsed);
+  }
+  return raw;
+}
+
 function apiErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'response' in err) {
     const data = (err as { response?: { data?: { error?: string } } }).response?.data;
@@ -199,8 +272,8 @@ const Notes: React.FC = () => {
       location: node.location || '',
       name: node.name || '',
       time: toLocalInput(node.time),
-      event: node.event || '',
-      analysis: node.analysis || '',
+      event: displayNoteText(node.event || ''),
+      analysis: displayNoteText(node.analysis || ''),
     });
     setShowNoteForm(true);
   };
@@ -224,8 +297,8 @@ const Notes: React.FC = () => {
         location: noteForm.location.trim(),
         name: noteForm.name.trim(),
         time: noteForm.time || new Date().toISOString().slice(0, 16),
-        event: noteForm.event.trim(),
-        analysis: noteForm.analysis.trim(),
+        event: displayNoteText(noteForm.event.trim()),
+        analysis: displayNoteText(noteForm.analysis.trim()),
       };
       if (editingNoteId) {
         await investigationAPI.updateNode(editingNoteId, payload);
@@ -273,8 +346,8 @@ const Notes: React.FC = () => {
       });
       setNoteForm((prev) => ({
         ...prev,
-        event: result.event || prev.event,
-        analysis: result.analysis || prev.analysis,
+        event: displayNoteText(result.event || prev.event),
+        analysis: displayNoteText(result.analysis || prev.analysis),
       }));
     } catch (err) {
       setError(apiErrorMessage(err, 'AI assist failed.'));
@@ -559,7 +632,7 @@ const Notes: React.FC = () => {
                                     </button>
                                   </div>
                                 </div>
-                                <p className="text-sm text-white leading-snug">{node.event}</p>
+                                <p className="text-sm text-white leading-snug">{displayNoteText(node.event)}</p>
                                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-400">
                                   {node.place ? <span>Place: {node.place}</span> : null}
                                   {node.location ? <span>Loc: {node.location}</span> : null}
@@ -568,7 +641,7 @@ const Notes: React.FC = () => {
                                 {node.analysis ? (
                                   <p className="text-[11px] text-gray-300 border-t border-white/10 pt-1.5 whitespace-pre-wrap">
                                     <span className="text-[9px] uppercase text-neon-magenta/80 mr-1">Analysis</span>
-                                    {node.analysis}
+                                    {displayNoteText(node.analysis)}
                                   </p>
                                 ) : null}
                               </div>

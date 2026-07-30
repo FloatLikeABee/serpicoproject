@@ -156,6 +156,8 @@ func handleCreateCaseNode(c *gin.Context, db *database.Database) {
 	if req.AuthorName == "" {
 		req.AuthorName = "Officer"
 	}
+	req.Event = cleanAssistText(req.Event)
+	req.Analysis = cleanAssistText(req.Analysis)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	id := "node-" + uuid.New().String()[:8]
@@ -201,6 +203,8 @@ func handleUpdateNode(c *gin.Context, db *database.Database) {
 	if strings.TrimSpace(req.Time) == "" {
 		req.Time = time.Now().UTC().Format("2006-01-02T15:04")
 	}
+	req.Event = cleanAssistText(req.Event)
+	req.Analysis = cleanAssistText(req.Analysis)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	res, err := db.SQLite.Exec(`
@@ -286,7 +290,8 @@ func handleAssistCaseNode(c *gin.Context, db *database.Database, aiService inter
 	}
 
 	userMsg := fmt.Sprintf(
-		`Return ONLY valid JSON with keys "event" and "analysis" (no markdown).
+		`Return ONLY a JSON object with exactly two string fields: "event" and "analysis".
+Do not nest objects or arrays. "analysis" must be one or two plain sentences of investigative notes (leads, gaps, next checks). No markdown fences.
 
 Case: %s | %s | %s
 Summary: %s
@@ -294,9 +299,7 @@ Summary: %s
 Node fields:
 place=%s; location=%s; person=%s; time=%s
 event draft=%s
-analysis draft=%s
-
-Write a clear factual event description and a short investigative analysis (leads, gaps, next checks).`,
+analysis draft=%s`,
 		caseType, caseLoc, caseDate, caseDesc,
 		req.Place, req.Location, req.Name, req.Time, req.Event, req.Analysis,
 	)
@@ -316,26 +319,130 @@ Write a clear factual event description and a short investigative analysis (lead
 
 func parseAssistJSON(raw, fallbackEvent, fallbackAnalysis string) (string, string) {
 	raw = strings.TrimSpace(raw)
-	raw = strings.TrimPrefix(raw, "```json")
-	raw = strings.TrimPrefix(raw, "```")
-	raw = strings.TrimSuffix(strings.TrimSpace(raw), "```")
-	raw = strings.TrimSpace(raw)
+	raw = stripCodeFence(raw)
 
-	var parsed struct {
-		Event    string `json:"event"`
-		Analysis string `json:"analysis"`
+	// Prefer the first JSON object in the response if the model added prose.
+	if obj := extractJSONObject(raw); obj != "" {
+		raw = obj
 	}
-	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
-		if fallbackEvent != "" {
-			return fallbackEvent, raw
+
+	var loose map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &loose); err != nil {
+		// Not JSON — if it looks like leftover JSON noise, keep fallbacks.
+		if strings.Contains(raw, `"event"`) || strings.Contains(raw, `"analysis"`) {
+			return fallbackEvent, fallbackAnalysis
 		}
-		return raw, fallbackAnalysis
+		if fallbackEvent != "" {
+			return fallbackEvent, cleanAssistText(raw)
+		}
+		return cleanAssistText(raw), fallbackAnalysis
 	}
-	if parsed.Event == "" {
-		parsed.Event = fallbackEvent
+
+	eventOut := jsonFieldToPlainText(loose["event"])
+	analysisOut := jsonFieldToPlainText(loose["analysis"])
+	if eventOut == "" {
+		eventOut = fallbackEvent
 	}
-	if parsed.Analysis == "" {
-		parsed.Analysis = fallbackAnalysis
+	if analysisOut == "" {
+		analysisOut = fallbackAnalysis
 	}
-	return parsed.Event, parsed.Analysis
+	return eventOut, analysisOut
+}
+
+func stripCodeFence(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "```") {
+		s = strings.TrimPrefix(s, "```json")
+		s = strings.TrimPrefix(s, "```JSON")
+		s = strings.TrimPrefix(s, "```")
+		s = strings.TrimSpace(s)
+		if i := strings.LastIndex(s, "```"); i >= 0 {
+			s = strings.TrimSpace(s[:i])
+		}
+	}
+	return s
+}
+
+func extractJSONObject(s string) string {
+	start := strings.Index(s, "{")
+	end := strings.LastIndex(s, "}")
+	if start < 0 || end <= start {
+		return ""
+	}
+	return s[start : end+1]
+}
+
+// jsonFieldToPlainText turns a JSON string/object/array into readable prose.
+func jsonFieldToPlainText(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var asString string
+	if err := json.Unmarshal(raw, &asString); err == nil {
+		return cleanAssistText(asString)
+	}
+	var asObj map[string]interface{}
+	if err := json.Unmarshal(raw, &asObj); err == nil {
+		return flattenAssistMap(asObj)
+	}
+	var asArr []interface{}
+	if err := json.Unmarshal(raw, &asArr); err == nil {
+		parts := make([]string, 0, len(asArr))
+		for _, item := range asArr {
+			parts = append(parts, fmt.Sprint(item))
+		}
+		return cleanAssistText(strings.Join(parts, "; "))
+	}
+	return cleanAssistText(string(raw))
+}
+
+func flattenAssistMap(m map[string]interface{}) string {
+	preferred := []string{"summary", "text", "notes", "analysis", "leads", "gaps", "next", "nextChecks", "next_checks"}
+	parts := make([]string, 0, len(m))
+	seen := map[string]bool{}
+	for _, key := range preferred {
+		if v, ok := m[key]; ok {
+			seen[key] = true
+			parts = append(parts, fmt.Sprintf("%s: %v", humanizeKey(key), v))
+		}
+	}
+	for k, v := range m {
+		if seen[k] {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s: %v", humanizeKey(k), v))
+	}
+	return cleanAssistText(strings.Join(parts, ". "))
+}
+
+func humanizeKey(key string) string {
+	key = strings.ReplaceAll(key, "_", " ")
+	if key == "" {
+		return key
+	}
+	return strings.ToUpper(key[:1]) + key[1:]
+}
+
+func cleanAssistText(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.Trim(s, "`")
+	s = strings.TrimSpace(s)
+	// If a nested JSON string was stringified, try one more unwrap.
+	if strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}") {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(s), &m); err == nil {
+			return flattenAssistMap(m)
+		}
+	}
+	if strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]") {
+		var arr []interface{}
+		if err := json.Unmarshal([]byte(s), &arr); err == nil {
+			parts := make([]string, 0, len(arr))
+			for _, item := range arr {
+				parts = append(parts, fmt.Sprint(item))
+			}
+			return strings.Join(parts, "; ")
+		}
+	}
+	return s
 }
