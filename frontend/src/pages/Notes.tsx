@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
 import {
   InvestigationCase,
   InvestigationNode,
@@ -61,10 +60,8 @@ function apiErrorMessage(err: unknown, fallback: string): string {
 /** Cases list — expand a case to work its timed notes in-pane. */
 const Notes: React.FC = () => {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { caseId: routeCaseId } = useParams<{ caseId?: string }>();
-  const isDark = theme === 'dark';
 
   const [cases, setCases] = useState<InvestigationCase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -590,13 +587,6 @@ const Notes: React.FC = () => {
         <section className="game-panel p-3 space-y-2 border border-white/10">
           <p className="text-[10px] font-display uppercase tracking-wider text-synth-muted">Account</p>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-white/15 text-gray-300"
-            >
-              {isDark ? 'Dawn mode' : 'Night mode'}
-            </button>
             <button
               type="button"
               onClick={() => {

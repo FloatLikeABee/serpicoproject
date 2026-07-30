@@ -24,7 +24,7 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className={`app-shell synth-grid-bg synth-scanlines ${theme === 'dark' ? '' : 'synth-light'}`}>
+    <div className="app-shell synth-grid-bg synth-scanlines">
       <div className="flex-1 min-h-0 overflow-hidden relative">
         <Routes>
           {/* Police routes */}
