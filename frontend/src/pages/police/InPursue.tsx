@@ -5,6 +5,7 @@ import PlaceTagModal from '../../components/PlaceTagModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { pursuitExamAPI } from '../../services/api';
 import {
+  AMERICA_CENTER,
   HELPER_COUNT,
   INITIAL_SQUAD_COUNT,
   MapLandmark,
@@ -388,7 +389,7 @@ const InPursue: React.FC = () => {
             <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate">
               {chaseActive
                 ? `${INITIAL_SQUAD_COUNT} cops · ${fleeingPerps.length} at large · ${helperCopy}`
-                : `${mapTags.length} map tags · zoom & pin intel`}
+                : `${mapTags.length} US map tags · zoom & pin intel`}
             </p>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -514,8 +515,9 @@ const InPursue: React.FC = () => {
 
       <div className="flex-1 min-h-0 relative">
         <PursuitMapCanvas
-          center={OLATHE_CENTER}
-          zoom={14}
+          center={chaseActive ? OLATHE_CENTER : AMERICA_CENTER}
+          zoom={chaseActive ? 14 : 4}
+          scope={chaseActive ? 'olathe' : 'america'}
           vehicles={vehicles.map(toMapVehicle)}
           landmarks={chaseActive ? session.landmarks ?? [] : []}
           mapTags={mapTags}

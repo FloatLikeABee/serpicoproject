@@ -42,7 +42,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
         `Address / place: ${placeLabel}`,
         draft.notes ? `Officer notes so far: ${draft.notes}` : '',
         `Use web search / crime news if available.`,
-        `Summarize: what this place appears to be, nearby context in Olathe KS area, any relevant crime or investigative angles, and suggested next checks.`,
+        `Summarize: what this place appears to be, nearby US context, any relevant crime or investigative angles, and suggested next checks.`,
         `Write clear plain paragraphs (no JSON).`,
       ]
         .filter(Boolean)

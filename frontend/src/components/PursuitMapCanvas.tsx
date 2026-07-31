@@ -3,6 +3,10 @@ import { MapContainer, TileLayer, Marker, Polyline, CircleMarker, useMap } from 
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
+  AMERICA_BOUNDS,
+  AMERICA_CENTER,
+  AMERICA_MAX_ZOOM,
+  AMERICA_MIN_ZOOM,
   MapLandmark,
   OLATHE_BOUNDS,
   OLATHE_CENTER,
@@ -10,6 +14,9 @@ import {
   OLATHE_MIN_ZOOM,
 } from '../utils/pursuitSim';
 import { MapTag, tagMeta } from '../utils/mapTags';
+
+/** olathe = chase locked to city; america = nationwide map notes. */
+export type PursuitMapScope = 'olathe' | 'america';
 
 export interface PursuitMapVehicle {
   id: string;
@@ -46,29 +53,38 @@ interface PursuitMapCanvasProps {
   activeTagId?: string | null;
   /** Hide moving chase units for a quiet intel map. */
   hideVehicles?: boolean;
+  /** Map notes use america; chase stays on olathe. */
+  scope?: PursuitMapScope;
   onVehicleClick?: (vehicle: PursuitMapVehicle) => void;
   onMapClick?: (lat: number, lng: number) => void;
   onLandmarkClick?: (landmark: MapLandmark) => void;
   onTagClick?: (tag: MapTag) => void;
 }
 
-const OLATHE_LATLNG_BOUNDS = L.latLngBounds(
-  [OLATHE_BOUNDS.latMin, OLATHE_BOUNDS.lngMin],
-  [OLATHE_BOUNDS.latMax, OLATHE_BOUNDS.lngMax]
-);
+function boundsForScope(scope: PursuitMapScope) {
+  const b = scope === 'america' ? AMERICA_BOUNDS : OLATHE_BOUNDS;
+  return L.latLngBounds([b.latMin, b.lngMin], [b.latMax, b.lngMax]);
+}
 
-/** Hard-lock pan/zoom so the camera cannot leave the Olathe city box. */
-const OlatheMapLock: React.FC = () => {
+function zoomLimitsForScope(scope: PursuitMapScope) {
+  return scope === 'america'
+    ? { min: AMERICA_MIN_ZOOM, max: AMERICA_MAX_ZOOM }
+    : { min: OLATHE_MIN_ZOOM, max: OLATHE_MAX_ZOOM };
+}
+
+/** Hard-lock pan/zoom to the active map scope. */
+const MapBoundsLock: React.FC<{ scope: PursuitMapScope }> = ({ scope }) => {
   const map = useMap();
 
   useEffect(() => {
-    map.setMaxBounds(OLATHE_LATLNG_BOUNDS);
-    map.setMinZoom(OLATHE_MIN_ZOOM);
-    map.setMaxZoom(OLATHE_MAX_ZOOM);
+    const bounds = boundsForScope(scope);
+    const zoom = zoomLimitsForScope(scope);
+    map.setMaxBounds(bounds);
+    map.setMinZoom(zoom.min);
+    map.setMaxZoom(zoom.max);
     map.options.maxBoundsViscosity = 1.0;
-    // Keep the view inside after any layout change.
     const keepInside = () => {
-      map.panInsideBounds(OLATHE_LATLNG_BOUNDS, { animate: false });
+      map.panInsideBounds(bounds, { animate: false });
     };
     map.on('drag', keepInside);
     map.on('zoomend', keepInside);
@@ -77,7 +93,7 @@ const OlatheMapLock: React.FC = () => {
       map.off('drag', keepInside);
       map.off('zoomend', keepInside);
     };
-  }, [map]);
+  }, [map, scope]);
 
   return null;
 };
@@ -88,16 +104,19 @@ const FitVehiclesOnce: React.FC<{
   fitKey?: string | number | null;
   fallbackCenter: [number, number];
   fallbackZoom: number;
-}> = ({ vehicles, fitKey, fallbackCenter, fallbackZoom }) => {
+  scope: PursuitMapScope;
+}> = ({ vehicles, fitKey, fallbackCenter, fallbackZoom, scope }) => {
   const map = useMap();
   const fittedKeyRef = useRef<string | number | null>(null);
 
   useEffect(() => {
     if (fitKey == null) return;
     if (fittedKeyRef.current === fitKey) return;
+    const lockBounds = boundsForScope(scope);
+    const zoom = zoomLimitsForScope(scope);
     if (!vehicles.length) {
       map.setView(fallbackCenter, fallbackZoom, { animate: false });
-      map.panInsideBounds(OLATHE_LATLNG_BOUNDS, { animate: false });
+      map.panInsideBounds(lockBounds, { animate: false });
       fittedKeyRef.current = fitKey;
       return;
     }
@@ -105,19 +124,18 @@ const FitVehiclesOnce: React.FC<{
     if (!bounds.isValid()) {
       map.setView(fallbackCenter, fallbackZoom, { animate: false });
     } else {
-      // Never zoom out past the city lock.
       map.fitBounds(bounds.pad(0.35), {
         animate: false,
-        maxZoom: 16,
+        maxZoom: Math.min(16, zoom.max),
         padding: [28, 28],
       });
     }
-    if (map.getZoom() < OLATHE_MIN_ZOOM) {
-      map.setZoom(OLATHE_MIN_ZOOM, { animate: false });
+    if (map.getZoom() < zoom.min) {
+      map.setZoom(zoom.min, { animate: false });
     }
-    map.panInsideBounds(OLATHE_LATLNG_BOUNDS, { animate: false });
+    map.panInsideBounds(lockBounds, { animate: false });
     fittedKeyRef.current = fitKey;
-  }, [map, vehicles, fitKey, fallbackCenter, fallbackZoom]);
+  }, [map, vehicles, fitKey, fallbackCenter, fallbackZoom, scope]);
 
   return null;
 };
@@ -475,8 +493,8 @@ const ZoomAwareMarkers: React.FC<{
 };
 
 const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
-  center = OLATHE_CENTER,
-  zoom = 15,
+  center,
+  zoom,
   vehicles,
   landmarks = [],
   mapTags = [],
@@ -488,11 +506,16 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   activeLandmarkId = null,
   activeTagId = null,
   hideVehicles = false,
+  scope = 'olathe',
   onVehicleClick,
   onMapClick,
   onLandmarkClick,
   onTagClick,
 }) => {
+  const mapBounds = useMemo(() => boundsForScope(scope), [scope]);
+  const zoomLimits = zoomLimitsForScope(scope);
+  const mapCenter = center ?? (scope === 'america' ? AMERICA_CENTER : OLATHE_CENTER);
+  const mapZoom = zoom ?? (scope === 'america' ? 4 : 15);
   const visibleVehicles = useMemo(() => (hideVehicles ? [] : vehicles), [hideVehicles, vehicles]);
   const selectedVehicle = visibleVehicles.find((v) => v.id === selectedId);
 
@@ -540,27 +563,29 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
 
   return (
     <MapContainer
-      center={center}
-      zoom={zoom}
+      key={scope}
+      center={mapCenter}
+      zoom={mapZoom}
       style={{ height: '100%', width: '100%' }}
       scrollWheelZoom
-      maxBounds={OLATHE_LATLNG_BOUNDS}
+      maxBounds={mapBounds}
       maxBoundsViscosity={1}
-      minZoom={OLATHE_MIN_ZOOM}
-      maxZoom={OLATHE_MAX_ZOOM}
+      minZoom={zoomLimits.min}
+      maxZoom={zoomLimits.max}
       worldCopyJump={false}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <OlatheMapLock />
+      <MapBoundsLock scope={scope} />
       <MapZoomControls />
       <FitVehiclesOnce
         vehicles={visibleVehicles}
         fitKey={fitKey}
-        fallbackCenter={center}
-        fallbackZoom={zoom}
+        fallbackCenter={mapCenter}
+        fallbackZoom={mapZoom}
+        scope={scope}
       />
       <MapClickHandler enabled={deployMode} onMapClick={onMapClick} />
 
