@@ -224,6 +224,8 @@ const MapClickHandler: React.FC<{
   onMapClick?: (lat: number, lng: number) => void;
 }> = ({ enabled, onMapClick }) => {
   const map = useMap();
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
 
   useEffect(() => {
     const container = map.getContainer();
@@ -232,16 +234,19 @@ const MapClickHandler: React.FC<{
     } else {
       container.style.cursor = '';
     }
-    if (!enabled || !onMapClick) return;
+    if (!enabled) return;
+
     const handler = (e: L.LeafletMouseEvent) => {
-      onMapClick(e.latlng.lat, e.latlng.lng);
+      L.DomEvent.stopPropagation(e);
+      onMapClickRef.current?.(e.latlng.lat, e.latlng.lng);
     };
+    // Prefer click; also listen to tap-friendly dblclick prevention path.
     map.on('click', handler);
     return () => {
       map.off('click', handler);
       container.style.cursor = '';
     };
-  }, [map, enabled, onMapClick]);
+  }, [map, enabled]);
 
   return null;
 };
@@ -602,6 +607,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
             <CircleMarker
               center={[lm.lat, lm.lng]}
               radius={14}
+              interactive={!deployMode}
               pathOptions={{
                 color: style.color,
                 fillColor: style.color,
@@ -612,7 +618,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
               eventHandlers={{
                 click: (e) => {
                   L.DomEvent.stopPropagation(e);
-                  if (!deployMode) onLandmarkClick?.(lm);
+                  onLandmarkClick?.(lm);
                 },
               }}
             />
@@ -625,7 +631,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
               eventHandlers={{
                 click: (e) => {
                   L.DomEvent.stopPropagation(e);
-                  if (!deployMode) onLandmarkClick?.(lm);
+                  onLandmarkClick?.(lm);
                 },
               }}
             />
@@ -633,7 +639,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         );
       })}
 
-      {/* User intel tags */}
+      {/* User intel tags — always tappable to open notes (map empty-space still places). */}
       {mapTags.map((tag) => {
         const style = tagMeta(tag.kind);
         const active = activeTagId === tag.id;
@@ -652,20 +658,20 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
               eventHandlers={{
                 click: (e) => {
                   L.DomEvent.stopPropagation(e);
-                  if (!deployMode) onTagClick?.(tag);
+                  onTagClick?.(tag);
                 },
               }}
             />
             <Marker
               position={[tag.lat, tag.lng]}
               icon={buildTagIcon(tag, active)}
-              interactive={!deployMode}
+              interactive
               keyboard
               zIndexOffset={active ? 4500 : 4000}
               eventHandlers={{
                 click: (e) => {
                   L.DomEvent.stopPropagation(e);
-                  if (!deployMode) onTagClick?.(tag);
+                  onTagClick?.(tag);
                 },
               }}
             />
