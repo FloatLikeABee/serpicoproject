@@ -99,11 +99,17 @@ export const WEAPON_SHORT_LABELS: Record<WeaponKind, string> = {
   laser: 'Sat Laser',
 };
 
-/** Playable Olathe city box — map pan/zoom is locked to this. */
+/** Playable Olathe city box — chase sim / road network stay here. */
 export const OLATHE_BOUNDS = { latMin: 38.86, latMax: 38.91, lngMin: -94.85, lngMax: -94.78 };
 export const OLATHE_CENTER: [number, number] = [38.8814, -94.8191];
 export const OLATHE_MIN_ZOOM = 13;
 export const OLATHE_MAX_ZOOM = 17;
+
+/** Continental United States + Alaska/Hawaii envelope for intel map notes. */
+export const AMERICA_BOUNDS = { latMin: 18.8, latMax: 71.5, lngMin: -179.2, lngMax: -66.0 };
+export const AMERICA_CENTER: [number, number] = [39.8, -98.6];
+export const AMERICA_MIN_ZOOM = 3;
+export const AMERICA_MAX_ZOOM = 18;
 
 export { ensureRoadNetwork } from './olatheRoadNetwork';
 
