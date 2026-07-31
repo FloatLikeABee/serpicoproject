@@ -6,6 +6,7 @@ import {
   SHOOT_RANGE_BLOCKS,
   arrestTargets,
   computeShotHitChance,
+  dangerCells,
   reachableCells,
   resolvePerpTurn,
   selectTacticsOfficer,
@@ -60,6 +61,14 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
   const reachSet = useMemo(() => new Set(reach.map((c) => `${c.x},${c.y}`)), [reach]);
   const targetSet = useMemo(() => new Set(targets.map((t) => `${t.x},${t.y}`)), [targets]);
   const arrestSet = useMemo(() => new Set(arrests.map((t) => `${t.x},${t.y}`)), [arrests]);
+  const danger = useMemo(
+    () =>
+      game.phase === 'active' && game.mode === 'gunfight' && game.roundPhase === 'player'
+        ? dangerCells(game)
+        : [],
+    [game]
+  );
+  const dangerSet = useMemo(() => new Set(danger.map((c) => `${c.x},${c.y}`)), [danger]);
   const targetHitPct = useMemo(() => {
     const map = new Map<string, number>();
     if (!selected || game.phase !== 'active') return map;
@@ -187,45 +196,46 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
               <p className="text-[9px] text-synth-muted px-0.5 leading-snug line-clamp-2">
                 {game.mode === 'gunfight' ? (
                   <>
-                    Move {MOVE_BLOCKS_PER_TURN} or <span className="text-red-300">tap red to fire</span> (≤{SHOOT_RANGE_BLOCKS}).
+                    <span className="text-neon-cyan">2 actions</span> each: teal = move, red = fire (≤
+                    {SHOOT_RANGE_BLOCKS}), green = cuff. Suspects fire once/turn.
                   </>
                 ) : game.mode === 'hide' ? (
                   <>
-                    Adjacent = <span className="text-neon-green">cuff</span>, 2 blocks ={' '}
-                    <span className="text-red-300">shoot</span>. Suspects flee to IN.
+                    Tap your cell to search. Adjacent = <span className="text-neon-green">cuff</span>, 2
+                    blocks = <span className="text-red-300">shoot</span>. Suspects flee to IN.
                   </>
                 ) : (
                   <>
-                    Move/skip, then suspects flee &amp; <span className="text-red-300">return fire</span>. Cuff or shoot.
+                    Move/skip, then suspects flee &amp; may <span className="text-red-300">fire once</span>.
+                    Cuff or shoot.
                   </>
                 )}
               </p>
 
-              {(game.mode === 'hide' || game.mode === 'chase') &&
+              {(game.mode === 'hide' || game.mode === 'chase' || game.mode === 'gunfight') &&
                 selected &&
                 selected.status === 'active' &&
                 !actedSet.has(selected.id) &&
                 game.roundPhase === 'player' && (
                   <p className="text-[9px] px-0.5 leading-snug truncate">
+                    {game.mode === 'gunfight' && (
+                      <span className="text-neon-cyan mr-2">AP {selected.ap}</span>
+                    )}
                     {arrests.length > 0 ? (
-                      <span className="text-neon-green">Tap green to cuff ({arrests.map((t) => t.name).join(', ')})</span>
+                      <span className="text-neon-green">
+                        Tap green to cuff ({arrests.map((t) => t.name).join(', ')})
+                      </span>
                     ) : targets.length > 0 ? (
                       <span className="text-red-200">
-                        Tap red to shoot ({targets.map((t) => `${t.name} ${targetHitPct.get(`${t.x},${t.y}`) ?? 0}%`).join(', ')})
+                        Tap red to shoot (
+                        {targets
+                          .map((t) => `${t.name} ${targetHitPct.get(`${t.x},${t.y}`) ?? 0}%`)
+                          .join(', ')}
+                        )
                       </span>
+                    ) : reach.length > 0 ? (
+                      <span className="text-neon-cyan">Tap teal to move {MOVE_BLOCKS_PER_TURN} block</span>
                     ) : null}
-                  </p>
-                )}
-
-              {game.mode === 'gunfight' &&
-                selected &&
-                selected.status === 'active' &&
-                !actedSet.has(selected.id) &&
-                game.roundPhase === 'player' &&
-                targets.length > 0 && (
-                  <p className="text-[9px] px-0.5 text-red-200 truncate">
-                    Tap red to shoot (
-                    {targets.map((t) => `${t.name.split(' ').pop()} ${targetHitPct.get(`${t.x},${t.y}`) ?? 0}%`).join(', ')})
                   </p>
                 )}
 
@@ -251,7 +261,13 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                         }`}
                       >
                         {o.name}
-                        {o.status !== 'active' ? ' (down)' : acted ? ' ✓' : ''}
+                        {o.status !== 'active'
+                          ? ' (down)'
+                          : acted
+                          ? ' ✓'
+                          : game.mode === 'gunfight'
+                          ? ` ·${o.ap}`
+                          : ''}
                       </button>
                     );
                   })}
@@ -304,6 +320,7 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                     const canMove = reachSet.has(`${cell.x},${cell.y}`);
                     const canShoot = targetSet.has(`${cell.x},${cell.y}`);
                     const canArrest = arrestSet.has(`${cell.x},${cell.y}`);
+                    const inDanger = dangerSet.has(`${cell.x},${cell.y}`);
                     const hitPct = targetHitPct.get(`${cell.x},${cell.y}`);
                     let bg = '#1a1430';
                     if (cell.kind === 'wall') bg = '#3f3f46';
@@ -311,6 +328,7 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                     else if (cell.kind === 'exit') bg = '#7f1d1d';
                     else if (cell.kind === 'spawn') bg = '#164e63';
                     if (fog) bg = '#09090b';
+                    if (inDanger && !canMove && !canShoot && !canArrest && !fog) bg = '#3f1d2e';
                     if (canMove) bg = '#155e75';
                     if (canShoot) bg = '#9f1239';
                     if (canArrest) bg = '#166534';
