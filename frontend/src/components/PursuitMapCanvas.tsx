@@ -648,7 +648,6 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
 
       {/* User intel tags — always tappable to open notes (map empty-space still places). */}
       {mapTags.map((tag) => {
-        const style = tagMeta(tag.kind);
         const active = activeTagId === tag.id;
         return (
           <Marker
