@@ -690,10 +690,7 @@ const InPursue: React.FC = () => {
             setAutoEnrichTagId(null);
           }}
           onClose={() => {
-            // Persist in-progress draft enrichment if user closes mid-check
-            if (activeTag) {
-              setMapTags((prev) => prev.map((t) => (t.id === activeTag.id ? activeTag : t)));
-            }
+            // Discard unsaved modal draft (Cancel / backdrop). Saved edits go through onChange.
             setActiveTag(null);
             setAutoEnrichTagId(null);
           }}
