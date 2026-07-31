@@ -97,16 +97,21 @@ export function createMapTag(
   };
 }
 
-/** Best-effort reverse geocode via OpenStreetMap Nominatim. */
+/** Best-effort reverse geocode via OpenStreetMap Nominatim (fast timeout). */
 export async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer =
+    controller != null
+      ? window.setTimeout(() => controller.abort(), 2500)
+      : null;
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
     const res = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-      },
+      headers: { Accept: 'application/json' },
+      signal: controller?.signal,
     });
-    if (!res.ok) return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    if (!res.ok) return fallback;
     const data = (await res.json()) as {
       display_name?: string;
       name?: string;
@@ -116,8 +121,10 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string> 
       return `${data.name} — ${data.address.road}`;
     }
     if (data.display_name) return data.display_name.split(',').slice(0, 4).join(',');
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return fallback;
   } catch {
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return fallback;
+  } finally {
+    if (timer != null) window.clearTimeout(timer);
   }
 }

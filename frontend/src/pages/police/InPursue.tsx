@@ -94,10 +94,13 @@ const InPursue: React.FC = () => {
   const [roadsError, setRoadsError] = useState(false);
 
   const [mapTags, setMapTags] = useState<MapTag[]>(() => loadMapTags(userId));
-  const [placeKind, setPlaceKind] = useState<MapTagKind | null>(null);
+  // Default selected so a map tap always drops a pin (user can change type anytime).
+  const [placeKind, setPlaceKind] = useState<MapTagKind>('investigation');
   const [activeTag, setActiveTag] = useState<MapTag | null>(null);
   const [autoEnrichTagId, setAutoEnrichTagId] = useState<string | null>(null);
   const [placingBusy, setPlacingBusy] = useState(false);
+  const placeKindRef = useRef<MapTagKind>('investigation');
+  const placingBusyRef = useRef(false);
 
   const [tacticsGame, setTacticsGame] = useState<LocationTacticsGame | null>(null);
   const [tacticsCollapsed, setTacticsCollapsed] = useState(false);
@@ -126,6 +129,14 @@ const InPursue: React.FC = () => {
   useEffect(() => {
     viewRef.current = view;
   }, [view]);
+
+  useEffect(() => {
+    placeKindRef.current = placeKind;
+  }, [placeKind]);
+
+  useEffect(() => {
+    placingBusyRef.current = placingBusy;
+  }, [placingBusy]);
 
   useEffect(() => {
     setMapTags(loadMapTags(userId));
@@ -259,7 +270,8 @@ const InPursue: React.FC = () => {
 
   const handleLandmarkClick = useCallback(
     (landmark: MapLandmark) => {
-      if (placeKind) return;
+      // While tagging on the intel map, ignore raid landmarks.
+      if (viewRef.current === 'intel') return;
       cancelTargeting();
       setSelectedPoliceId(null);
       setTacticsCollapsed(false);
@@ -272,39 +284,46 @@ const InPursue: React.FC = () => {
         return beginTacticsRaid(startLocationTactics(landmark));
       });
     },
-    [cancelTargeting, placeKind]
+    [cancelTargeting]
   );
 
-  const handleMapClick = useCallback(
-    async (lat: number, lng: number) => {
-      if (!placeKind || placingBusy) return;
-      setPlacingBusy(true);
-      try {
-        const address = await reverseGeocode(lat, lng);
-        const meta = tagMeta(placeKind);
-        const tag = createMapTag(placeKind, lat, lng, {
-          name: `${meta.short}`,
-          address,
-          notes: '',
-        });
-        setMapTags((prev) => [tag, ...prev]);
-        setPlaceKind(null);
-        setAutoEnrichTagId(tag.id);
-        setActiveTag(tag);
-      } finally {
+  const handleMapClick = useCallback((lat: number, lng: number) => {
+    if (viewRef.current !== 'intel') return;
+    if (placingBusyRef.current) return;
+    placingBusyRef.current = true;
+    setPlacingBusy(true);
+
+    const kind = placeKindRef.current || 'other';
+    const meta = tagMeta(kind);
+    const coords = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    // Place immediately — don't block on geocode / AI.
+    const tag = createMapTag(kind, lat, lng, {
+      name: meta.short,
+      address: coords,
+      notes: '',
+    });
+    setMapTags((prev) => [tag, ...prev]);
+    setAutoEnrichTagId(tag.id);
+    setActiveTag(tag);
+
+    void reverseGeocode(lat, lng)
+      .then((address) => {
+        setMapTags((prev) => prev.map((t) => (t.id === tag.id ? { ...t, address } : t)));
+        setActiveTag((cur) => (cur && cur.id === tag.id ? { ...cur, address } : cur));
+      })
+      .finally(() => {
+        placingBusyRef.current = false;
         setPlacingBusy(false);
-      }
-    },
-    [placeKind, placingBusy]
-  );
+      });
+  }, []);
 
   const handleTagClick = useCallback(
     (tag: MapTag) => {
-      if (placeKind) return;
+      if (viewRef.current !== 'intel') return;
       cancelTargeting();
       setActiveTag(tag);
     },
-    [cancelTargeting, placeKind]
+    [cancelTargeting]
   );
 
   const upsertTag = useCallback((tag: MapTag) => {
@@ -378,7 +397,6 @@ const InPursue: React.FC = () => {
               onClick={() => {
                 setView('intel');
                 cancelTargeting();
-                setPlaceKind(null);
               }}
               className={`px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border touch-manipulation min-h-0 min-w-0 ${
                 view === 'intel'
@@ -392,7 +410,6 @@ const InPursue: React.FC = () => {
               type="button"
               onClick={() => {
                 setView('chase');
-                setPlaceKind(null);
                 setActiveTag(null);
               }}
               className={`px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border touch-manipulation min-h-0 min-w-0 ${
@@ -419,7 +436,7 @@ const InPursue: React.FC = () => {
           <div className="space-y-1.5">
             <div className="flex items-center gap-1 flex-wrap">
               <span className="text-[8px] font-display uppercase tracking-wider text-neon-cyan/90 mr-0.5">
-                Place tag
+                Tag type
               </span>
               {MAP_TAG_KINDS.map((k) => {
                 const active = placeKind === k.kind;
@@ -430,7 +447,7 @@ const InPursue: React.FC = () => {
                     title={k.label}
                     onClick={() => {
                       cancelTargeting();
-                      setPlaceKind((cur) => (cur === k.kind ? null : k.kind));
+                      setPlaceKind(k.kind);
                     }}
                     className={`px-1.5 py-0.5 rounded border text-[8px] font-display font-bold uppercase tracking-wide touch-manipulation min-h-0 min-w-0 ${
                       active
@@ -444,12 +461,10 @@ const InPursue: React.FC = () => {
                 );
               })}
             </div>
-            <p className="text-[9px] text-synth-muted px-0.5">
-              {placingBusy
-                ? 'Looking up address…'
-                : placeKind
-                ? `Tap the map to drop a ${tagMeta(placeKind).label.toLowerCase()} pin.`
-                : 'Select a tag type, tap the map, then open the pin for notes + AI place check. Scroll or use +/− to zoom.'}
+            <p className="text-[9px] text-neon-cyan px-0.5">
+              Tap anywhere on the map to drop a{' '}
+              <span className="font-semibold">{tagMeta(placeKind).label.toLowerCase()}</span> pin
+              {placingBusy ? '…' : '.'}
             </p>
           </div>
         ) : (
@@ -508,7 +523,7 @@ const InPursue: React.FC = () => {
           armedPoliceId={redirectPoliceId}
           pursueModePoliceId={redirectPoliceId || (weaponMode ? 'weapon' : null)}
           fitKey={chaseActive ? session.id : `intel-${userId}`}
-          deployMode={!!placeKind}
+          deployMode={view === 'intel'}
           activeLandmarkId={tacticsGame?.landmarkId}
           activeTagId={activeTag?.id}
           hideVehicles={!chaseActive}
@@ -537,19 +552,12 @@ const InPursue: React.FC = () => {
           </div>
         )}
 
-        {placeKind && (
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1200] w-[min(340px,90vw)] pointer-events-auto">
-            <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-neon-cyan/60 bg-black/75 backdrop-blur-sm shadow-lg">
+        {view === 'intel' && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1200] w-[min(340px,90vw)] pointer-events-none">
+            <div className="px-2.5 py-1.5 rounded-lg border border-neon-cyan/50 bg-black/70 backdrop-blur-sm shadow-lg text-center">
               <p className="text-[10px] text-neon-cyan font-display uppercase tracking-wide">
-                Tap map · {tagMeta(placeKind).label}
+                Tap map to pin · {tagMeta(placeKind).label}
               </p>
-              <button
-                type="button"
-                onClick={() => setPlaceKind(null)}
-                className="text-[10px] text-synth-muted hover:text-white px-2 py-0.5 min-h-0 min-w-0"
-              >
-                Cancel
-              </button>
             </div>
           </div>
         )}
@@ -623,10 +631,10 @@ const InPursue: React.FC = () => {
           </div>
         )}
 
-        {view === 'intel' && mapTags.length === 0 && !placeKind && (
+        {view === 'intel' && mapTags.length === 0 && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1100] w-[min(360px,92vw)] pointer-events-none">
             <div className="rounded-lg border border-neon-cyan/30 bg-black/70 px-3 py-2 text-[11px] text-gray-200 text-center">
-              Pick a tag type above, tap the map to pin it, then open the pin for notes and AI place check.
+              Tap the map to drop a pin. Change tag type in the header anytime.
             </div>
           </div>
         )}
