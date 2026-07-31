@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { chatAPI } from '../services/api';
+import ChatMarkdown from './ChatMarkdown';
 import { MapTag, MapTagKind, MAP_TAG_KINDS, tagMeta } from '../utils/mapTags';
 
 interface PlaceTagModalProps {
@@ -42,8 +43,8 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
         `Address / place: ${placeLabel}`,
         draft.notes ? `Officer notes so far: ${draft.notes}` : '',
         `Use web search / crime news if available.`,
-        `Summarize: what this place appears to be, nearby context in Olathe KS area, any relevant crime or investigative angles, and suggested next checks.`,
-        `Write clear plain paragraphs (no JSON).`,
+        `Summarize: what this place appears to be, nearby context, any relevant crime or investigative angles, and suggested next checks.`,
+        `Respond in clean Markdown (headings, bullets, bold as useful). No JSON.`,
       ]
         .filter(Boolean)
         .join('\n');
@@ -57,7 +58,6 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
       setDraft((prev) => ({
         ...prev,
         enrichment: { summary, fetchedAt: new Date().toISOString() },
-        notes: prev.notes?.trim() ? prev.notes : summary.slice(0, 800),
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'AI lookup failed');
@@ -172,16 +172,16 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
         </label>
 
         {draft.enrichment?.summary ? (
-          <div className="rounded-lg border border-neon-magenta/30 bg-neon-magenta/5 px-3 py-2 space-y-1">
+          <div className="rounded-lg border border-neon-magenta/30 bg-neon-magenta/5 px-3 py-2 space-y-1.5">
             <p className="text-[9px] font-display uppercase tracking-wider text-neon-magenta">
               AI location check
               {draft.enrichment.fetchedAt
                 ? ` · ${new Date(draft.enrichment.fetchedAt).toLocaleString()}`
                 : ''}
             </p>
-            <p className="text-[11px] text-gray-200 whitespace-pre-wrap leading-snug">
-              {draft.enrichment.summary}
-            </p>
+            <div className="text-gray-200 leading-snug">
+              <ChatMarkdown content={draft.enrichment.summary} size="xs" />
+            </div>
           </div>
         ) : null}
 
