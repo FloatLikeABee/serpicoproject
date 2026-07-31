@@ -129,7 +129,8 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
           <select
             value={draft.kind}
             onChange={(e) => setDraft((p) => ({ ...p, kind: e.target.value as MapTagKind }))}
-            className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white"
+            className="w-full px-3 py-2 rounded-lg border border-white/10 bg-[#0b0818] text-sm text-white"
+            style={{ colorScheme: 'dark' }}
           >
             {MAP_TAG_KINDS.map((k) => (
               <option key={k.kind} value={k.kind}>

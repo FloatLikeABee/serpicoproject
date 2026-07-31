@@ -38,17 +38,17 @@ export const MAP_TAG_KINDS: Array<{
   color: string;
   glyph: string;
 }> = [
-  { kind: 'police_officer', label: 'Police officer', short: 'Officer', color: '#3b82f6', glyph: 'O' },
+  { kind: 'police_officer', label: 'Police officer', short: 'Officer', color: '#38bdf8', glyph: 'O' },
   { kind: 'police_vehicle', label: 'Police vehicle', short: 'PD car', color: '#2563eb', glyph: 'V' },
-  { kind: 'police_station', label: 'Police station', short: 'Station', color: '#1d4ed8', glyph: 'S' },
+  { kind: 'police_station', label: 'Police station', short: 'Station', color: '#1e3a8a', glyph: 'S' },
   { kind: 'perp', label: 'Perp', short: 'Perp', color: '#ef4444', glyph: 'P' },
   { kind: 'perp_vehicle', label: 'Perp vehicle', short: 'Suspect car', color: '#f97316', glyph: 'C' },
-  { kind: 'murder_case', label: 'Murder case', short: 'Homicide', color: '#7f1d1d', glyph: 'M' },
-  { kind: 'suspect', label: 'Suspect', short: 'Suspect', color: '#e11d48', glyph: 'X' },
-  { kind: 'investigation', label: 'Investigation', short: 'Active case', color: '#a855f7', glyph: 'I' },
+  { kind: 'murder_case', label: 'Murder case', short: 'Homicide', color: '#9f1239', glyph: 'M' },
+  { kind: 'suspect', label: 'Suspect', short: 'Suspect', color: '#f43f5e', glyph: 'X' },
+  { kind: 'investigation', label: 'Investigation', short: 'Case', color: '#c026d3', glyph: 'I' },
   { kind: 'witness', label: 'Witness', short: 'Witness', color: '#14b8a6', glyph: 'W' },
   { kind: 'evidence', label: 'Evidence', short: 'Evidence', color: '#eab308', glyph: 'E' },
-  { kind: 'other', label: 'Other', short: 'Pin', color: '#94a3b8', glyph: '+' },
+  { kind: 'other', label: 'Other', short: 'Pin', color: '#64748b', glyph: '+' },
 ];
 
 export function tagMeta(kind: MapTagKind) {

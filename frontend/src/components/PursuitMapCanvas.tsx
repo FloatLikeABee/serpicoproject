@@ -135,54 +135,61 @@ const landmarkStyle: Record<
 function buildLandmarkIcon(landmark: MapLandmark, active = false): L.DivIcon {
   const style = landmarkStyle[landmark.kind];
   return L.divIcon({
-    className: 'leaflet-div-icon pursuit-landmark-marker',
+    className: 'pursuit-landmark-marker',
     html: `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:104px;height:44px;pointer-events:auto;cursor:pointer;">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:72px;pointer-events:auto;cursor:pointer;">
         <div style="
-          width:22px;height:22px;border-radius:5px;flex-shrink:0;
-          background:${style.color};color:#0b0f1a;
-          font:700 11px/22px ui-monospace,Menlo,monospace;
-          text-align:center;border:1px solid ${active ? '#fff' : 'rgba(255,255,255,0.55)'};
+          width:20px;height:20px;border-radius:5px;flex-shrink:0;
+          background:${style.color};color:#07050f;
+          font:700 10px/20px ui-monospace,Menlo,monospace;
+          text-align:center;border:1px solid ${active ? '#fff' : 'rgba(0,0,0,0.45)'};
           box-shadow:0 0 ${active ? '8px' : '4px'} ${style.color};
         ">${style.glyph}</div>
         <div style="
-          margin-top:2px;max-width:100px;padding:2px 5px;border-radius:3px;
-          background:rgba(8,12,20,0.85);color:#f8fafc;
-          font:600 9px/1.2 'IBM Plex Sans',system-ui,sans-serif;
+          margin-top:2px;max-width:72px;padding:1px 4px;border-radius:3px;
+          background:${style.color}dd;color:#07050f;
+          font:700 8px/1.15 'IBM Plex Sans',system-ui,sans-serif;
           text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-          border:1px solid ${active ? '#fff' : `${style.color}66`};
+          border:1px solid rgba(0,0,0,0.35);
         ">${landmark.name}</div>
       </div>
     `,
-    iconSize: [104, 44],
-    iconAnchor: [52, 12],
+    iconSize: [72, 34],
+    iconAnchor: [36, 10],
   });
 }
 
 function buildTagIcon(tag: MapTag, active = false): L.DivIcon {
   const style = tagMeta(tag.kind);
+  const label = (tag.name || style.short).replace(/[<>&"]/g, '');
+  // Compact colored pin + thin caption — no large white Leaflet plate.
   return L.divIcon({
-    className: 'leaflet-div-icon pursuit-tag-marker',
+    className: 'pursuit-tag-marker',
     html: `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:110px;height:46px;pointer-events:auto;cursor:pointer;">
+      <div class="pursuit-tag-pin" style="
+        display:flex;flex-direction:column;align-items:center;
+        width:56px;pointer-events:auto;cursor:pointer;
+      ">
         <div style="
-          width:24px;height:24px;border-radius:999px;flex-shrink:0;
-          background:${style.color};color:#0b0f1a;
-          font:800 11px/24px ui-monospace,Menlo,monospace;
-          text-align:center;border:2px solid ${active ? '#fff' : 'rgba(255,255,255,0.7)'};
-          box-shadow:0 0 ${active ? '10px' : '5px'} ${style.color};
+          width:22px;height:22px;border-radius:999px;flex-shrink:0;
+          background:${style.color};
+          color:#07050f;
+          font:800 10px/22px ui-monospace,Menlo,monospace;
+          text-align:center;
+          border:2px solid ${active ? '#ffffff' : 'rgba(7,5,15,0.85)'};
+          box-shadow:0 0 0 1px ${style.color}, 0 0 ${active ? '10px' : '6px'} ${style.color}aa;
         ">${style.glyph}</div>
         <div style="
-          margin-top:2px;max-width:106px;padding:2px 5px;border-radius:3px;
-          background:rgba(8,12,20,0.88);color:#f8fafc;
-          font:600 9px/1.2 'IBM Plex Sans',system-ui,sans-serif;
+          margin-top:3px;max-width:56px;padding:1px 4px;border-radius:3px;
+          background:${style.color}e6;color:#07050f;
+          font:700 8px/1.15 'IBM Plex Sans',system-ui,sans-serif;
           text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-          border:1px solid ${active ? '#fff' : `${style.color}88`};
-        ">${tag.name || style.short}</div>
+          border:1px solid rgba(0,0,0,0.35);
+        ">${label}</div>
       </div>
     `,
-    iconSize: [110, 46],
-    iconAnchor: [55, 12],
+    iconSize: [56, 36],
+    iconAnchor: [28, 12],
   });
 }
 
@@ -644,38 +651,20 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         const style = tagMeta(tag.kind);
         const active = activeTagId === tag.id;
         return (
-          <React.Fragment key={tag.id}>
-            <CircleMarker
-              center={[tag.lat, tag.lng]}
-              radius={12}
-              pathOptions={{
-                color: style.color,
-                fillColor: style.color,
-                fillOpacity: active ? 0.4 : 0.22,
-                weight: active ? 2 : 1,
-                opacity: 0.95,
-              }}
-              eventHandlers={{
-                click: (e) => {
-                  L.DomEvent.stopPropagation(e);
-                  onTagClick?.(tag);
-                },
-              }}
-            />
-            <Marker
-              position={[tag.lat, tag.lng]}
-              icon={buildTagIcon(tag, active)}
-              interactive
-              keyboard
-              zIndexOffset={active ? 4500 : 4000}
-              eventHandlers={{
-                click: (e) => {
-                  L.DomEvent.stopPropagation(e);
-                  onTagClick?.(tag);
-                },
-              }}
-            />
-          </React.Fragment>
+          <Marker
+            key={tag.id}
+            position={[tag.lat, tag.lng]}
+            icon={buildTagIcon(tag, active)}
+            interactive
+            keyboard
+            zIndexOffset={active ? 4500 : 4000}
+            eventHandlers={{
+              click: (e) => {
+                L.DomEvent.stopPropagation(e);
+                onTagClick?.(tag);
+              },
+            }}
+          />
         );
       })}
     </MapContainer>
