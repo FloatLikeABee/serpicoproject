@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import PursuitMapCanvas, { PursuitMapVehicle } from '../../components/PursuitMapCanvas';
 import LocationTacticsPanel from '../../components/LocationTacticsPanel';
+import PlaceTagModal from '../../components/PlaceTagModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { pursuitExamAPI } from '../../services/api';
 import {
@@ -31,6 +32,18 @@ import {
   localFallbackLocationEvaluation,
   startLocationTactics,
 } from '../../utils/locationTacticsSim';
+import {
+  MAP_TAG_KINDS,
+  MapTag,
+  MapTagKind,
+  createMapTag,
+  loadMapTags,
+  reverseGeocode,
+  saveMapTags,
+  tagMeta,
+} from '../../utils/mapTags';
+
+type PursueView = 'intel' | 'chase';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -72,12 +85,19 @@ const InPursue: React.FC = () => {
   const { user } = useAuth();
   const userId = user?.id || 'guest';
 
+  const [view, setView] = useState<PursueView>('intel');
   const [session, setSession] = useState<SimSession | null>(null);
   const [selectedPoliceId, setSelectedPoliceId] = useState<string | null>(null);
   const [redirectPoliceId, setRedirectPoliceId] = useState<string | null>(null);
   const [weaponMode, setWeaponMode] = useState<WeaponKind | null>(null);
   const [roadsReady, setRoadsReady] = useState(false);
   const [roadsError, setRoadsError] = useState(false);
+
+  const [mapTags, setMapTags] = useState<MapTag[]>(() => loadMapTags(userId));
+  const [placeKind, setPlaceKind] = useState<MapTagKind | null>(null);
+  const [activeTag, setActiveTag] = useState<MapTag | null>(null);
+  const [autoEnrichTagId, setAutoEnrichTagId] = useState<string | null>(null);
+  const [placingBusy, setPlacingBusy] = useState(false);
 
   const [tacticsGame, setTacticsGame] = useState<LocationTacticsGame | null>(null);
   const [tacticsCollapsed, setTacticsCollapsed] = useState(false);
@@ -89,6 +109,7 @@ const InPursue: React.FC = () => {
   const redirectPoliceRef = useRef<string | null>(null);
   const weaponModeRef = useRef<WeaponKind | null>(null);
   const tacticsEvalKeyRef = useRef<string | null>(null);
+  const viewRef = useRef<PursueView>('intel');
 
   useEffect(() => {
     sessionRef.current = session;
@@ -101,6 +122,18 @@ const InPursue: React.FC = () => {
   useEffect(() => {
     weaponModeRef.current = weaponMode;
   }, [weaponMode]);
+
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  useEffect(() => {
+    setMapTags(loadMapTags(userId));
+  }, [userId]);
+
+  useEffect(() => {
+    saveMapTags(userId, mapTags);
+  }, [userId, mapTags]);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,11 +163,14 @@ const InPursue: React.FC = () => {
     const loop = (ts: number) => {
       const elapsed = Math.min((ts - lastTickRef.current) / 1000, 0.1);
       lastTickRef.current = ts;
-      const cur = sessionRef.current;
-      if (cur) {
-        const next = tickSimSession(cur, elapsed);
-        setSession(next);
-        sessionRef.current = next;
+      // Only tick the chase sim while chase view is active (keeps intel map calm).
+      if (viewRef.current === 'chase') {
+        const cur = sessionRef.current;
+        if (cur) {
+          const next = tickSimSession(cur, elapsed);
+          setSession(next);
+          sessionRef.current = next;
+        }
       }
       frame = requestAnimationFrame(loop);
     };
@@ -161,7 +197,7 @@ const InPursue: React.FC = () => {
         setTacticsEvalLoading(false);
       }
     };
-    runEval();
+    void runEval();
   }, [tacticsGame]);
 
   const resetGame = useCallback(() => {
@@ -176,7 +212,15 @@ const InPursue: React.FC = () => {
     tacticsEvalKeyRef.current = null;
   }, [userId]);
 
+  const cancelTargeting = useCallback(() => {
+    setRedirectPoliceId(null);
+    redirectPoliceRef.current = null;
+    setWeaponMode(null);
+    weaponModeRef.current = null;
+  }, []);
+
   const handleVehicleClick = useCallback((vehicle: PursuitMapVehicle) => {
+    if (viewRef.current !== 'chase') return;
     const cur = sessionRef.current;
     if (!cur) return;
 
@@ -213,26 +257,70 @@ const InPursue: React.FC = () => {
     }
   }, []);
 
-  const cancelTargeting = useCallback(() => {
-    setRedirectPoliceId(null);
-    redirectPoliceRef.current = null;
-    setWeaponMode(null);
-    weaponModeRef.current = null;
+  const handleLandmarkClick = useCallback(
+    (landmark: MapLandmark) => {
+      if (placeKind) return;
+      cancelTargeting();
+      setSelectedPoliceId(null);
+      setTacticsCollapsed(false);
+      setTacticsEval(null);
+      tacticsEvalKeyRef.current = null;
+
+      setTacticsGame((current) => {
+        if (current && current.phase !== 'completed' && current.landmarkId !== landmark.id) return current;
+        if (current && current.landmarkId === landmark.id && current.phase !== 'completed') return current;
+        return beginTacticsRaid(startLocationTactics(landmark));
+      });
+    },
+    [cancelTargeting, placeKind]
+  );
+
+  const handleMapClick = useCallback(
+    async (lat: number, lng: number) => {
+      if (!placeKind || placingBusy) return;
+      setPlacingBusy(true);
+      try {
+        const address = await reverseGeocode(lat, lng);
+        const meta = tagMeta(placeKind);
+        const tag = createMapTag(placeKind, lat, lng, {
+          name: `${meta.short}`,
+          address,
+          notes: '',
+        });
+        setMapTags((prev) => [tag, ...prev]);
+        setPlaceKind(null);
+        setAutoEnrichTagId(tag.id);
+        setActiveTag(tag);
+      } finally {
+        setPlacingBusy(false);
+      }
+    },
+    [placeKind, placingBusy]
+  );
+
+  const handleTagClick = useCallback(
+    (tag: MapTag) => {
+      if (placeKind) return;
+      cancelTargeting();
+      setActiveTag(tag);
+    },
+    [cancelTargeting, placeKind]
+  );
+
+  const upsertTag = useCallback((tag: MapTag) => {
+    setMapTags((prev) => {
+      const next = prev.some((t) => t.id === tag.id)
+        ? prev.map((t) => (t.id === tag.id ? tag : t))
+        : [tag, ...prev];
+      return next;
+    });
+    setActiveTag(null);
   }, []);
 
-  const handleLandmarkClick = useCallback((landmark: MapLandmark) => {
-    cancelTargeting();
-    setSelectedPoliceId(null);
-    setTacticsCollapsed(false);
-    setTacticsEval(null);
-    tacticsEvalKeyRef.current = null;
-
-    setTacticsGame((current) => {
-      if (current && current.phase !== 'completed' && current.landmarkId !== landmark.id) return current;
-      if (current && current.landmarkId === landmark.id && current.phase !== 'completed') return current;
-      return beginTacticsRaid(startLocationTactics(landmark));
-    });
-  }, [cancelTargeting]);
+  const deleteTag = useCallback((id: string) => {
+    setMapTags((prev) => prev.filter((t) => t.id !== id));
+    setActiveTag(null);
+  }, []);
 
   const vehicles = session?.vehicles ?? [];
   const policeUnits = vehicles.filter((v) => v.role === 'police');
@@ -241,42 +329,34 @@ const InPursue: React.FC = () => {
   const perpUnits = vehicles.filter((v) => v.role === 'perp');
   const fleeingPerps = perpUnits.filter((v) => v.status === 'fleeing');
   const selectedPolice = policeUnits.find((v) => v.id === selectedPoliceId) ?? null;
-  const activePursuits = policeUnits.filter((v) => v.status === 'chasing').length;
   const helperSeconds = session ? helpersCountdownSec(session) : 0;
-  const helperCopy = session && helpersActive(session)
-    ? `Helpers leave in ${formatTime(helperSeconds)}`
-    : `Next helpers in ${formatTime(helperSeconds)}`;
+  const helperCopy =
+    session && helpersActive(session)
+      ? `Helpers leave in ${formatTime(helperSeconds)}`
+      : `Next helpers in ${formatTime(helperSeconds)}`;
 
   if (!session || !roadsReady) {
     return (
       <div className="page-fill items-center justify-center px-4">
         <div className="w-full max-w-sm space-y-4 text-center">
           <p className="text-neon-cyan font-display text-sm animate-pulse tracking-wide">
-            {roadsError ? 'Loading road fallback grid...' : 'Loading Olathe map...'}
+            {roadsError ? 'Loading map fallback…' : 'Loading Olathe map…'}
           </p>
-
-          <div className="game-panel p-4 text-left space-y-3">
+          <div className="game-panel p-4 text-left space-y-2">
             <h2 className="font-display text-xs uppercase tracking-widest text-serpico-red text-center">
-              Endless Pursuit
+              Pursue intel map
             </h2>
-            <ol className="space-y-2.5 text-[12px] sm:text-sm text-synth-text leading-snug">
-              <li>
-                <span className="text-serpico-blue font-semibold">{INITIAL_SQUAD_COUNT} big blue COP cars</span>{' '}
-                spawn already auto-chasing{' '}
-                <span className="text-serpico-red font-semibold">{PERP_COUNT} multicolor suspects</span>.
-              </li>
-              <li>Tap a blue cruiser, then tap a colored suspect to redirect that unit.</li>
-              <li>
-                Use header <span className="text-neon-amber font-semibold">Tactics</span> buttons —
-                drones, robocops, or satellite lasers — to instantly remove a tapped suspect for score.
-              </li>
-              <li>{HELPER_COUNT} helper cars periodically arrive, chase, then get recalled.</li>
-            </ol>
+            <p className="text-[12px] text-synth-muted leading-snug">
+              Zoom the city map, drop tags (officers, vehicles, stations, perps, cases…), and open each pin for
+              notes. AI can look up the tagged place once it is set.
+            </p>
           </div>
         </div>
       </div>
     );
   }
+
+  const chaseActive = view === 'chase';
 
   return (
     <div className="page-fill">
@@ -284,81 +364,161 @@ const InPursue: React.FC = () => {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-display font-bold text-serpico-red tracking-wide">
-              Patrol Shift
+              Pursue
             </h1>
             <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate">
-              {INITIAL_SQUAD_COUNT} cops auto-chasing · {fleeingPerps.length} at large · {helperCopy}
+              {chaseActive
+                ? `${INITIAL_SQUAD_COUNT} cops · ${fleeingPerps.length} at large · ${helperCopy}`
+                : `${mapTags.length} map tags · zoom & pin intel`}
             </p>
           </div>
-          <div className="text-right flex-shrink-0">
-            <div className="font-display text-lg sm:text-xl font-bold neon-text-cyan tabular-nums">
-              {session.score}
-            </div>
-            <div className="text-[10px] text-synth-muted uppercase tracking-wider">Score</div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
               type="button"
-              onClick={resetGame}
-              className="mt-1 px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border border-white/15 text-synth-muted hover:text-white touch-manipulation min-h-0 min-w-0"
+              onClick={() => {
+                setView('intel');
+                cancelTargeting();
+                setPlaceKind(null);
+              }}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border touch-manipulation min-h-0 min-w-0 ${
+                view === 'intel'
+                  ? 'border-neon-cyan bg-neon-cyan/20 text-neon-cyan'
+                  : 'border-white/15 text-synth-muted'
+              }`}
             >
-              Reset
+              Map
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setView('chase');
+                setPlaceKind(null);
+                setActiveTag(null);
+              }}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border touch-manipulation min-h-0 min-w-0 ${
+                view === 'chase'
+                  ? 'border-serpico-red bg-serpico-red/20 text-serpico-red'
+                  : 'border-white/15 text-synth-muted'
+              }`}
+            >
+              Chase
+            </button>
+            {chaseActive && (
+              <button
+                type="button"
+                onClick={resetGame}
+                className="px-2.5 py-1 rounded-md text-[10px] font-display uppercase tracking-wider border border-white/15 text-synth-muted hover:text-white touch-manipulation min-h-0 min-w-0"
+              >
+                Reset
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-[8px] font-display uppercase tracking-wider text-neon-amber/90 mr-0.5">
-            Tactics
-          </span>
-          {weaponKinds.map((kind) => {
-            const affordable = canAffordWeapon(session, kind);
-            const active = weaponMode === kind;
-            const glyph = kind === 'drone' ? 'DR' : kind === 'robocop' ? 'RC' : 'SL';
-            return (
-              <button
-                key={kind}
-                type="button"
-                disabled={!affordable && !active}
-                title={`${WEAPON_LABELS[kind]} (−${WEAPON_COSTS[kind]} pts)`}
-                onClick={() => {
-                  setWeaponMode((cur) => (cur === kind ? null : kind));
-                  weaponModeRef.current = weaponMode === kind ? null : kind;
-                  setRedirectPoliceId(null);
-                  redirectPoliceRef.current = null;
-                }}
-                className={`px-1.5 py-0.5 rounded border text-[8px] font-display font-bold uppercase tracking-wide touch-manipulation min-h-0 min-w-0 ${
-                  active
-                    ? 'border-neon-amber bg-neon-amber/30 text-neon-amber'
-                    : affordable
-                    ? 'border-neon-amber/35 bg-black/30 text-neon-amber/90 hover:bg-neon-amber/15'
-                    : 'border-white/10 bg-black/20 text-synth-muted opacity-50'
-                }`}
-              >
-                {glyph} −{WEAPON_COSTS[kind]}
-              </button>
-            );
-          })}
-          <span className="text-[8px] text-synth-muted ml-1 truncate">
-            {weaponMode ? `Tap suspect · ${WEAPON_SHORT_LABELS[weaponMode]}` : 'Arm → tap suspect'}
-          </span>
-        </div>
+        {view === 'intel' ? (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="text-[8px] font-display uppercase tracking-wider text-neon-cyan/90 mr-0.5">
+                Place tag
+              </span>
+              {MAP_TAG_KINDS.map((k) => {
+                const active = placeKind === k.kind;
+                return (
+                  <button
+                    key={k.kind}
+                    type="button"
+                    title={k.label}
+                    onClick={() => {
+                      cancelTargeting();
+                      setPlaceKind((cur) => (cur === k.kind ? null : k.kind));
+                    }}
+                    className={`px-1.5 py-0.5 rounded border text-[8px] font-display font-bold uppercase tracking-wide touch-manipulation min-h-0 min-w-0 ${
+                      active
+                        ? 'border-white text-white'
+                        : 'border-white/20 bg-black/30 text-gray-200 hover:border-white/40'
+                    }`}
+                    style={active ? { backgroundColor: `${k.color}55`, borderColor: k.color } : undefined}
+                  >
+                    {k.glyph} {k.short}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[9px] text-synth-muted px-0.5">
+              {placingBusy
+                ? 'Looking up address…'
+                : placeKind
+                ? `Tap the map to drop a ${tagMeta(placeKind).label.toLowerCase()} pin.`
+                : 'Select a tag type, tap the map, then open the pin for notes + AI place check. Scroll or use +/− to zoom.'}
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-[8px] font-display uppercase tracking-wider text-neon-amber/90 mr-0.5">
+              Tactics
+            </span>
+            {weaponKinds.map((kind) => {
+              const affordable = canAffordWeapon(session, kind);
+              const active = weaponMode === kind;
+              const glyph = kind === 'drone' ? 'DR' : kind === 'robocop' ? 'RC' : 'SL';
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  disabled={!affordable && !active}
+                  title={`${WEAPON_LABELS[kind]} (−${WEAPON_COSTS[kind]} pts)`}
+                  onClick={() => {
+                    setWeaponMode((cur) => (cur === kind ? null : kind));
+                    weaponModeRef.current = weaponMode === kind ? null : kind;
+                    setRedirectPoliceId(null);
+                    redirectPoliceRef.current = null;
+                  }}
+                  className={`px-1.5 py-0.5 rounded border text-[8px] font-display font-bold uppercase tracking-wide touch-manipulation min-h-0 min-w-0 ${
+                    active
+                      ? 'border-neon-amber bg-neon-amber/30 text-neon-amber'
+                      : affordable
+                      ? 'border-neon-amber/35 bg-black/30 text-neon-amber/90 hover:bg-neon-amber/15'
+                      : 'border-white/10 bg-black/20 text-synth-muted opacity-50'
+                  }`}
+                >
+                  {glyph} −{WEAPON_COSTS[kind]}
+                </button>
+              );
+            })}
+            <span className="text-[8px] text-synth-muted ml-1 truncate">
+              {weaponMode ? `Tap suspect · ${WEAPON_SHORT_LABELS[weaponMode]}` : 'Arm → tap suspect'}
+            </span>
+            {session.score != null && (
+              <span className="ml-auto font-display text-sm font-bold neon-text-cyan tabular-nums">
+                {session.score}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 relative">
         <PursuitMapCanvas
           center={OLATHE_CENTER}
-          zoom={15}
+          zoom={14}
           vehicles={vehicles.map(toMapVehicle)}
-          landmarks={session.landmarks ?? []}
+          landmarks={chaseActive ? session.landmarks ?? [] : []}
+          mapTags={mapTags}
           selectedId={selectedPoliceId}
           armedPoliceId={redirectPoliceId}
           pursueModePoliceId={redirectPoliceId || (weaponMode ? 'weapon' : null)}
-          fitKey={session.id}
+          fitKey={chaseActive ? session.id : `intel-${userId}`}
+          deployMode={!!placeKind}
           activeLandmarkId={tacticsGame?.landmarkId}
+          activeTagId={activeTag?.id}
+          hideVehicles={!chaseActive}
           onVehicleClick={handleVehicleClick}
+          onMapClick={handleMapClick}
           onLandmarkClick={handleLandmarkClick}
+          onTagClick={handleTagClick}
         />
 
-        {(redirectPoliceId || weaponMode) && (
+        {(redirectPoliceId || weaponMode) && chaseActive && (
           <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1200] w-[min(320px,88vw)] pointer-events-auto">
             <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-neon-magenta/60 bg-black/75 backdrop-blur-sm shadow-lg">
               <p className="text-[10px] sm:text-xs text-neon-magenta font-display uppercase tracking-wide animate-pulse">
@@ -377,7 +537,24 @@ const InPursue: React.FC = () => {
           </div>
         )}
 
-        {session.notices.length > 0 && (
+        {placeKind && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1200] w-[min(340px,90vw)] pointer-events-auto">
+            <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-neon-cyan/60 bg-black/75 backdrop-blur-sm shadow-lg">
+              <p className="text-[10px] text-neon-cyan font-display uppercase tracking-wide">
+                Tap map · {tagMeta(placeKind).label}
+              </p>
+              <button
+                type="button"
+                onClick={() => setPlaceKind(null)}
+                className="text-[10px] text-synth-muted hover:text-white px-2 py-0.5 min-h-0 min-w-0"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {chaseActive && session.notices.length > 0 && (
           <div className="absolute top-2 right-2 z-[1100] w-[min(320px,calc(100%-16px))] space-y-1 pointer-events-none">
             {session.notices.slice(-4).map((notice) => (
               <div
@@ -407,7 +584,7 @@ const InPursue: React.FC = () => {
           />
         )}
 
-        {selectedPolice && (!tacticsGame || tacticsCollapsed) && (
+        {selectedPolice && chaseActive && (!tacticsGame || tacticsCollapsed) && (
           <div className="absolute bottom-3 left-2 z-[1100] w-[min(230px,50vw)] pointer-events-auto">
             <div className="game-panel p-2 border border-neon-cyan/40 shadow-lg">
               <div className="flex items-start justify-between gap-1">
@@ -430,17 +607,6 @@ const InPursue: React.FC = () => {
                   x
                 </button>
               </div>
-              <div className="mt-1 flex items-center justify-between text-[9px] gap-1">
-                <span className="text-synth-muted truncate">{selectedPolice.vehicleModel}</span>
-                <span className="font-display font-bold text-neon-cyan flex-shrink-0">
-                  {selectedPolice.status === 'chasing' ? 'Chasing' : 'Idle'}
-                </span>
-              </div>
-              {selectedPolice.pursuingPerpId && (
-                <p className="mt-1 text-[9px] text-neon-green font-display uppercase text-center">
-                  {selectedPolice.playerAssigned ? 'Player assigned target' : 'Auto target'}
-                </p>
-              )}
               <button
                 type="button"
                 onClick={() => {
@@ -456,45 +622,75 @@ const InPursue: React.FC = () => {
             </div>
           </div>
         )}
+
+        {view === 'intel' && mapTags.length === 0 && !placeKind && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1100] w-[min(360px,92vw)] pointer-events-none">
+            <div className="rounded-lg border border-neon-cyan/30 bg-black/70 px-3 py-2 text-[11px] text-gray-200 text-center">
+              Pick a tag type above, tap the map to pin it, then open the pin for notes and AI place check.
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="game-header border-t border-neon-purple/20 p-2 sm:p-3 flex-shrink-0">
-        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[10px] sm:text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-serpico-blue flex-shrink-0" />
-            <span className="text-synth-muted">Squad</span>
-            <span className="font-bold text-serpico-blue ml-auto">{squadUnits.length}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-neon-cyan flex-shrink-0" />
-            <span className="text-synth-muted">Helpers</span>
-            <span className="font-bold text-neon-cyan ml-auto">{helperUnits.length}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-serpico-red flex-shrink-0" />
-            <span className="text-synth-muted">Fleeing</span>
-            <span className="font-bold text-serpico-red ml-auto">{fleeingPerps.length}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-neon-green flex-shrink-0" />
-            <span className="text-synth-muted">Caught</span>
-            <span className="font-bold text-neon-green ml-auto">{session.caughtTotal}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-neon-amber flex-shrink-0" />
-            <span className="text-synth-muted">Escaped</span>
-            <span className="font-bold text-neon-amber ml-auto">{session.escapedTotal}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-neon-purple flex-shrink-0" />
-            <span className="text-synth-muted">Chasing</span>
-            <span className="font-bold text-neon-purple ml-auto">{activePursuits}</span>
+      {chaseActive ? (
+        <div className="game-header border-t border-neon-purple/20 p-2 sm:p-3 flex-shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[10px] sm:text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-serpico-blue flex-shrink-0" />
+              <span className="text-synth-muted">Squad</span>
+              <span className="font-bold text-serpico-blue ml-auto">{squadUnits.length}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-neon-cyan flex-shrink-0" />
+              <span className="text-synth-muted">Helpers</span>
+              <span className="font-bold text-neon-cyan ml-auto">{helperUnits.length}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-serpico-red flex-shrink-0" />
+              <span className="text-synth-muted">Perps</span>
+              <span className="font-bold text-serpico-red ml-auto">{fleeingPerps.length}</span>
+            </div>
+            <div className="flex items-center gap-1.5 col-span-2 sm:col-span-3">
+              <span className="text-synth-muted truncate">
+                {HELPER_COUNT} helpers rotate · {PERP_COUNT} suspects · tap landmark for on-site tactics
+              </span>
+            </div>
           </div>
         </div>
-        <p className="text-[9px] text-synth-muted mt-1.5 font-mono truncate">
-          Tap a blue COP to redirect · Header tactics take out suspects · Landmarks open turn-based raids
-        </p>
-      </div>
+      ) : (
+        <div className="game-header border-t border-neon-purple/20 p-2 sm:p-3 flex-shrink-0">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-synth-muted">
+            <span>
+              <span className="text-neon-cyan font-semibold">{mapTags.length}</span> tags saved on this device
+            </span>
+            <span>Zoom with scroll or +/−</span>
+            <span>Switch to Chase for live pursuit</span>
+          </div>
+        </div>
+      )}
+
+      {activeTag ? (
+        <PlaceTagModal
+          tag={activeTag}
+          autoEnrich={autoEnrichTagId === activeTag.id && !activeTag.enrichment}
+          onChange={(tag) => {
+            upsertTag(tag);
+            setAutoEnrichTagId(null);
+          }}
+          onDelete={(id) => {
+            deleteTag(id);
+            setAutoEnrichTagId(null);
+          }}
+          onClose={() => {
+            // Persist in-progress draft enrichment if user closes mid-check
+            if (activeTag) {
+              setMapTags((prev) => prev.map((t) => (t.id === activeTag.id ? activeTag : t)));
+            }
+            setActiveTag(null);
+            setAutoEnrichTagId(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 };

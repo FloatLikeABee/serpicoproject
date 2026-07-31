@@ -9,6 +9,7 @@ import {
   OLATHE_MAX_ZOOM,
   OLATHE_MIN_ZOOM,
 } from '../utils/pursuitSim';
+import { MapTag, tagMeta } from '../utils/mapTags';
 
 export interface PursuitMapVehicle {
   id: string;
@@ -33,6 +34,8 @@ interface PursuitMapCanvasProps {
   zoom?: number;
   vehicles: PursuitMapVehicle[];
   landmarks?: MapLandmark[];
+  /** User / intel map tags (officers, cases, suspects, etc.). */
+  mapTags?: MapTag[];
   selectedId?: string | null;
   armedPoliceId?: string | null;
   pursueModePoliceId?: string | null;
@@ -40,9 +43,13 @@ interface PursuitMapCanvasProps {
   fitKey?: string | number | null;
   deployMode?: boolean;
   activeLandmarkId?: string | null;
+  activeTagId?: string | null;
+  /** Hide moving chase units for a quiet intel map. */
+  hideVehicles?: boolean;
   onVehicleClick?: (vehicle: PursuitMapVehicle) => void;
   onMapClick?: (lat: number, lng: number) => void;
   onLandmarkClick?: (landmark: MapLandmark) => void;
+  onTagClick?: (tag: MapTag) => void;
 }
 
 const OLATHE_LATLNG_BOUNDS = L.latLngBounds(
@@ -151,6 +158,66 @@ function buildLandmarkIcon(landmark: MapLandmark, active = false): L.DivIcon {
     iconAnchor: [52, 12],
   });
 }
+
+function buildTagIcon(tag: MapTag, active = false): L.DivIcon {
+  const style = tagMeta(tag.kind);
+  return L.divIcon({
+    className: 'leaflet-div-icon pursuit-tag-marker',
+    html: `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:110px;height:46px;pointer-events:auto;cursor:pointer;">
+        <div style="
+          width:24px;height:24px;border-radius:999px;flex-shrink:0;
+          background:${style.color};color:#0b0f1a;
+          font:800 11px/24px ui-monospace,Menlo,monospace;
+          text-align:center;border:2px solid ${active ? '#fff' : 'rgba(255,255,255,0.7)'};
+          box-shadow:0 0 ${active ? '10px' : '5px'} ${style.color};
+        ">${style.glyph}</div>
+        <div style="
+          margin-top:2px;max-width:106px;padding:2px 5px;border-radius:3px;
+          background:rgba(8,12,20,0.88);color:#f8fafc;
+          font:600 9px/1.2 'IBM Plex Sans',system-ui,sans-serif;
+          text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+          border:1px solid ${active ? '#fff' : `${style.color}88`};
+        ">${tag.name || style.short}</div>
+      </div>
+    `,
+    iconSize: [110, 46],
+    iconAnchor: [55, 12],
+  });
+}
+
+/** Explicit +/- zoom buttons for touch / desktop. */
+const MapZoomControls: React.FC = () => {
+  const map = useMap();
+  return (
+    <div className="leaflet-bottom leaflet-right" style={{ marginBottom: 12, marginRight: 12, zIndex: 1000 }}>
+      <div className="flex flex-col gap-1 pointer-events-auto">
+        <button
+          type="button"
+          aria-label="Zoom in"
+          onClick={(e) => {
+            e.stopPropagation();
+            map.zoomIn();
+          }}
+          className="w-9 h-9 rounded-md border border-white/25 bg-black/75 text-white text-lg font-bold shadow-lg hover:bg-black/90"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          aria-label="Zoom out"
+          onClick={(e) => {
+            e.stopPropagation();
+            map.zoomOut();
+          }}
+          className="w-9 h-9 rounded-md border border-white/25 bg-black/75 text-white text-lg font-bold shadow-lg hover:bg-black/90"
+        >
+          −
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const MapClickHandler: React.FC<{
   enabled: boolean;
@@ -400,19 +467,25 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   zoom = 15,
   vehicles,
   landmarks = [],
+  mapTags = [],
   selectedId,
   armedPoliceId,
   pursueModePoliceId,
   fitKey,
   deployMode = false,
   activeLandmarkId = null,
+  activeTagId = null,
+  hideVehicles = false,
   onVehicleClick,
   onMapClick,
   onLandmarkClick,
+  onTagClick,
 }) => {
-  const selectedVehicle = vehicles.find((v) => v.id === selectedId);
+  const visibleVehicles = useMemo(() => (hideVehicles ? [] : vehicles), [hideVehicles, vehicles]);
+  const selectedVehicle = visibleVehicles.find((v) => v.id === selectedId);
 
   const routeLines = useMemo(() => {
+    if (hideVehicles) return [];
     const lines: Array<{ id: string; positions: [number, number][]; color: string; dashed?: boolean }> = [];
     const remainingRoute = (v: PursuitMapVehicle): [number, number][] => {
       if (!v.route || v.route.length < 2) return [];
@@ -435,7 +508,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         });
       }
     }
-    vehicles
+    visibleVehicles
       .filter((v) => v.route && v.route.length > 1 && v.status !== 'caught')
       .forEach((v) => {
         const isPursuit = v.role === 'police' && v.status === 'chasing';
@@ -451,7 +524,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         });
       });
     return lines;
-  }, [vehicles, selectedVehicle]);
+  }, [visibleVehicles, selectedVehicle, hideVehicles]);
 
   return (
     <MapContainer
@@ -470,8 +543,9 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <OlatheMapLock />
+      <MapZoomControls />
       <FitVehiclesOnce
-        vehicles={vehicles}
+        vehicles={visibleVehicles}
         fitKey={fitKey}
         fallbackCenter={center}
         fallbackZoom={zoom}
@@ -492,7 +566,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         />
       ))}
 
-      {vehicles
+      {visibleVehicles
         .filter((v) => v.role === 'perp' && v.destination && v.status !== 'caught' && v.status !== 'escaped')
         .map((v) => (
           <CircleMarker
@@ -509,15 +583,17 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
           />
         ))}
 
-      <ZoomAwareMarkers
-        vehicles={vehicles}
-        selectedId={selectedId}
-        armedPoliceId={armedPoliceId}
-        pursueModePoliceId={pursueModePoliceId}
-        onVehicleClick={onVehicleClick}
-      />
+      {!hideVehicles && (
+        <ZoomAwareMarkers
+          vehicles={visibleVehicles}
+          selectedId={selectedId}
+          armedPoliceId={armedPoliceId}
+          pursueModePoliceId={pursueModePoliceId}
+          onVehicleClick={onVehicleClick}
+        />
+      )}
 
-      {/* Landmarks above vehicles so site raids stay tappable. */}
+      {/* Raid landmarks (bars/clubs/etc.) */}
       {landmarks.map((lm) => {
         const style = landmarkStyle[lm.kind];
         const active = activeLandmarkId === lm.id;
@@ -550,6 +626,46 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
                 click: (e) => {
                   L.DomEvent.stopPropagation(e);
                   if (!deployMode) onLandmarkClick?.(lm);
+                },
+              }}
+            />
+          </React.Fragment>
+        );
+      })}
+
+      {/* User intel tags */}
+      {mapTags.map((tag) => {
+        const style = tagMeta(tag.kind);
+        const active = activeTagId === tag.id;
+        return (
+          <React.Fragment key={tag.id}>
+            <CircleMarker
+              center={[tag.lat, tag.lng]}
+              radius={12}
+              pathOptions={{
+                color: style.color,
+                fillColor: style.color,
+                fillOpacity: active ? 0.4 : 0.22,
+                weight: active ? 2 : 1,
+                opacity: 0.95,
+              }}
+              eventHandlers={{
+                click: (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  if (!deployMode) onTagClick?.(tag);
+                },
+              }}
+            />
+            <Marker
+              position={[tag.lat, tag.lng]}
+              icon={buildTagIcon(tag, active)}
+              interactive={!deployMode}
+              keyboard
+              zIndexOffset={active ? 4500 : 4000}
+              eventHandlers={{
+                click: (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  if (!deployMode) onTagClick?.(tag);
                 },
               }}
             />

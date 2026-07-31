@@ -51,6 +51,7 @@ var infoSeekingPhrases = []string{
 
 var crimeDataContexts = map[string]bool{
 	"in-pursue":       true,
+	"in-pursue-place": true,
 	"perps-cases":     true,
 	"perps":           true,
 	"case-library":    true,
@@ -64,6 +65,11 @@ func NeedsCrimeDataWebSearch(message, context string) bool {
 	lower := strings.ToLower(strings.TrimSpace(message))
 	if len(lower) < 4 {
 		return false
+	}
+
+	// Place-tag enrichment always wants live lookup.
+	if context == "in-pursue-place" {
+		return true
 	}
 
 	for _, kw := range crimeDataKeywords {
@@ -88,6 +94,7 @@ func NeedsCrimeDataWebSearch(message, context string) bool {
 func contextLabel(context string) string {
 	labels := map[string]string{
 		"in-pursue":       "Active pursuit / pursuit exam operations",
+		"in-pursue-place": "Map place-tag location research",
 		"perps-cases":     "Suspect and case library research",
 		"perps":           "Suspect intelligence",
 		"case-library":    "Historical case files",
