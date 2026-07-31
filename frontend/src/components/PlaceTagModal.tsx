@@ -24,10 +24,25 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   const autoStarted = React.useRef(false);
   const meta = tagMeta(draft.kind);
 
+  // Reset draft when opening a different tag — not on every parent prop tweak
+  // (e.g. reverse-geocode address), which would wipe notes mid-edit.
   useEffect(() => {
     setDraft(tag);
     setError('');
-  }, [tag]);
+    autoStarted.current = false;
+  }, [tag.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pull address updates from geocode without clobbering typed notes/name.
+  useEffect(() => {
+    if (!tag.address) return;
+    setDraft((prev) => {
+      if (prev.id !== tag.id) return prev;
+      if (prev.address === tag.address) return prev;
+      const coordsOnly = /^\s*-?\d+\.\d+\s*,\s*-?\d+\.\d+\s*$/.test(prev.address || '');
+      if (prev.address && !coordsOnly) return prev;
+      return { ...prev, address: tag.address };
+    });
+  }, [tag.id, tag.address]);
 
   const enrichWithAI = async () => {
     setEnriching(true);
@@ -74,13 +89,14 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   }, [autoEnrich, tag.id]);
 
   const save = () => {
+    // Parent upsert closes the modal — do not call onClose() afterward;
+    // that used to rewrite mapTags with the stale pre-edit activeTag.
     onChange({
       ...draft,
       name: draft.name.trim() || meta.short,
       notes: draft.notes.trim(),
       updatedAt: new Date().toISOString(),
     });
-    onClose();
   };
 
   return (
