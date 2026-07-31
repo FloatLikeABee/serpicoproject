@@ -35,10 +35,13 @@ function hideGame(id = 'hide-site') {
 }
 
 describe('turn-based location tactics', () => {
-  it('limits officers to one adjacent move per round', () => {
+  it('limits officers to one adjacent move per action', () => {
     let game = beginTacticsRaid(startLocationTactics(testLandmark(), new Date('2026-07-28T12:00:00Z')));
     const cop = game.units.find((u) => u.side === 'cop' && u.status === 'active')!;
-    game = { ...game, selectedUnitId: cop.id };
+    game = { ...game, selectedUnitId: cop.id, mode: 'chase' };
+    // Normalize to 1 AP chase rules for this assertion
+    cop.ap = 1;
+    game = { ...game, units: [...game.units] };
 
     const reach = reachableCells(game, cop.id);
     expect(reach.every((c) => Math.abs(c.x - cop.x) + Math.abs(c.y - cop.y) === MOVE_BLOCKS_PER_TURN)).toBe(true);
@@ -48,6 +51,22 @@ describe('turn-based location tactics', () => {
     game = tacticsInteractCell(game, target.x, target.y);
     expect(game.actedOfficerIds).toContain(cop.id);
     expect(reachableCells(game, cop.id)).toHaveLength(0);
+  });
+
+  it('gives gunfight officers a second action after moving', () => {
+    let game = beginTacticsRaid(startLocationTactics(testLandmark('gun-bar-2ap'), new Date('2026-07-29T12:00:00Z')));
+    game = { ...game, mode: 'gunfight' };
+    const cop = game.units.find((u) => u.side === 'cop' && u.status === 'active')!;
+    cop.ap = 2;
+    game = { ...game, selectedUnitId: cop.id, units: [...game.units] };
+
+    const reach = reachableCells(game, cop.id);
+    expect(reach.length).toBeGreaterThan(0);
+    game = tacticsInteractCell(game, reach[0].x, reach[0].y);
+    const after = game.units.find((u) => u.id === cop.id)!;
+    expect(game.actedOfficerIds).not.toContain(cop.id);
+    expect(after.ap).toBe(1);
+    expect(reachableCells(game, cop.id).length + shootTargets(game, cop.id).length).toBeGreaterThan(0);
   });
 
   it('lets an officer hold instead of moving', () => {
@@ -144,18 +163,25 @@ describe('turn-based location tactics', () => {
     const cop = game.units.find((u) => u.side === 'cop' && u.status === 'active')!;
     const perp = game.units.find((u) => u.side === 'perp' && u.status === 'active')!;
     cop.ammo = 3;
+    cop.ap = 2;
     perp.spotted = true;
-    perp.x = cop.x + 1;
+    // Range 2 so tap shoots (adjacent would cuff)
+    perp.x = cop.x + 2;
     perp.y = cop.y;
-    game = { ...game, selectedUnitId: cop.id };
+    game = { ...game, selectedUnitId: cop.id, units: [...game.units] };
 
     const targets = shootTargets(game, cop.id);
     expect(targets.some((t) => t.id === perp.id)).toBe(true);
 
     game = tacticsInteractCell(game, perp.x, perp.y);
     const copAfter = game.units.find((u) => u.id === cop.id)!;
-    expect(game.actedOfficerIds).toContain(cop.id);
     expect(copAfter.ammo).toBe(2);
+    expect(copAfter.ap).toBe(1);
+    expect(game.actedOfficerIds).not.toContain(cop.id);
+  });
+
+  it('caps suspects at one shot per turn', () => {
+    expect(PERP_AMMO_PER_ROUND).toBe(1);
   });
 
   it('blocks moves during the suspect turn', () => {

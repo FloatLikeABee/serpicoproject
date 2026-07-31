@@ -83,19 +83,26 @@ export interface LocationTacticsStats {
 
 export const SHOOT_RANGE_BLOCKS = 2;
 export const MOVE_BLOCKS_PER_TURN = 1;
-/** Armed fleeing suspects reload this many rounds every suspect turn. */
-export const PERP_AMMO_PER_ROUND = 2;
+/** Armed fleeing suspects get at most this many shots per their turn (fairer vs officers). */
+export const PERP_AMMO_PER_ROUND = 1;
+/** Gunfight officers get two actions: move and/or fire in either order. */
+export const OFFICER_AP_GUNFIGHT = 2;
+export const OFFICER_AP_DEFAULT = 1;
 
 /** Base hit chance by Manhattan distance (blocks). Closer = more accurate. */
 export const SHOOT_HIT_BY_DISTANCE: Record<number, number> = {
-  1: 0.88,
-  2: 0.52,
+  1: 0.9,
+  2: 0.68,
 };
 
-/** Target hunkered in cover — harder to hit. */
-export const COVER_DEFENSE_FACTOR = 0.48;
-/** Shooter firing from cover — peek-and-shoot penalty. */
-export const COVER_SHOOTER_PENALTY = 0.72;
+/** Target hunkered in cover — harder to hit (softened so cover is useful, not impenetrable). */
+export const COVER_DEFENSE_FACTOR = 0.62;
+/** Shooter firing from cover — mild peek-and-shoot penalty. */
+export const COVER_SHOOTER_PENALTY = 0.85;
+
+function officerApBudget(mode: ScenarioMode): number {
+  return mode === 'gunfight' ? OFFICER_AP_GUNFIGHT : OFFICER_AP_DEFAULT;
+}
 
 export interface LocationTacticsGame {
   id: string;
@@ -184,17 +191,17 @@ const MODE_META: Record<
   chase: {
     title: 'Foot Chase',
     briefing: (place) =>
-      `${place}: armed runners bolting for the main entrance. Move or skip each officer, then they advance one block — and they shoot (2 rounds/turn) if you're in range. Cut them off or return fire.`,
+      `${place}: runners bolting for the main entrance. Move or skip each officer, then they advance one block — they may fire once if you're in range. Cut them off, cuff adjacent, or return fire.`,
   },
   gunfight: {
     title: 'Cover Gunfight',
     briefing: (place) =>
-      `${place}: turn-based gunfight. Officers can move one block or fire (≤2 blocks — closer is deadlier). Cover protects both sides: harder to get hit, but also harder to drop suspects from cover.`,
+      `${place}: each officer gets 2 actions (move and/or fire, either order). Fire ≤2 blocks — closer is deadlier. Cover helps both sides. Suspects move and fire at most once per turn.`,
   },
   hide: {
     title: 'Hide & Seek',
     briefing: (place) =>
-      `${place}: find armed suspects, then cuff them (adjacent tap) or shoot (≤2 blocks). Once found they stay visible, push hard for the main entrance (IN), and fire 2 rounds each turn — closing in is dangerous.`,
+      `${place}: search rooms, then cuff (adjacent) or shoot (≤2 blocks). Found suspects stay visible and push for the entrance (IN); they fire at most once per turn while fleeing.`,
   },
 };
 
@@ -653,9 +660,9 @@ function perpEscapedThroughEntrance(game: LocationTacticsGame, p: TacticsUnit) {
   return true;
 }
 
-function tryPerpShoot(game: LocationTacticsGame, p: TacticsUnit): void {
-  if (p.ammo <= 0) return;
-  const shots = Math.min(p.ammo, PERP_AMMO_PER_ROUND);
+function tryPerpShoot(game: LocationTacticsGame, p: TacticsUnit, maxShots = PERP_AMMO_PER_ROUND): void {
+  if (p.ammo <= 0 || maxShots <= 0) return;
+  const shots = Math.min(p.ammo, maxShots);
   for (let i = 0; i < shots; i++) {
     if (p.ammo <= 0) break;
     const target = livingCops(game)
@@ -677,40 +684,38 @@ function tryPerpShoot(game: LocationTacticsGame, p: TacticsUnit): void {
 
 function aiPerps(game: LocationTacticsGame) {
   for (const p of livingPerps(game)) {
-    // Reload every suspect turn — armed and dangerous while fleeing.
-    if (game.mode !== 'gunfight') {
-      p.ammo = Math.max(p.ammo, PERP_AMMO_PER_ROUND);
-    } else {
-      p.ammo = Math.max(p.ammo, 1);
-    }
+    // Top up enough for one shot — no multi-burst dump on the officers.
+    p.ammo = Math.max(p.ammo, PERP_AMMO_PER_ROUND);
 
-    const before = { x: p.x, y: p.y };
-    const { x, y, goal } = aggressiveEscapeStep(game, p, p.id);
-
-    // If a cop is already in range, take a shot before moving when blocked or threatened.
+    const { x, y } = aggressiveEscapeStep(game, p, p.id);
     const threatened = livingCops(game).some(
-      (c) => dist(p, c) <= SHOOT_RANGE_BLOCKS && hasLos(game.cells, game.width, game.height, p.x, p.y, c.x, c.y)
+      (c) =>
+        dist(p, c) <= SHOOT_RANGE_BLOCKS &&
+        hasLos(game.cells, game.width, game.height, p.x, p.y, c.x, c.y)
     );
-    if (threatened && ((x === p.x && y === p.y) || dist(p, goal) <= 3)) {
-      tryPerpShoot(game, p);
-    }
+
+    let fired = false;
 
     if (x !== p.x || y !== p.y) {
+      // Escape first — at most one shot after relocating (not before and after).
       p.x = x;
       p.y = y;
       p.inCover = cellAt(game.cells, game.width, p.x, p.y)?.kind === 'cover';
       if (p.spotted || p.known) {
         pushLog(game, `${p.name} pushes toward escape.`, 'warn');
       }
-    } else if (!isEscapeTile(game, before.x, before.y) && (p.spotted || p.known)) {
+      if (perpEscapedThroughEntrance(game, p)) continue;
+      tryPerpShoot(game, p, 1);
+      fired = true;
+    } else if (threatened) {
       pushLog(game, `${p.name} is boxed in — opening fire.`, 'warn');
-      tryPerpShoot(game, p);
+      tryPerpShoot(game, p, 1);
+      fired = true;
     }
 
-    if (perpEscapedThroughEntrance(game, p)) continue;
-
-    // After moving, engage any cops still in range.
-    tryPerpShoot(game, p);
+    if (!fired && threatened) {
+      tryPerpShoot(game, p, 1);
+    }
   }
 }
 
@@ -781,8 +786,6 @@ function applyBulletHits(game: LocationTacticsGame) {
     if (!target) continue;
     let dmg = b.damage;
     if (target.inCover) dmg = Math.max(1, dmg - 1);
-    // Hard mode: open-ground targets take more
-    if (!target.inCover && Math.random() < 0.35) dmg += 1;
     target.hp -= dmg;
     if (target.hp <= 0) {
       if (target.side === 'cop') {
@@ -928,25 +931,40 @@ export function resolvePerpTurn(game: LocationTacticsGame): LocationTacticsGame 
   g.actedOfficerIds = [];
   g.roundPhase = 'player';
   for (const c of livingCops(g)) {
-    c.ap = 1;
+    c.ap = officerApBudget(g.mode);
     c.inCover = cellAt(g.cells, g.width, c.x, c.y)?.kind === 'cover';
   }
   for (const p of livingPerps(g)) {
     p.inCover = cellAt(g.cells, g.width, p.x, p.y)?.kind === 'cover';
-    if (g.mode !== 'gunfight') {
-      p.ammo = Math.max(p.ammo, PERP_AMMO_PER_ROUND);
-    }
+    p.ammo = Math.max(p.ammo, PERP_AMMO_PER_ROUND);
   }
   g.selectedUnitId = nextUnactedOfficer(g) ?? livingCops(g)[0]?.id;
-  pushLog(g, 'Your turn — move each officer one block or skip.', 'info');
+  if (g.mode === 'gunfight') {
+    pushLog(g, 'Your turn — each officer has 2 actions (move and/or fire).', 'info');
+  } else {
+    pushLog(g, 'Your turn — move each officer one block, cuff/shoot, or skip.', 'info');
+  }
 
   return checkEnd(g);
 }
 
 function finishOfficerAction(g: LocationTacticsGame, officerId: string): LocationTacticsGame {
   markOfficerActed(g, officerId);
+  const officer = g.units.find((u) => u.id === officerId);
+  if (officer) officer.ap = 0;
   g.selectedUnitId = nextUnactedOfficer(g) ?? g.selectedUnitId;
   if (allOfficersActed(g)) return beginPerpPhase(g);
+  return checkEnd(g);
+}
+
+/** Spend action points; gunfight keeps the officer selected if they still have AP. */
+function spendOfficerAp(g: LocationTacticsGame, officer: TacticsUnit, cost = 1): LocationTacticsGame {
+  officer.ap = Math.max(0, (officer.ap ?? 1) - cost);
+  if (officer.ap <= 0) {
+    return finishOfficerAction(g, officer.id);
+  }
+  pushLog(g, `${officer.name} has ${officer.ap} action left — move or fire.`, 'info');
+  g.selectedUnitId = officer.id;
   return checkEnd(g);
 }
 
@@ -1002,12 +1020,12 @@ export function startLocationTactics(landmark: MapLandmark, now = new Date()): L
       name: `Ofc. ${COP_NAMES[i % COP_NAMES.length]}`,
       x: s.x,
       y: s.y,
-      hp: mode === 'gunfight' ? 4 : 3,
-      maxHp: mode === 'gunfight' ? 4 : 3,
+      hp: mode === 'gunfight' ? 5 : 3,
+      maxHp: mode === 'gunfight' ? 5 : 3,
       status: 'active',
       spotted: true,
-      ap: 1,
-      ammo: mode === 'gunfight' ? 5 : 4,
+      ap: officerApBudget(mode),
+      ammo: mode === 'gunfight' ? 6 : 4,
       inCover: false,
     });
   });
@@ -1022,8 +1040,8 @@ export function startLocationTactics(landmark: MapLandmark, now = new Date()): L
       maxHp: mode === 'gunfight' ? 3 : 2,
       status: 'active',
       spotted: mode === 'gunfight',
-      ap: 2,
-      ammo: mode === 'gunfight' ? 4 : PERP_AMMO_PER_ROUND,
+      ap: 1,
+      ammo: mode === 'gunfight' ? 3 : PERP_AMMO_PER_ROUND,
       inCover: cellAt(cells, width, s.x, s.y)?.kind === 'cover',
     });
   });
@@ -1086,11 +1104,17 @@ export function beginTacticsRaid(game: LocationTacticsGame): LocationTacticsGame
   pushLog(g, g.briefing, 'warn');
   pushLog(
     g,
-    'Turn-based: each officer moves 1 block, arrests/fires, or skips — then suspects move toward the main entrance.',
+    g.mode === 'gunfight'
+      ? 'Gunfight: each officer has 2 actions — move into position, then fire (or fire then move). Suspects fire at most once per turn.'
+      : 'Turn-based: each officer moves 1 block, arrests/fires, or skips — then suspects move toward the main entrance.',
     'info'
   );
   if (g.mode === 'gunfight') {
-    pushLog(g, 'Gunfight: tap a red suspect cell to shoot. Closer = more accurate. Cover protects everyone but makes hits harder both ways.', 'info');
+    pushLog(
+      g,
+      'Tap teal to move, red to shoot (≤2 blocks). Adjacent suspects can be cuffed. Gold ring = cover.',
+      'info'
+    );
   }
   if (g.mode === 'hide' || g.mode === 'chase') {
     pushLog(g, 'Get next to a suspect and tap them to arrest. Found suspects stay visible and run for the main entrance (IN).', 'info');
@@ -1116,8 +1140,11 @@ export function reachableCells(game: LocationTacticsGame, unitId: string): Array
     if (!cell || !walkable(cell.kind)) continue;
     const perpThere = livingPerps(game).find((p) => p.x === n.x && p.y === n.y);
     if (perpThere) {
-      // Can step onto a perp cell to arrest (hide/chase), or if already known.
-      if (game.mode === 'gunfight') continue;
+      // Can step onto a perp cell to arrest when known / in gunfight adjacency.
+      if (game.mode === 'gunfight') {
+        out.push(n);
+        continue;
+      }
       out.push(n);
       continue;
     }
@@ -1141,13 +1168,39 @@ export function shootTargets(game: LocationTacticsGame, unitId: string): Tactics
   });
 }
 
-/** Spotted suspects the selected officer can cuff (hide / chase). */
+/** Spotted suspects the selected officer can cuff (hide / chase / gunfight adjacent). */
 export function arrestTargets(game: LocationTacticsGame, unitId: string): TacticsUnit[] {
   if (!playerTurnActive(game)) return [];
-  if (game.mode === 'gunfight') return [];
   const unit = game.units.find((u) => u.id === unitId && u.side === 'cop' && u.status === 'active');
   if (!unit || officerHasActed(game, unitId)) return [];
-  return livingPerps(game).filter((p) => (p.spotted || p.known) && dist(unit, p) <= 1);
+  return livingPerps(game).filter((p) => {
+    if (dist(unit, p) > 1) return false;
+    if (game.mode === 'gunfight') return true;
+    return !!(p.spotted || p.known);
+  });
+}
+
+/** Cells under threat from living suspects (LOS + range) — for UI danger highlights. */
+export function dangerCells(game: LocationTacticsGame): Array<{ x: number; y: number }> {
+  const out: Array<{ x: number; y: number }> = [];
+  const seen = new Set<string>();
+  for (const p of livingPerps(game)) {
+    if (game.mode !== 'gunfight' && !(p.spotted || p.known)) continue;
+    for (let y = 0; y < game.height; y++) {
+      for (let x = 0; x < game.width; x++) {
+        const cell = cellAt(game.cells, game.width, x, y);
+        if (!cell || !walkable(cell.kind)) continue;
+        const d = Math.abs(p.x - x) + Math.abs(p.y - y);
+        if (d < 1 || d > SHOOT_RANGE_BLOCKS) continue;
+        if (!hasLos(game.cells, game.width, game.height, p.x, p.y, x, y)) continue;
+        const key = `${x},${y}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ x, y });
+      }
+    }
+  }
+  return out;
 }
 
 export function tacticsCancelOfficer(game: LocationTacticsGame, officerId?: string): LocationTacticsGame {
@@ -1182,23 +1235,23 @@ export function tacticsInteractCell(
     return g;
   }
 
-  // Tap a spotted suspect: arrest if adjacent (hide/chase), otherwise shoot if in range
+  // Tap a spotted suspect: arrest if adjacent, otherwise shoot if in range
   {
     const perp = livingPerps(g).find(
       (p) => p.x === x && p.y === y && (p.spotted || p.known || g.mode === 'gunfight')
     );
     if (perp) {
       const range = dist(selected, perp);
-      if ((g.mode === 'hide' || g.mode === 'chase') && range <= 1) {
+      if (range <= 1) {
         perp.known = true;
         perp.spotted = true;
         arrestPerp(g, selected, perp);
         g.decisions.push(`Arrested ${perp.name}`);
-        return finishOfficerAction(g, selected.id);
+        return spendOfficerAp(g, selected, 1);
       }
       if (range >= 1 && range <= SHOOT_RANGE_BLOCKS) {
         if (selected.ammo <= 0) {
-          pushLog(g, 'Out of ammo — move closer to arrest or reposition.', 'warn');
+          pushLog(g, 'Out of ammo — move adjacent to cuff or reposition.', 'warn');
           return g;
         }
         if (!hasLos(g.cells, g.width, g.height, selected.x, selected.y, perp.x, perp.y)) {
@@ -1215,7 +1268,7 @@ export function tacticsInteractCell(
           g.decisions.push(`Missed ${perp.name} (${hitPct}% hit)`);
         }
         applyBulletHits(g);
-        return finishOfficerAction(g, selected.id);
+        return spendOfficerAp(g, selected, 1);
       }
       pushLog(g, 'Too far — get within 2 blocks to shoot, or adjacent to arrest.', 'warn');
       return g;
@@ -1230,14 +1283,14 @@ export function tacticsInteractCell(
 
   const d = dist(selected, { x, y });
 
-  // Hide: search current cell as the officer's one action
+  // Hide: search current cell as the officer's one action (wider sweep)
   if (d === 0 && g.mode === 'hide') {
-    revealAround(g, x, y, 1);
+    revealAround(g, x, y, 2);
     g.decisions.push(`Searched ${x},${y}`);
     pushLog(g, `${selected.name} searches the area.`, 'info');
     refreshSpotting(g);
     catchAdjacent(g);
-    return finishOfficerAction(g, selected.id);
+    return spendOfficerAp(g, selected, 1);
   }
 
   if (d !== MOVE_BLOCKS_PER_TURN) {
@@ -1245,11 +1298,10 @@ export function tacticsInteractCell(
     return g;
   }
 
-  // Stepping onto a spotted suspect = arrest
+  // Stepping onto a suspect = arrest
   const perpOnCell = livingPerps(g).find((p) => p.x === x && p.y === y);
   if (perpOnCell) {
     if (!(perpOnCell.spotted || perpOnCell.known) && g.mode === 'hide') {
-      // Bump into a hidden suspect — reveal and cuff
       perpOnCell.known = true;
       perpOnCell.spotted = true;
     }
@@ -1258,9 +1310,9 @@ export function tacticsInteractCell(
     selected.inCover = cell.kind === 'cover';
     arrestPerp(g, selected, perpOnCell);
     g.decisions.push(`Arrested ${perpOnCell.name}`);
-    if (g.mode !== 'gunfight') revealAround(g, x, y, g.mode === 'hide' ? 1 : 2);
+    if (g.mode !== 'gunfight') revealAround(g, x, y, g.mode === 'hide' ? 2 : 2);
     refreshSpotting(g);
-    return finishOfficerAction(g, selected.id);
+    return spendOfficerAp(g, selected, 1);
   }
 
   if (occupied(g, x, y, selected.id)) {
@@ -1273,10 +1325,10 @@ export function tacticsInteractCell(
   selected.inCover = cell.kind === 'cover';
   g.decisions.push(`Moved ${selected.name} to ${x},${y}`);
   pushLog(g, `${selected.name} moves one block.`, 'info');
-  if (g.mode !== 'gunfight') revealAround(g, x, y, g.mode === 'hide' ? 1 : 2);
+  if (g.mode !== 'gunfight') revealAround(g, x, y, g.mode === 'hide' ? 2 : 2);
   refreshSpotting(g);
   catchAdjacent(g);
-  return finishOfficerAction(g, selected.id);
+  return spendOfficerAp(g, selected, 1);
 }
 
 export function tacticsWait(game: LocationTacticsGame): LocationTacticsGame {
