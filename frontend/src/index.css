@@ -384,3 +384,15 @@ html.synth-world ::-webkit-scrollbar-thumb {
 .chat-markdown :where(ul, ol) {
   margin-top: 0.25rem;
 }
+
+/* User chat bubbles — dark panel, not neon cyan (readable white/lavender text) */
+.chat-user-bubble {
+  background: rgba(21, 16, 48, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Chat markdown headings: no neon glow */
+.chat-markdown :where(h1, h2, h3, h4) {
+  text-shadow: none;
+  color: #f3f0ff;
+}

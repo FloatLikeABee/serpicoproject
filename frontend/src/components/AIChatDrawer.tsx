@@ -156,18 +156,12 @@ const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose, context })
               <div
                 className={`max-w-[85%] sm:max-w-[80%] rounded-lg p-2.5 sm:p-3 ${
                   message.role === 'user'
-                    ? 'bg-serpico-blue/90 text-white border border-neon-cyan/30'
+                    ? 'chat-user-bubble border border-white/15 text-synth-text'
                     : 'game-panel border border-white/10 text-synth-text'
                 }`}
               >
-                <ChatMarkdown
-                  content={message.content}
-                  size="sm"
-                  inverted={message.role === 'user'}
-                />
-                <p className={`text-xs mt-1 ${
-                  message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
-                }`}>
+                <ChatMarkdown content={message.content} size="sm" />
+                <p className="text-xs mt-1 text-synth-muted">
                   {message.timestamp.toLocaleTimeString()}
                 </p>
               </div>
