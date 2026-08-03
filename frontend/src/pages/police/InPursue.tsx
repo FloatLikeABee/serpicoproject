@@ -33,12 +33,13 @@ import {
   startLocationTactics,
 } from '../../utils/locationTacticsSim';
 import {
+  autoMapTagLocation,
+  createMapTag,
+  isCoordsOnlyAddress,
+  loadMapTags,
   MAP_TAG_KINDS,
   MapTag,
   MapTagKind,
-  createMapTag,
-  loadMapTags,
-  reverseGeocode,
   saveMapTags,
   tagMeta,
 } from '../../utils/mapTags';
@@ -141,6 +142,26 @@ const InPursue: React.FC = () => {
   useEffect(() => {
     setMapTags(loadMapTags(userId));
   }, [userId]);
+
+  const locationMappedRef = useRef<Set<string>>(new Set());
+
+  const syncTagLocation = useCallback((updated: MapTag) => {
+    setMapTags((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    setActiveTag((cur) => (cur?.id === updated.id ? updated : cur));
+  }, []);
+
+  useEffect(() => {
+    mapTags.forEach((tag) => {
+      if (!isCoordsOnlyAddress(tag.address)) return;
+      if (locationMappedRef.current.has(tag.id)) return;
+      locationMappedRef.current.add(tag.id);
+      void autoMapTagLocation(tag).then((mapped) => {
+        if (mapped.address !== tag.address) {
+          syncTagLocation(mapped);
+        }
+      });
+    });
+  }, [mapTags, syncTagLocation]);
 
   useEffect(() => {
     saveMapTags(userId, mapTags);
@@ -296,26 +317,23 @@ const InPursue: React.FC = () => {
     const kind = placeKindRef.current || 'other';
     const meta = tagMeta(kind);
     const coords = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    // Place immediately — don't block on geocode / AI.
     const tag = createMapTag(kind, lat, lng, {
       name: meta.short,
       address: coords,
       notes: '',
     });
+    locationMappedRef.current.add(tag.id);
     setMapTags((prev) => [tag, ...prev]);
     setAutoEnrichTagId(tag.id);
     setActiveTag(tag);
 
-    void reverseGeocode(lat, lng)
-      .then((address) => {
-        setMapTags((prev) => prev.map((t) => (t.id === tag.id ? { ...t, address } : t)));
-        setActiveTag((cur) => (cur && cur.id === tag.id ? { ...cur, address } : cur));
-      })
+    void autoMapTagLocation(tag)
+      .then((mapped) => syncTagLocation(mapped))
       .finally(() => {
         placingBusyRef.current = false;
         setPlacingBusy(false);
       });
-  }, []);
+  }, [syncTagLocation]);
 
   const handleTagClick = useCallback(
     (tag: MapTag) => {
@@ -682,6 +700,7 @@ const InPursue: React.FC = () => {
           tag={activeTag}
           startInEditMode={autoEnrichTagId === activeTag.id}
           autoEnrich={autoEnrichTagId === activeTag.id && !activeTag.enrichment}
+          onLocationUpdate={syncTagLocation}
           onChange={(tag) => {
             upsertTag(tag);
             setAutoEnrichTagId(null);

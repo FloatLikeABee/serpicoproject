@@ -1,13 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { chatAPI } from '../services/api';
 import ChatMarkdown from './ChatMarkdown';
-import { MapTag, MapTagKind, MAP_TAG_KINDS, tagMeta } from '../utils/mapTags';
+import {
+  forwardGeocode,
+  isCoordsOnlyAddress,
+  MapTag,
+  MapTagKind,
+  MAP_TAG_KINDS,
+  reverseGeocode,
+  tagMeta,
+} from '../utils/mapTags';
 
 interface PlaceTagModalProps {
   tag: MapTag;
   onChange: (tag: MapTag) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
+  /** Live pin/address updates while the modal is open (auto mapping). */
+  onLocationUpdate?: (tag: MapTag) => void;
   /** Kick off AI web lookup when the modal opens (e.g. right after placing). */
   autoEnrich?: boolean;
   /** New pins start in edit mode; reopening a saved tag starts compact view. */
@@ -19,16 +29,24 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   onChange,
   onDelete,
   onClose,
+  onLocationUpdate,
   autoEnrich = false,
   startInEditMode = false,
 }) => {
   const [draft, setDraft] = useState(tag);
   const [editing, setEditing] = useState(startInEditMode);
   const [enriching, setEnriching] = useState(false);
+  const [mappingLocation, setMappingLocation] = useState(false);
   const [error, setError] = useState('');
   const [aiExpanded, setAiExpanded] = useState(false);
   const autoStarted = React.useRef(false);
+  const mappedPinKeyRef = React.useRef('');
   const meta = tagMeta(draft.kind);
+
+  const applyLocation = (next: MapTag) => {
+    setDraft(next);
+    onLocationUpdate?.(next);
+  };
 
   useEffect(() => {
     setDraft(tag);
@@ -49,6 +67,59 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
       return { ...prev, address: tag.address };
     });
   }, [tag.id, tag.address]);
+
+  // Auto reverse-geocode pin coordinates to a street address.
+  useEffect(() => {
+    if (!isCoordsOnlyAddress(tag.address)) return;
+    const key = `${tag.id}:${tag.lat.toFixed(5)},${tag.lng.toFixed(5)}`;
+    if (mappedPinKeyRef.current === key) return;
+    mappedPinKeyRef.current = key;
+
+    let cancelled = false;
+    setMappingLocation(true);
+    void reverseGeocode(tag.lat, tag.lng)
+      .then((address) => {
+        if (cancelled || isCoordsOnlyAddress(address)) return;
+        setDraft((prev) => {
+          if (prev.id !== tag.id) return prev;
+          const next = { ...prev, address, updatedAt: new Date().toISOString() };
+          onLocationUpdate?.(next);
+          return next;
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setMappingLocation(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tag.id, tag.lat, tag.lng, tag.address]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const mapAddressToPin = async () => {
+    const query = draft.address?.trim();
+    if (!query || isCoordsOnlyAddress(query)) return;
+    setMappingLocation(true);
+    setError('');
+    try {
+      const hit = await forwardGeocode(query);
+      if (!hit) {
+        setError('Could not map that address on the map.');
+        return;
+      }
+      applyLocation({
+        ...draft,
+        lat: hit.lat,
+        lng: hit.lng,
+        address: hit.label,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch {
+      setError('Location mapping failed.');
+    } finally {
+      setMappingLocation(false);
+    }
+  };
 
   const enrichWithAI = async () => {
     setEnriching(true);
@@ -132,7 +203,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 {editing ? 'Map tag' : draft.name || meta.short}
               </h2>
               <p className="text-[11px] text-synth-muted mt-0.5 truncate">
-                {draft.address || `${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}`}
+                {mappingLocation ? 'Mapping location…' : draft.address || `${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}`}
               </p>
             </div>
             <button
@@ -183,13 +254,19 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
               </label>
 
               <label className="block space-y-1">
-                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Location</span>
+                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">
+                  Location {mappingLocation ? '· mapping…' : ''}
+                </span>
                 <input
                   value={draft.address || ''}
                   onChange={(e) => setDraft((p) => ({ ...p, address: e.target.value }))}
-                  placeholder="Address or place description"
+                  onBlur={() => void mapAddressToPin()}
+                  placeholder="Auto-mapped from pin, or type an address"
                   className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white"
                 />
+                <p className="text-[10px] text-synth-muted/80">
+                  Tap the map to place · edit address to re-map pin
+                </p>
               </label>
 
               <label className="block space-y-1">
