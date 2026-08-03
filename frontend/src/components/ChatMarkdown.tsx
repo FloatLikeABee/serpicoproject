@@ -19,10 +19,10 @@ const sizeClasses: Record<ChatMarkdownSize, { prose: string; text: string }> = {
 export default function ChatMarkdown({ content, size = 'sm', inverted = false }: ChatMarkdownProps) {
   const { prose, text } = sizeClasses[size];
   const normalized = normalizeChatMarkdown(content);
-  const codeBg = inverted ? 'bg-blue-900/50' : 'bg-black/40';
-  const linkClass = inverted ? 'text-blue-100 underline' : 'text-neon-cyan underline';
-  const headingClass = inverted ? 'text-white' : 'text-neon-cyan';
-  const mutedClass = inverted ? 'text-blue-100/90' : 'text-synth-text';
+  const codeBg = inverted ? 'bg-black/30' : 'bg-black/40';
+  const linkClass = inverted ? 'text-gray-200 underline' : 'text-gray-200 underline hover:text-white';
+  const headingClass = 'text-gray-100';
+  const mutedClass = inverted ? 'text-gray-200' : 'text-synth-text';
 
   if (!normalized) return null;
 
@@ -78,7 +78,7 @@ export default function ChatMarkdown({ content, size = 'sm', inverted = false }:
           strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
           em: ({ children }) => <em className="italic opacity-90">{children}</em>,
           blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-neon-cyan/50 pl-3 italic mb-2 opacity-90">{children}</blockquote>
+            <blockquote className="border-l-4 border-white/25 pl-3 italic mb-2 opacity-90">{children}</blockquote>
           ),
           hr: () => <hr className="my-3 border-white/15" />,
         }}

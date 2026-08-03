@@ -189,15 +189,11 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
             <div
               className={`max-w-[85%] rounded-lg p-2 text-xs ${
                 message.role === 'user'
-                  ? 'bg-serpico-blue/90 text-white border border-neon-cyan/30'
+                  ? 'chat-user-bubble border border-white/15 text-synth-text'
                   : 'game-panel border border-white/10 text-synth-text'
               }`}
             >
-              <ChatMarkdown
-                content={message.content}
-                size="xs"
-                inverted={message.role === 'user'}
-              />
+              <ChatMarkdown content={message.content} size="xs" />
             </div>
           </div>
         ))}
