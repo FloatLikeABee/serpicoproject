@@ -93,17 +93,18 @@ func NeedsCrimeDataWebSearch(message, context string) bool {
 
 func contextLabel(context string) string {
 	labels := map[string]string{
-		"in-pursue":       "Active pursuit / pursuit exam operations",
-		"in-pursue-place": "Map place-tag location research",
-		"perps-cases":     "Suspect and case library research",
-		"perps":           "Suspect intelligence",
-		"case-library":    "Historical case files",
-		"mysteries":       "Cold cases and unsolved investigations",
-		"leisure":         "Investigative research (off-duty)",
-		"nearby-officers": "Unit locations and officer availability",
-		"nearby-perps":    "Recent criminal activity in the area",
-		"safe-routes":     "Route safety based on crime patterns",
-		"chase-game":      "Pursuit training / Chase Game",
+		"in-pursue":          "Active pursuit / pursuit exam operations",
+		"in-pursue-place":    "Map place-tag location research",
+		"perps-cases":        "Suspect and case library research",
+		"perps":              "Suspect intelligence",
+		"case-library":       "Historical case files",
+		"mysteries":          "Cold cases and unsolved investigations",
+		"leisure":            "Investigative research (off-duty)",
+		"nearby-officers":    "Unit locations and officer availability",
+		"nearby-perps":       "Recent criminal activity in the area",
+		"safe-routes":        "Route safety based on crime patterns",
+		"chase-game":         "Pursuit training / Chase Game",
+		"suspect-interview":  "Suspect interview coaching (PEACE / SUE)",
 	}
 	if label, ok := labels[context]; ok {
 		return label
@@ -170,6 +171,11 @@ func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, 
 	b.WriteString(officerChatSystemPrompt)
 	b.WriteString("\n\n")
 
+	if isSuspectInterviewContext(context) {
+		b.WriteString(suspectInterviewPrompt)
+		b.WriteString("\n\n")
+	}
+
 	if context != "" {
 		b.WriteString(fmt.Sprintf("**Operational context:** %s\n\n", contextLabel(context)))
 	}
@@ -199,9 +205,15 @@ func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, 
 		b.WriteString("\n\n")
 	}
 
-	b.WriteString("**Officer query:** ")
-	b.WriteString(userMessage)
-	b.WriteString("\n\nRespond in Markdown as Officer Serpico. Prefer admin-curated RAG and digests over web search.")
+	if isSuspectInterviewContext(context) {
+		b.WriteString("**Officer turn (case brief, or Suspect answer + Officer thoughts):** ")
+		b.WriteString(userMessage)
+		b.WriteString("\n\nRespond in Markdown as Officer Serpico using the Suspect Interview Helper format. Lead with the next question the officer should ask.")
+	} else {
+		b.WriteString("**Officer query:** ")
+		b.WriteString(userMessage)
+		b.WriteString("\n\nRespond in Markdown as Officer Serpico. Prefer admin-curated RAG and digests over web search.")
+	}
 
 	return b.String()
 }

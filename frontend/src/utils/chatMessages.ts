@@ -60,6 +60,23 @@ Where are you headed?`,
 **Ready for training.** Chase Game rules, pursuit codex, and debrief — or hit the **Chase** tab for a live scenario.
 
 What do you need?`,
+
+  'suspect-interview': `### Officer Serpico — Suspect Interview Helper
+
+**10-4.** This channel coaches **legit, non-coercive interview questions** for a live suspect interview (PEACE · free recall · SUE).
+
+#### How we work
+1. I give you the **next question** to ask.
+2. You ask the suspect.
+3. You reply with **Suspect said:** … and **My thoughts:** …
+4. I give the next question, backups, and actions.
+
+#### Ask first (Engage / free account)
+> Tell me everything that happened from your point of view — start wherever you want, and take your time. I won't interrupt.
+
+**Optional:** Before you ask that, send a short case brief (offense, known facts/evidence, interview goal, rights status) and I'll tailor the opener.
+
+Then paste the suspect's answer + your thoughts after each round.`,
 };
 
 export function getChatInitialMessage(context?: string): string {
