@@ -680,6 +680,7 @@ const InPursue: React.FC = () => {
       {activeTag ? (
         <PlaceTagModal
           tag={activeTag}
+          startInEditMode={autoEnrichTagId === activeTag.id}
           autoEnrich={autoEnrichTagId === activeTag.id && !activeTag.enrichment}
           onChange={(tag) => {
             upsertTag(tag);

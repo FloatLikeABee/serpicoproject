@@ -138,6 +138,51 @@ function apiErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Collapsible markdown block so saved notes don't dominate the case pane. */
+function CompactNoteMarkdown({
+  content,
+  label,
+  maxCollapsedLines = 5,
+}: {
+  content: string;
+  label?: string;
+  maxCollapsedLines?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const text = displayNoteText(content);
+  if (!text) return null;
+  const long = text.length > 320 || text.split('\n').length > maxCollapsedLines;
+
+  return (
+    <div>
+      {label ? (
+        <p className="text-[9px] uppercase text-neon-magenta/80 mb-1">{label}</p>
+      ) : null}
+      <div
+        className={
+          long && !expanded
+            ? 'max-h-28 overflow-hidden relative'
+            : 'max-h-52 overflow-y-auto overscroll-contain'
+        }
+      >
+        <ChatMarkdown content={text} size="xs" />
+        {long && !expanded ? (
+          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#07050f] to-transparent pointer-events-none" />
+        ) : null}
+      </div>
+      {long ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 text-[9px] font-display uppercase tracking-wider text-neon-cyan/90 hover:text-neon-cyan"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 /** Cases list — expand a case to work its timed notes in-pane. */
 const Notes: React.FC = () => {
   const { user, logout } = useAuth();
@@ -828,9 +873,7 @@ const Notes: React.FC = () => {
                                     </button>
                                   </div>
                                 </div>
-                                <div className="text-sm text-white leading-snug">
-                                  <ChatMarkdown content={displayNoteText(node.event)} size="xs" />
-                                </div>
+                                <CompactNoteMarkdown content={node.event} />
                                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-400">
                                   {node.place ? <span>Place: {node.place}</span> : null}
                                   {node.location ? <span>Loc: {node.location}</span> : null}
@@ -838,8 +881,7 @@ const Notes: React.FC = () => {
                                 </div>
                                 {node.analysis ? (
                                   <div className="text-[11px] text-gray-300 border-t border-white/10 pt-1.5">
-                                    <p className="text-[9px] uppercase text-neon-magenta/80 mb-1">Analysis</p>
-                                    <ChatMarkdown content={displayNoteText(node.analysis)} size="xs" />
+                                    <CompactNoteMarkdown content={node.analysis} label="Analysis" />
                                   </div>
                                 ) : null}
                               </div>
