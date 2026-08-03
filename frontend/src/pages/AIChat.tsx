@@ -82,7 +82,9 @@ const AIChat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   const routeContext = () => {
     const path = location.pathname;
@@ -124,6 +126,27 @@ const AIChat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onPointer = (e: MouseEvent | TouchEvent) => {
+      const el = pickerRef.current;
+      if (el && !el.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPickerOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('touchstart', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('touchstart', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [pickerOpen]);
+
   const handleClearChat = () => {
     clearChatHistory(userId, context, currentSessionId);
     setMessages(createInitialMessages(context));
@@ -140,6 +163,12 @@ const AIChat: React.FC = () => {
     };
     setSessions((prev) => ensureInterviewSession([next, ...prev]));
     setCurrentSessionId(id);
+    setPickerOpen(false);
+  };
+
+  const selectSession = (id: string) => {
+    setCurrentSessionId(id);
+    setPickerOpen(false);
   };
 
   const handleSend = async (preset?: string) => {
@@ -198,283 +227,213 @@ const AIChat: React.FC = () => {
     }
   };
 
-  const [showSidebar, setShowSidebar] = useState(false);
-
   const placeholder = isInterview
     ? 'Suspect said: … / My thoughts: …  (or paste a case brief)'
     : 'Ask Officer Serpico…';
 
-  return (
-    <div className="page-fill min-h-0 flex overflow-hidden bg-synth-void">
-      {/* Left Sidebar - Chat Sessions */}
-      <div
-        className={`hidden sm:flex w-64 border-r flex-shrink-0 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        } flex-col h-full`}
-      >
-        <div
-          className={`p-4 border-b ${
-            theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-          }`}
-        >
-          <h2 className="text-lg font-bold text-serpico-blue dark:text-serpico-blue-light">
-            Chat Sessions
-          </h2>
-        </div>
+  const isDark = theme === 'dark';
 
-        <div className="flex-1 overflow-y-auto p-2 space-y-2">
-          {sessions.map((session) => (
+  return (
+    <div className="h-full min-h-0 flex flex-col overflow-hidden bg-synth-void">
+      {/* Header with always-visible session picker */}
+      <div className="game-header p-3 sm:p-4 border-b border-white/10 flex-shrink-0 relative z-30">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0 relative" ref={pickerRef}>
             <button
-              key={session.id}
-              onClick={() => {
-                setCurrentSessionId(session.id);
-                setShowSidebar(false);
-              }}
-              className={`w-full text-left p-3 rounded-lg transition-colors ${
-                currentSessionId === session.id
-                  ? 'bg-serpico-blue bg-opacity-10 text-serpico-blue'
-                  : theme === 'dark'
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              type="button"
+              onClick={() => setPickerOpen((v) => !v)}
+              aria-expanded={pickerOpen}
+              aria-haspopup="listbox"
+              className={`w-full max-w-md flex items-center gap-2 px-3 py-2 rounded-lg border text-left touch-manipulation ${
+                isDark
+                  ? 'bg-gray-800 border-white/15 text-synth-text hover:border-white/30'
+                  : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400'
               }`}
             >
-              <div className="font-medium text-sm truncate">{session.title}</div>
-              <div
-                className={`text-xs mt-1 truncate ${
-                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                }`}
-              >
-                {session.lastMessage}
-              </div>
-              <div
-                className={`text-xs mt-1 ${
-                  theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-                }`}
-              >
-                {session.timestamp.toLocaleDateString()}
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <div
-          className={`p-2 border-t ${
-            theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-          }`}
-        >
-          <button
-            type="button"
-            onClick={handleNewSession}
-            className={`w-full px-3 py-2 rounded-lg text-sm font-medium ${
-              theme === 'dark'
-                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-            }`}
-          >
-            + New Session
-          </button>
-        </div>
-      </div>
-
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full min-w-0">
-        <div className="game-header p-3 sm:p-4 border-b border-white/10 flex-shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <button
-              onClick={() => setShowSidebar(!showSidebar)}
-              className="sm:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 12h18M3 6h18M3 18h18" />
-              </svg>
-            </button>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold text-synth-text truncate">
-                {isInterview ? 'Suspect Interview Helper' : 'Officer Serpico'}
-              </h1>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 hidden sm:block">
-                {isInterview
-                  ? 'PEACE · free recall · SUE — AI proposes questions; you report suspect answers + your thoughts'
-                  : 'Olathe PD field advisor · Markdown intel briefs · Web search for crime data'}
-              </p>
-            </div>
-            <div className="hidden sm:flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleClearChat}
-                className={`px-2.5 py-1 rounded text-xs font-medium touch-manipulation ${
-                  theme === 'dark'
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                }`}
-                title="Clear chat history"
-              >
-                Clear chat
-              </button>
-              {isInterview ? (
-                <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
-                    theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  Interview coach
-                </span>
-              ) : (
-                <>
-                  <span className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Intel:
-                  </span>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    Records
-                  </span>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    Web*
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile session drawer */}
-        {showSidebar && (
-          <div className="sm:hidden border-b border-white/10 bg-synth-panel p-2 space-y-1 max-h-40 overflow-y-auto">
-            {sessions.map((session) => (
-              <button
-                key={session.id}
-                type="button"
-                onClick={() => {
-                  setCurrentSessionId(session.id);
-                  setShowSidebar(false);
-                }}
-                className={`w-full text-left px-3 py-2 rounded text-sm ${
-                  currentSessionId === session.id
-                    ? 'bg-serpico-blue/20 text-serpico-blue'
-                    : 'text-synth-muted'
-                }`}
-              >
-                {session.title}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div
-          className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4"
-          style={{ minHeight: 0, maxHeight: '100%' }}
-        >
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[85%] sm:max-w-[70%] rounded-lg p-2.5 sm:p-3 ${
-                  message.role === 'user'
-                    ? 'chat-user-bubble border border-white/15 text-synth-text'
-                    : 'game-panel border border-white/10 text-synth-text'
-                }`}
-              >
-                <ChatMarkdown content={message.content} size="sm" />
-                <p className="text-xs mt-2 text-synth-muted">
-                  {message.timestamp.toLocaleTimeString()}
-                </p>
-              </div>
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div
-                className={`rounded-lg p-3 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'}`}
-              >
-                <div className="flex space-x-2">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: '0.2s' }}
-                  />
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: '0.4s' }}
-                  />
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] uppercase tracking-wider text-synth-muted">
+                  Chat session
+                </div>
+                <div className="font-semibold text-sm sm:text-base truncate">
+                  {currentSession?.title || 'Select session'}
                 </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <div className="game-header p-3 sm:p-4 border-t border-white/10 flex-shrink-0">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && void handleSend()}
-              placeholder={placeholder}
-              className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg border text-sm sm:text-base ${
-                theme === 'dark'
-                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                  : 'bg-white border-gray-300 placeholder-gray-500'
-              } focus:outline-none focus:ring-2 focus:ring-serpico-blue`}
-            />
-            <button
-              onClick={() => void handleSend()}
-              disabled={isLoading || !input.trim()}
-              className="bg-serpico-blue text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg active:bg-serpico-blue-dark disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base touch-manipulation"
-            >
-              Send
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className={`flex-shrink-0 transition-transform ${pickerOpen ? 'rotate-180' : ''}`}
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </button>
+
+            {pickerOpen && (
+              <div
+                role="listbox"
+                className={`absolute left-0 right-0 mt-2 max-w-md rounded-xl border shadow-xl overflow-hidden z-40 ${
+                  isDark
+                    ? 'bg-gray-900 border-white/15'
+                    : 'bg-white border-gray-200'
+                }`}
+              >
+                <div className="max-h-[min(60vh,22rem)] overflow-y-auto p-2 space-y-1">
+                  {sessions.map((session) => {
+                    const active = session.id === currentSessionId;
+                    return (
+                      <button
+                        key={session.id}
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        onClick={() => selectSession(session.id)}
+                        className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors touch-manipulation ${
+                          active
+                            ? 'bg-serpico-blue/20 text-serpico-blue'
+                            : isDark
+                              ? 'hover:bg-gray-800 text-gray-200'
+                              : 'hover:bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        <div className="font-medium text-sm truncate">{session.title}</div>
+                        <div
+                          className={`text-xs mt-0.5 truncate ${
+                            isDark ? 'text-gray-400' : 'text-gray-500'
+                          }`}
+                        >
+                          {session.lastMessage}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div
+                  className={`p-2 border-t ${
+                    isDark ? 'border-white/10' : 'border-gray-200'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={handleNewSession}
+                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium touch-manipulation ${
+                      isDark
+                        ? 'bg-gray-800 hover:bg-gray-700 text-gray-200'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                    }`}
+                  >
+                    + New Session
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="mt-2 hidden sm:flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span>
-              {isInterview
-                ? 'Tip: Ask the suggested question, then reply with Suspect said + My thoughts'
-                : 'Tip: Use suggestions on the right or type your question'}
-            </span>
+
+          <button
+            type="button"
+            onClick={handleClearChat}
+            className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-medium touch-manipulation ${
+              isDark
+                ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-white/10'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+            }`}
+            title="Clear chat history"
+          >
+            Clear
+          </button>
+        </div>
+        <p className="text-xs text-synth-muted mt-2 hidden sm:block">
+          {isInterview
+            ? 'PEACE · free recall · SUE — AI proposes questions; you report suspect answers + your thoughts'
+            : 'Olathe PD field advisor · Markdown intel briefs'}
+        </p>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[90%] sm:max-w-[75%] rounded-lg p-2.5 sm:p-3 ${
+                message.role === 'user'
+                  ? 'chat-user-bubble border border-white/15 text-synth-text'
+                  : 'game-panel border border-white/10 text-synth-text'
+              }`}
+            >
+              <ChatMarkdown content={message.content} size="sm" />
+              <p className="text-xs mt-2 text-synth-muted">
+                {message.timestamp.toLocaleTimeString()}
+              </p>
+            </div>
           </div>
+        ))}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className={`rounded-lg p-3 ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
+              <div className="flex space-x-2">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '0.2s' }}
+                />
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '0.4s' }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Suggestions (compact, always available) */}
+      <div className="flex-shrink-0 px-3 pt-1 overflow-x-auto">
+        <div className="flex gap-2 pb-1">
+          {suggestions.slice(0, 3).map((suggestion, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => setInput(suggestion)}
+              className={`flex-shrink-0 max-w-[16rem] truncate px-2.5 py-1.5 rounded-full text-[11px] border touch-manipulation ${
+                isDark
+                  ? 'bg-gray-800/80 border-white/10 text-gray-300'
+                  : 'bg-gray-100 border-gray-200 text-gray-700'
+              }`}
+            >
+              {suggestion}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div
-        className={`hidden lg:flex w-48 border-l flex-shrink-0 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        } flex-col h-full overflow-hidden`}
-      >
-        <div className="p-3 flex-shrink-0">
-          <h3
-            className={`text-sm font-bold mb-3 ${
-              theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-            }`}
+      {/* Input */}
+      <div className="game-header p-3 sm:p-4 border-t border-white/10 flex-shrink-0">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && void handleSend()}
+            placeholder={placeholder}
+            className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg border text-sm sm:text-base ${
+              isDark
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                : 'bg-white border-gray-300 placeholder-gray-500'
+            } focus:outline-none focus:ring-2 focus:ring-serpico-blue`}
+          />
+          <button
+            onClick={() => void handleSend()}
+            disabled={isLoading || !input.trim()}
+            className="bg-serpico-blue text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg active:bg-serpico-blue-dark disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base touch-manipulation"
           >
-            {isInterview ? 'Interview prompts' : 'Suggestions'}
-          </h3>
-        </div>
-        <div className="flex-1 overflow-y-auto px-3 pb-3">
-          <div className="space-y-2">
-            {suggestions.map((suggestion, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => setInput(suggestion)}
-                className={`w-full text-left p-2 rounded text-xs ${
-                  theme === 'dark'
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                } transition-colors`}
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
+            Send
+          </button>
         </div>
       </div>
     </div>
