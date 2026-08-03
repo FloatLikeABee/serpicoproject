@@ -21,6 +21,14 @@ function storageKey(userId: string, context: string, sessionId?: string) {
   return sessionId ? `${base}:${sessionId}` : base;
 }
 
+export function chatStoragePrefix(userId: string) {
+  return `serpico-chat:${userId}:`;
+}
+
+export function chatSessionsKey(userId: string) {
+  return `serpico-chat-sessions:${userId}`;
+}
+
 export function toStoredMessage(message: ChatMessage): StoredChatMessage {
   return {
     ...message,
@@ -63,6 +71,7 @@ export function saveChatHistory(userId: string, context: string, messages: ChatM
       storageKey(userId, context, sessionId),
       JSON.stringify(messages.map(toStoredMessage))
     );
+    void import('./userSync').then(({ pushChatToServer }) => pushChatToServer(userId));
   } catch {
     /* storage full or unavailable */
   }
@@ -70,6 +79,7 @@ export function saveChatHistory(userId: string, context: string, messages: ChatM
 
 export function clearChatHistory(userId: string, context: string, sessionId?: string) {
   localStorage.removeItem(storageKey(userId, context, sessionId));
+  void import('./userSync').then(({ pushChatToServer }) => pushChatToServer(userId));
 }
 
 export function historyForApi(messages: ChatMessage[], limit = 20) {

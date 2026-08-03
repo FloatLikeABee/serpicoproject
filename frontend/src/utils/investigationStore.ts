@@ -1,7 +1,9 @@
 import type { InvestigationCase, InvestigationNode } from '../services/api';
 
-const CASES_KEY = 'serpico.investigation.cases.v1';
-const nodesKey = (caseId: string) => `serpico.investigation.nodes.v1.${caseId}`;
+const casesKey = (userId: string) =>
+  `serpico.investigation.cases.v1.${userId || 'guest'}`;
+const nodesKey = (userId: string, caseId: string) =>
+  `serpico.investigation.nodes.v1.${userId || 'guest'}.${caseId}`;
 
 function readJSON<T>(key: string, fallback: T): T {
   try {
@@ -21,37 +23,43 @@ function writeJSON(key: string, value: unknown) {
   }
 }
 
-export function loadCachedCases(): InvestigationCase[] {
-  return readJSON<InvestigationCase[]>(CASES_KEY, []);
+export function loadCachedCases(userId: string): InvestigationCase[] {
+  return readJSON<InvestigationCase[]>(casesKey(userId), []);
 }
 
-export function saveCachedCases(cases: InvestigationCase[]) {
-  writeJSON(CASES_KEY, cases);
+export function saveCachedCases(userId: string, cases: InvestigationCase[]) {
+  writeJSON(casesKey(userId), cases);
 }
 
-export function upsertCachedCase(caseRow: InvestigationCase) {
-  const list = loadCachedCases().filter((c) => c.id !== caseRow.id);
+export function upsertCachedCase(userId: string, caseRow: InvestigationCase) {
+  const list = loadCachedCases(userId).filter((c) => c.id !== caseRow.id);
   list.unshift(caseRow);
-  saveCachedCases(list);
+  saveCachedCases(userId, list);
 }
 
-export function loadCachedNodes(caseId: string): InvestigationNode[] {
-  return readJSON<InvestigationNode[]>(nodesKey(caseId), []);
+export function loadCachedNodes(userId: string, caseId: string): InvestigationNode[] {
+  return readJSON<InvestigationNode[]>(nodesKey(userId, caseId), []);
 }
 
-export function saveCachedNodes(caseId: string, nodes: InvestigationNode[]) {
-  writeJSON(nodesKey(caseId), nodes);
-  // Keep case nodeCount in sync
-  const cases = loadCachedCases().map((c) =>
+export function saveCachedNodes(
+  userId: string,
+  caseId: string,
+  nodes: InvestigationNode[]
+) {
+  writeJSON(nodesKey(userId, caseId), nodes);
+  const cases = loadCachedCases(userId).map((c) =>
     c.id === caseId ? { ...c, nodeCount: nodes.length } : c
   );
-  saveCachedCases(cases);
+  saveCachedCases(userId, cases);
 }
 
-export function clearCachedCase(caseId: string) {
-  saveCachedCases(loadCachedCases().filter((c) => c.id !== caseId));
+export function clearCachedCase(userId: string, caseId: string) {
+  saveCachedCases(
+    userId,
+    loadCachedCases(userId).filter((c) => c.id !== caseId)
+  );
   try {
-    localStorage.removeItem(nodesKey(caseId));
+    localStorage.removeItem(nodesKey(userId, caseId));
   } catch {
     /* ignore */
   }

@@ -11,6 +11,7 @@ import {
   loadChatHistory,
   saveChatHistory,
 } from '../utils/chatHistory';
+import { syncChatFromServer } from '../utils/userSync';
 
 interface Message extends ChatMessage {}
 
@@ -40,7 +41,13 @@ const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose, context })
   }, [messages, isOpen]);
 
   useEffect(() => {
-    setMessages(loadChatHistory(userId, chatContext));
+    let cancelled = false;
+    void syncChatFromServer(userId).then(() => {
+      if (!cancelled) setMessages(loadChatHistory(userId, chatContext));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [userId, chatContext]);
 
   useEffect(() => {

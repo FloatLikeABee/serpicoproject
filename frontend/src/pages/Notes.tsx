@@ -186,11 +186,12 @@ function CompactNoteMarkdown({
 /** Cases list — expand a case to work its timed notes in-pane. */
 const Notes: React.FC = () => {
   const { user, logout } = useAuth();
+  const userId = user?.id || 'guest';
   const navigate = useNavigate();
   const { caseId: routeCaseId } = useParams<{ caseId?: string }>();
 
-  const [cases, setCases] = useState<InvestigationCase[]>(() => loadCachedCases());
-  const [loading, setLoading] = useState(() => loadCachedCases().length === 0);
+  const [cases, setCases] = useState<InvestigationCase[]>(() => loadCachedCases(userId));
+  const [loading, setLoading] = useState(() => loadCachedCases(userId).length === 0);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [showCaseForm, setShowCaseForm] = useState(false);
@@ -226,7 +227,7 @@ const Notes: React.FC = () => {
           date: c.date || new Date().toISOString().slice(0, 10),
           description: c.description || '',
         });
-        const oldNodes = loadCachedNodes(c.id);
+        const oldNodes = loadCachedNodes(userId, c.id);
         const newNodes: InvestigationNode[] = [];
         for (const n of oldNodes) {
           const { node } = await investigationAPI.createNode(created.id, {
@@ -240,25 +241,25 @@ const Notes: React.FC = () => {
           });
           newNodes.push(node);
         }
-        saveCachedNodes(created.id, newNodes);
+        saveCachedNodes(userId, created.id, newNodes);
         restored.push({ ...created, nodeCount: newNodes.length });
       }
-      saveCachedCases(restored);
+      saveCachedCases(userId, restored);
       setCases(restored);
       setNodesByCase((prev) => {
         const next = { ...prev };
         for (const c of restored) {
-          next[c.id] = loadCachedNodes(c.id);
+          next[c.id] = loadCachedNodes(userId, c.id);
         }
         return next;
       });
     } catch (err) {
       console.warn('Failed to rehydrate cases to server', err);
     }
-  }, [user?.name]);
+  }, [user?.name, userId]);
 
   const loadCases = useCallback(async () => {
-    const cached = loadCachedCases();
+    const cached = loadCachedCases(userId);
     if (cached.length > 0) {
       setCases(cached);
       setLoading(false);
@@ -280,14 +281,14 @@ const Notes: React.FC = () => {
         }
         const merged = Array.from(byId.values());
         setCases(merged);
-        saveCachedCases(merged);
+        saveCachedCases(userId, merged);
       } else if (cached.length > 0) {
         // Server empty (likely redeploy wiped SQLite) — keep cache and restore.
         setCases(cached);
         void rehydrateServerFromCache(cached);
       } else {
         setCases([]);
-        saveCachedCases([]);
+        saveCachedCases(userId, []);
       }
     } catch (err) {
       console.error(err);
@@ -299,14 +300,14 @@ const Notes: React.FC = () => {
       setLoading(false);
       setSyncing(false);
     }
-  }, [rehydrateServerFromCache]);
+  }, [rehydrateServerFromCache, userId]);
 
   useEffect(() => {
     void loadCases();
   }, [loadCases]);
 
   const loadNodesForCase = useCallback(async (caseId: string) => {
-    const cachedNodes = loadCachedNodes(caseId);
+    const cachedNodes = loadCachedNodes(userId, caseId);
     if (cachedNodes.length > 0) {
       setNodesByCase((prev) => ({ ...prev, [caseId]: cachedNodes }));
       setLoadingNodes(false);
@@ -318,13 +319,13 @@ const Notes: React.FC = () => {
       const data = await investigationAPI.getCase(caseId);
       const nodes = data.nodes || [];
       setNodesByCase((prev) => ({ ...prev, [caseId]: nodes }));
-      saveCachedNodes(caseId, nodes);
+      saveCachedNodes(userId, caseId, nodes);
       if (data.case) {
         setCases((prev) => {
           const next = prev.map((c) =>
             c.id === caseId ? { ...c, ...data.case, nodeCount: nodes.length } : c
           );
-          saveCachedCases(next);
+          saveCachedCases(userId, next);
           return next;
         });
       }
@@ -332,7 +333,7 @@ const Notes: React.FC = () => {
       console.error(err);
       if (cachedNodes.length === 0) {
         // Case may only exist in cache after a wipe — show cache, no hard error.
-        const stillCached = loadCachedNodes(caseId);
+        const stillCached = loadCachedNodes(userId, caseId);
         if (stillCached.length > 0) {
           setNodesByCase((prev) => ({ ...prev, [caseId]: stillCached }));
         } else {
@@ -342,7 +343,7 @@ const Notes: React.FC = () => {
     } finally {
       setLoadingNodes(false);
     }
-  }, []);
+  }, [userId]);
 
   // Deep-link /notes/:caseId → expand that case once cases are loaded.
   useEffect(() => {
@@ -409,11 +410,11 @@ const Notes: React.FC = () => {
         description: '',
       });
       const withCount = { ...created, nodeCount: created.nodeCount ?? 0 };
-      upsertCachedCase(withCount);
-      saveCachedNodes(created.id, []);
+      upsertCachedCase(userId, withCount);
+      saveCachedNodes(userId, created.id, []);
       setCases((prev) => {
         const next = [withCount, ...prev.filter((c) => c.id !== withCount.id)];
-        saveCachedCases(next);
+        saveCachedCases(userId, next);
         return next;
       });
       setExpandedId(created.id);
@@ -472,7 +473,7 @@ const Notes: React.FC = () => {
         analysis: displayNoteText(noteForm.analysis.trim()),
       };
 
-      let nextNodes = [...(nodesByCase[expandedId] || loadCachedNodes(expandedId))];
+      let nextNodes = [...(nodesByCase[expandedId] || loadCachedNodes(userId, expandedId))];
       const isLocalCase = expandedId.startsWith('local-');
 
       if (editingNoteId) {
@@ -526,12 +527,12 @@ const Notes: React.FC = () => {
       }
 
       setNodesByCase((prev) => ({ ...prev, [expandedId]: nextNodes }));
-      saveCachedNodes(expandedId, nextNodes);
+      saveCachedNodes(userId, expandedId, nextNodes);
       setCases((prev) => {
         const next = prev.map((c) =>
           c.id === expandedId ? { ...c, nodeCount: nextNodes.length } : c
         );
-        saveCachedCases(next);
+        saveCachedCases(userId, next);
         return next;
       });
       cancelNoteForm();
@@ -554,16 +555,16 @@ const Notes: React.FC = () => {
       } catch (err) {
         console.warn('deleteNode API failed; removing locally', err);
       }
-      const nextNodes = (nodesByCase[expandedId] || loadCachedNodes(expandedId)).filter(
+      const nextNodes = (nodesByCase[expandedId] || loadCachedNodes(userId, expandedId)).filter(
         (n) => n.id !== id
       );
       setNodesByCase((prev) => ({ ...prev, [expandedId]: nextNodes }));
-      saveCachedNodes(expandedId, nextNodes);
+      saveCachedNodes(userId, expandedId, nextNodes);
       setCases((prev) => {
         const next = prev.map((c) =>
           c.id === expandedId ? { ...c, nodeCount: nextNodes.length } : c
         );
-        saveCachedCases(next);
+        saveCachedCases(userId, next);
         return next;
       });
     } catch (err) {

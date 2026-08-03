@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -13,7 +14,7 @@ import (
 )
 
 // Mock login handler — demo user serpico / cops123
-func handleLogin(c *gin.Context) {
+func handleLogin(c *gin.Context, db *database.Database) {
 	var req struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -30,8 +31,11 @@ func handleLogin(c *gin.Context) {
 		return
 	}
 
+	userID := "demo-serpico"
+	ensureUserRecord(db, userID, "serpico", "Officer Serpico", "police", "Officer")
+
 	user := gin.H{
-		"id":    "demo-serpico",
+		"id":    userID,
 		"email": "serpico",
 		"name":  "Officer Serpico",
 		"role":  "police",
@@ -42,6 +46,17 @@ func handleLogin(c *gin.Context) {
 		"user":  user,
 		"token": "mock_token_" + uuid.New().String(),
 	})
+}
+
+func ensureUserRecord(db *database.Database, id, email, name, role, rank string) {
+	_, err := db.SQLite.Exec(`
+		INSERT INTO users (id, email, name, role, rank)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET email = excluded.email, name = excluded.name, role = excluded.role, rank = excluded.rank`,
+		id, email, name, role, rank)
+	if err != nil {
+		log.Printf("ensureUserRecord failed: %v", err)
+	}
 }
 
 func handleGoogleLogin(c *gin.Context) {
@@ -134,11 +149,17 @@ func handleUpdateUser(c *gin.Context) {
 }
 
 func handleGetCases(c *gin.Context, db *database.Database) {
+	userID, ok := requireUserID(c)
+	if !ok {
+		return
+	}
+
 	rows, err := db.SQLite.Query(`
 		SELECT c.id, c.type, c.location, c.date, c.status, COALESCE(c.description,''), c.solved,
 			(SELECT COUNT(*) FROM investigation_nodes n WHERE n.case_id = c.id) AS node_count
 		FROM cases c
-		ORDER BY c.date DESC`)
+		WHERE c.user_id = ?
+		ORDER BY c.date DESC`, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -195,6 +216,11 @@ func handleGetCase(c *gin.Context, db *database.Database) {
 }
 
 func handleCreateCase(c *gin.Context, db *database.Database) {
+	userID, ok := requireUserID(c)
+	if !ok {
+		return
+	}
+
 	var req struct {
 		Type        string `json:"type"`
 		Location    string `json:"location"`
@@ -224,8 +250,9 @@ func handleCreateCase(c *gin.Context, db *database.Database) {
 	}
 
 	id := "case-" + uuid.New().String()
-	_, err := db.SQLite.Exec("INSERT INTO cases (id, type, location, date, status, description, solved) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		id, req.Type, req.Location, req.Date, "Open", req.Description, 0)
+	_, err := db.SQLite.Exec(
+		"INSERT INTO cases (id, type, location, date, status, description, solved, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		id, req.Type, req.Location, req.Date, "Open", req.Description, 0, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

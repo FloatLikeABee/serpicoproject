@@ -43,6 +43,10 @@ import {
   saveMapTags,
   tagMeta,
 } from '../../utils/mapTags';
+import {
+  syncMapTagsFromServer,
+  pushMapTagsToServer,
+} from '../../utils/userSync';
 
 type PursueView = 'intel' | 'chase';
 
@@ -140,7 +144,14 @@ const InPursue: React.FC = () => {
   }, [placingBusy]);
 
   useEffect(() => {
-    setMapTags(loadMapTags(userId));
+    let cancelled = false;
+    const local = loadMapTags(userId);
+    void syncMapTagsFromServer(userId, local).then((tags) => {
+      if (!cancelled) setMapTags(tags);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   const locationMappedRef = useRef<Set<string>>(new Set());
@@ -165,6 +176,7 @@ const InPursue: React.FC = () => {
 
   useEffect(() => {
     saveMapTags(userId, mapTags);
+    pushMapTagsToServer(userId, mapTags);
   }, [userId, mapTags]);
 
   useEffect(() => {
@@ -687,7 +699,7 @@ const InPursue: React.FC = () => {
         <div className="game-header border-t border-neon-purple/20 p-2 sm:p-3 flex-shrink-0">
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-synth-muted">
             <span>
-              <span className="text-neon-cyan font-semibold">{mapTags.length}</span> tags saved on this device
+              <span className="text-neon-cyan font-semibold">{mapTags.length}</span> tags saved
             </span>
             <span>Zoom with scroll or +/−</span>
             <span>Switch to Chase for live pursuit</span>

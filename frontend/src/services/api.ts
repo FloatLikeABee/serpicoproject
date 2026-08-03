@@ -7,12 +7,70 @@ import axios from 'axios';
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || 'https://serpicoproject.onrender.com/api/v1';
 
+const AUTH_TOKEN_KEY = 'serpico.auth.token';
+const AUTH_USER_KEY = 'user';
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+api.interceptors.request.use((config) => {
+  try {
+    const saved = localStorage.getItem(AUTH_USER_KEY);
+    if (saved) {
+      const user = JSON.parse(saved) as { id?: string };
+      if (user?.id) {
+        config.headers = config.headers ?? {};
+        config.headers['X-User-Id'] = user.id;
+      }
+    }
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (token) {
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    /* ignore parse errors */
+  }
+  return config;
+});
+
+export function setAuthSession(token: string | null, user?: { id: string } | null) {
+  if (token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+  if (user) {
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  }
+}
+
+export function clearAuthSession() {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  rank?: string;
+}
+
+export const authAPI = {
+  login: async (username: string, password: string): Promise<{ user: AuthUser; token: string }> => {
+    const response = await api.post<{ user: AuthUser; token: string }>('/auth/login', {
+      email: username,
+      password,
+    });
+    return response.data;
+  },
+};
 
 export interface ChatRequest {
   message: string;

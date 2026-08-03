@@ -196,6 +196,16 @@ func createTables(db *sql.DB) error {
 			FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_investigation_nodes_case_time ON investigation_nodes(case_id, event_time)`,
+		`CREATE TABLE IF NOT EXISTS user_map_tags (
+			user_id TEXT PRIMARY KEY,
+			tags_json TEXT NOT NULL,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS user_chat_data (
+			user_id TEXT PRIMARY KEY,
+			data_json TEXT NOT NULL,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	for _, query := range queries {
@@ -204,6 +214,17 @@ func createTables(db *sql.DB) error {
 		}
 	}
 
+	if err := migrateUserScopedCases(db); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func migrateUserScopedCases(db *sql.DB) error {
+	// Ignore error when column already exists on upgraded databases.
+	_, _ = db.Exec(`ALTER TABLE cases ADD COLUMN user_id TEXT DEFAULT ''`)
+	_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_cases_user_id ON cases(user_id)`)
 	return nil
 }
 

@@ -11,10 +11,19 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 	// Auth routes (mock)
 	auth := r.Group("/auth")
 	{
-		auth.POST("/login", handleLogin)
+		auth.POST("/login", func(c *gin.Context) { handleLogin(c, db) })
 		auth.POST("/login/google", handleGoogleLogin)
 		auth.POST("/login/apple", handleAppleLogin)
 		auth.POST("/logout", handleLogout)
+	}
+
+	// Per-user sync (map tags, chat history)
+	sync := r.Group("/sync")
+	{
+		sync.GET("/map-tags", func(c *gin.Context) { handleGetMapTags(c, db) })
+		sync.PUT("/map-tags", func(c *gin.Context) { handlePutMapTags(c, db) })
+		sync.GET("/chat", func(c *gin.Context) { handleGetChatSync(c, db) })
+		sync.PUT("/chat", func(c *gin.Context) { handlePutChatSync(c, db) })
 	}
 
 	// User routes

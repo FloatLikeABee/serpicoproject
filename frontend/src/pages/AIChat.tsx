@@ -12,6 +12,11 @@ import {
   loadChatHistory,
   saveChatHistory,
 } from '../utils/chatHistory';
+import {
+  loadSyncedSessionMeta,
+  saveSessionMeta,
+  syncChatFromServer,
+} from '../utils/userSync';
 
 interface Message extends ChatMessage {}
 
@@ -23,19 +28,44 @@ interface ChatSession {
   context?: string;
 }
 
+const defaultSessions = (): ChatSession[] => [
+  {
+    id: '1',
+    title: 'Current Session',
+    lastMessage: 'Hello! I\'m your Serpico AI assistant...',
+    timestamp: new Date(),
+    context: 'general',
+  },
+];
+
+const sessionsFromMeta = (
+  meta: Array<{
+    id: string;
+    title: string;
+    lastMessage: string;
+    timestamp: string;
+    context?: string;
+  }>
+): ChatSession[] =>
+  meta.map((s) => ({
+    ...s,
+    timestamp: new Date(s.timestamp),
+  }));
+
+const sessionsToMeta = (sessions: ChatSession[]) =>
+  sessions.map((s) => ({
+    id: s.id,
+    title: s.title,
+    lastMessage: s.lastMessage,
+    timestamp: s.timestamp.toISOString(),
+    context: s.context,
+  }));
+
 const AIChat: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { theme } = useTheme();
-  const [sessions, setSessions] = useState<ChatSession[]>([
-    {
-      id: '1',
-      title: 'Current Session',
-      lastMessage: 'Hello! I\'m your Serpico AI assistant...',
-      timestamp: new Date(),
-      context: 'general',
-    },
-  ]);
+  const [sessions, setSessions] = useState<ChatSession[]>(defaultSessions);
   const [currentSessionId, setCurrentSessionId] = useState<string>('1');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -56,6 +86,26 @@ const AIChat: React.FC = () => {
 
   const userId = user?.id || 'guest';
   const context = getContext();
+
+  useEffect(() => {
+    let cancelled = false;
+    void syncChatFromServer(userId).then(() => {
+      if (cancelled) return;
+      const meta = loadSyncedSessionMeta(userId);
+      if (meta.length > 0) {
+        setSessions(sessionsFromMeta(meta));
+        setCurrentSessionId(meta[0].id);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId === 'guest') return;
+    saveSessionMeta(userId, sessionsToMeta(sessions));
+  }, [sessions, userId]);
 
   // Load persisted history when session or context changes
   useEffect(() => {

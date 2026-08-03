@@ -43,9 +43,9 @@ func scanNode(scanner interface {
 	return n, err
 }
 
-func caseExists(db *database.Database, caseID string) bool {
+func caseExists(db *database.Database, caseID string, userID string) bool {
 	var id string
-	err := db.SQLite.QueryRow(`SELECT id FROM cases WHERE id = ?`, caseID).Scan(&id)
+	err := db.SQLite.QueryRow(`SELECT id FROM cases WHERE id = ? AND user_id = ?`, caseID, userID).Scan(&id)
 	return err == nil
 }
 
@@ -75,12 +75,16 @@ func listNodesForCase(db *database.Database, caseID string) ([]investigationNode
 
 // GET /cases/:id — case detail with timeline nodes ordered by time.
 func handleGetCaseWithNodes(c *gin.Context, db *database.Database) {
+	userID, ok := requireUserID(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
 
 	var caseType, location, date, status, description string
 	var solved int
 	err := db.SQLite.QueryRow(
-		`SELECT type, location, date, status, COALESCE(description,''), solved FROM cases WHERE id = ?`, id,
+		`SELECT type, location, date, status, COALESCE(description,''), solved FROM cases WHERE id = ? AND user_id = ?`, id, userID,
 	).Scan(&caseType, &location, &date, &status, &description, &solved)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -113,8 +117,12 @@ func handleGetCaseWithNodes(c *gin.Context, db *database.Database) {
 }
 
 func handleListCaseNodes(c *gin.Context, db *database.Database) {
+	userID, ok := requireUserID(c)
+	if !ok {
+		return
+	}
 	caseID := c.Param("id")
-	if !caseExists(db, caseID) {
+	if !caseExists(db, caseID, userID) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Case not found"})
 		return
 	}
@@ -127,8 +135,12 @@ func handleListCaseNodes(c *gin.Context, db *database.Database) {
 }
 
 func handleCreateCaseNode(c *gin.Context, db *database.Database) {
+	userID, ok := requireUserID(c)
+	if !ok {
+		return
+	}
 	caseID := c.Param("id")
-	if !caseExists(db, caseID) {
+	if !caseExists(db, caseID, userID) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Nodes must belong to a case"})
 		return
 	}
@@ -183,6 +195,10 @@ func handleCreateCaseNode(c *gin.Context, db *database.Database) {
 }
 
 func handleUpdateNode(c *gin.Context, db *database.Database) {
+	userID, ok := requireUserID(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
 	var req struct {
 		Place    string `json:"place"`
@@ -210,8 +226,8 @@ func handleUpdateNode(c *gin.Context, db *database.Database) {
 	res, err := db.SQLite.Exec(`
 		UPDATE investigation_nodes
 		SET place = ?, location = ?, person_name = ?, event_time = ?, event = ?, analysis = ?, updated_at = ?
-		WHERE id = ?`,
-		req.Place, req.Location, req.Name, req.Time, req.Event, req.Analysis, now, id)
+		WHERE id = ? AND case_id IN (SELECT id FROM cases WHERE user_id = ?)`,
+		req.Place, req.Location, req.Name, req.Time, req.Event, req.Analysis, now, id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -241,8 +257,14 @@ func handleUpdateNode(c *gin.Context, db *database.Database) {
 }
 
 func handleDeleteNode(c *gin.Context, db *database.Database) {
+	userID, ok := requireUserID(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
-	res, err := db.SQLite.Exec(`DELETE FROM investigation_nodes WHERE id = ?`, id)
+	res, err := db.SQLite.Exec(
+		`DELETE FROM investigation_nodes WHERE id = ? AND case_id IN (SELECT id FROM cases WHERE user_id = ?)`,
+		id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -257,8 +279,12 @@ func handleDeleteNode(c *gin.Context, db *database.Database) {
 
 // POST /cases/:id/nodes/assist — AI drafts event + analysis from partial node fields.
 func handleAssistCaseNode(c *gin.Context, db *database.Database, aiService interface{}) {
+	userID, ok := requireUserID(c)
+	if !ok {
+		return
+	}
 	caseID := c.Param("id")
-	if !caseExists(db, caseID) {
+	if !caseExists(db, caseID, userID) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Case not found"})
 		return
 	}
@@ -278,7 +304,7 @@ func handleAssistCaseNode(c *gin.Context, db *database.Database, aiService inter
 
 	var caseType, caseLoc, caseDate, caseDesc string
 	_ = db.SQLite.QueryRow(
-		`SELECT type, location, date, COALESCE(description,'') FROM cases WHERE id = ?`, caseID,
+		`SELECT type, location, date, COALESCE(description,'') FROM cases WHERE id = ? AND user_id = ?`, caseID, userID,
 	).Scan(&caseType, &caseLoc, &caseDate, &caseDesc)
 
 	aiSvc, ok := aiService.(interface {
