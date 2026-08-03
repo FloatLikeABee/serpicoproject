@@ -207,6 +207,7 @@ func seedUsers(db *sql.DB) error {
 		role  string
 		rank  string
 	}{
+		{"demo-serpico", "serpico", "Officer Serpico", "police", "Officer"},
 		{"user-001", "officer.smith@olathepd.gov", "Officer Sarah Smith", "police", "Sergeant"},
 		{"user-002", "officer.johnson@olathepd.gov", "Officer Michael Johnson", "police", "Officer"},
 		{"user-003", "civilian.demo@serpico.com", "Demo Civilian", "civilian", ""},
