@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { authAPI, clearAuthSession, setAuthSession } from '../services/api';
+import { syncChatFromServer } from '../utils/userSync';
 
 export type UserRole = 'police' | 'civilian';
 
@@ -42,15 +44,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (normalized !== DEMO_USERNAME || password !== DEMO_PASSWORD) {
       throw new Error('Invalid username or password');
     }
-    const mockUser: User = {
-      id: DEMO_USER_ID,
-      email: DEMO_USERNAME,
-      name: 'Officer Serpico',
-      role: 'police',
-      rank: 'Officer',
+
+    const { user: remoteUser, token } = await authAPI.login(normalized, password);
+    const loggedIn: User = {
+      id: remoteUser.id,
+      email: remoteUser.email,
+      name: remoteUser.name,
+      role: remoteUser.role as UserRole,
+      rank: remoteUser.rank,
     };
-    setUser(mockUser);
-    localStorage.setItem('user', JSON.stringify(mockUser));
+    setAuthSession(token, loggedIn);
+    setUser(loggedIn);
+    void syncChatFromServer(loggedIn.id);
   };
 
   const loginWithGoogle = async () => {
@@ -61,8 +66,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       role: 'police',
       rank: 'Officer',
     };
+    setAuthSession(null, mockUser);
     setUser(mockUser);
-    localStorage.setItem('user', JSON.stringify(mockUser));
   };
 
   const loginWithApple = async () => {
@@ -73,13 +78,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       role: 'police',
       rank: 'Officer',
     };
+    setAuthSession(null, mockUser);
     setUser(mockUser);
-    localStorage.setItem('user', JSON.stringify(mockUser));
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
+    clearAuthSession();
   };
 
   return (
