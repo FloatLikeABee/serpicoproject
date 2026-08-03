@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ChatMarkdown from '../components/ChatMarkdown';
 import { useAuth } from '../contexts/AuthContext';
 import {
   InvestigationCase,
@@ -827,17 +828,19 @@ const Notes: React.FC = () => {
                                     </button>
                                   </div>
                                 </div>
-                                <p className="text-sm text-white leading-snug">{displayNoteText(node.event)}</p>
+                                <div className="text-sm text-white leading-snug">
+                                  <ChatMarkdown content={displayNoteText(node.event)} size="xs" />
+                                </div>
                                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-400">
                                   {node.place ? <span>Place: {node.place}</span> : null}
                                   {node.location ? <span>Loc: {node.location}</span> : null}
                                   {node.name ? <span>Name: {node.name}</span> : null}
                                 </div>
                                 {node.analysis ? (
-                                  <p className="text-[11px] text-gray-300 border-t border-white/10 pt-1.5 whitespace-pre-wrap">
-                                    <span className="text-[9px] uppercase text-neon-magenta/80 mr-1">Analysis</span>
-                                    {displayNoteText(node.analysis)}
-                                  </p>
+                                  <div className="text-[11px] text-gray-300 border-t border-white/10 pt-1.5">
+                                    <p className="text-[9px] uppercase text-neon-magenta/80 mb-1">Analysis</p>
+                                    <ChatMarkdown content={displayNoteText(node.analysis)} size="xs" />
+                                  </div>
                                 ) : null}
                               </div>
                             </li>

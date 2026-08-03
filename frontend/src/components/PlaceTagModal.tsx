@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { chatAPI } from '../services/api';
+import ChatMarkdown from './ChatMarkdown';
 import { MapTag, MapTagKind, MAP_TAG_KINDS, tagMeta } from '../utils/mapTags';
 
 interface PlaceTagModalProps {
@@ -24,10 +25,25 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   const autoStarted = React.useRef(false);
   const meta = tagMeta(draft.kind);
 
+  // Reset draft when opening a different tag — not on every parent prop tweak
+  // (e.g. reverse-geocode address), which would wipe notes mid-edit.
   useEffect(() => {
     setDraft(tag);
     setError('');
-  }, [tag]);
+    autoStarted.current = false;
+  }, [tag.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pull address updates from geocode without clobbering typed notes/name.
+  useEffect(() => {
+    if (!tag.address) return;
+    setDraft((prev) => {
+      if (prev.id !== tag.id) return prev;
+      if (prev.address === tag.address) return prev;
+      const coordsOnly = /^\s*-?\d+\.\d+\s*,\s*-?\d+\.\d+\s*$/.test(prev.address || '');
+      if (prev.address && !coordsOnly) return prev;
+      return { ...prev, address: tag.address };
+    });
+  }, [tag.id, tag.address]);
 
   const enrichWithAI = async () => {
     setEnriching(true);
@@ -42,8 +58,8 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
         `Address / place: ${placeLabel}`,
         draft.notes ? `Officer notes so far: ${draft.notes}` : '',
         `Use web search / crime news if available.`,
-        `Summarize: what this place appears to be, nearby context in Olathe KS area, any relevant crime or investigative angles, and suggested next checks.`,
-        `Write clear plain paragraphs (no JSON).`,
+        `Summarize: what this place appears to be, nearby context, any relevant crime or investigative angles, and suggested next checks.`,
+        `Respond in clean Markdown (headings, bullets, bold as useful). No JSON.`,
       ]
         .filter(Boolean)
         .join('\n');
@@ -57,7 +73,6 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
       setDraft((prev) => ({
         ...prev,
         enrichment: { summary, fetchedAt: new Date().toISOString() },
-        notes: prev.notes?.trim() ? prev.notes : summary.slice(0, 800),
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'AI lookup failed');
@@ -74,13 +89,14 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   }, [autoEnrich, tag.id]);
 
   const save = () => {
+    // Parent upsert closes the modal — do not call onClose(); that rewrote mapTags
+    // with the stale pre-edit activeTag and wiped notes.
     onChange({
       ...draft,
       name: draft.name.trim() || meta.short,
       notes: draft.notes.trim(),
       updatedAt: new Date().toISOString(),
     });
-    onClose();
   };
 
   return (
@@ -165,23 +181,29 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
           <textarea
             value={draft.notes}
             onChange={(e) => setDraft((p) => ({ ...p, notes: e.target.value }))}
-            rows={5}
-            placeholder="Case notes, observations, leads…"
-            className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white resize-y"
+            rows={4}
+            placeholder="Case notes, observations, leads… (Markdown supported)"
+            className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white resize-y font-mono text-[12px]"
           />
+          {draft.notes.trim() ? (
+            <div className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
+              <p className="text-[9px] font-display uppercase tracking-wider text-synth-muted mb-1">Preview</p>
+              <ChatMarkdown content={draft.notes} size="xs" />
+            </div>
+          ) : null}
         </label>
 
         {draft.enrichment?.summary ? (
-          <div className="rounded-lg border border-neon-magenta/30 bg-neon-magenta/5 px-3 py-2 space-y-1">
+          <div className="rounded-lg border border-neon-magenta/30 bg-neon-magenta/5 px-3 py-2 space-y-1.5">
             <p className="text-[9px] font-display uppercase tracking-wider text-neon-magenta">
               AI location check
               {draft.enrichment.fetchedAt
                 ? ` · ${new Date(draft.enrichment.fetchedAt).toLocaleString()}`
                 : ''}
             </p>
-            <p className="text-[11px] text-gray-200 whitespace-pre-wrap leading-snug">
-              {draft.enrichment.summary}
-            </p>
+            <div className="text-gray-200 leading-snug">
+              <ChatMarkdown content={draft.enrichment.summary} size="xs" />
+            </div>
           </div>
         ) : null}
 
