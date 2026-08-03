@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { normalizeChatMarkdown } from '../utils/chatMarkdown';
 
 type ChatMarkdownSize = 'xs' | 'sm';
 
@@ -17,21 +18,41 @@ const sizeClasses: Record<ChatMarkdownSize, { prose: string; text: string }> = {
 
 export default function ChatMarkdown({ content, size = 'sm', inverted = false }: ChatMarkdownProps) {
   const { prose, text } = sizeClasses[size];
-  const codeBg = inverted ? 'bg-blue-900/50' : 'bg-gray-800 dark:bg-gray-900';
-  const linkClass = inverted ? 'text-blue-100 underline' : 'text-serpico-blue dark:text-serpico-blue-light underline';
+  const normalized = normalizeChatMarkdown(content);
+  const codeBg = inverted ? 'bg-blue-900/50' : 'bg-black/40';
+  const linkClass = inverted ? 'text-blue-100 underline' : 'text-neon-cyan underline';
+  const headingClass = inverted ? 'text-white' : 'text-neon-cyan';
+  const mutedClass = inverted ? 'text-blue-100/90' : 'text-synth-text';
+
+  if (!normalized) return null;
 
   return (
-    <div className={`${prose} dark:prose-invert max-w-none ${text} chat-markdown`}>
+    <div
+      className={`${prose} prose-invert max-w-none ${text} chat-markdown leading-relaxed`}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          p: ({ children }) => <p className={`mb-2 last:mb-0 ${text}`}>{children}</p>,
-          ul: ({ children }) => <ul className={`list-disc list-outside pl-4 mb-2 space-y-1 ${text}`}>{children}</ul>,
-          ol: ({ children }) => <ol className={`list-decimal list-outside pl-4 mb-2 space-y-1 ${text}`}>{children}</ol>,
-          li: ({ children }) => <li className={text}>{children}</li>,
-          h1: ({ children }) => <h1 className="text-lg font-bold mb-2 font-display tracking-wide">{children}</h1>,
-          h2: ({ children }) => <h2 className="text-base font-bold mb-2 font-display tracking-wide">{children}</h2>,
-          h3: ({ children }) => <h3 className="text-sm font-bold mb-1.5 font-display tracking-wide">{children}</h3>,
+          p: ({ children }) => <p className={`mb-2 last:mb-0 ${text} ${mutedClass}`}>{children}</p>,
+          ul: ({ children }) => (
+            <ul className={`list-disc list-outside pl-4 mb-2 space-y-1.5 ${text} ${mutedClass}`}>{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className={`list-decimal list-outside pl-4 mb-2 space-y-1.5 ${text} ${mutedClass}`}>{children}</ol>
+          ),
+          li: ({ children }) => <li className={`${text} ${mutedClass}`}>{children}</li>,
+          h1: ({ children }) => (
+            <h1 className={`text-lg font-bold mb-2 font-display tracking-wide ${headingClass}`}>{children}</h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className={`text-base font-bold mb-2 font-display tracking-wide ${headingClass}`}>{children}</h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className={`text-sm font-bold mb-1.5 font-display tracking-wide ${headingClass}`}>{children}</h3>
+          ),
+          h4: ({ children }) => (
+            <h4 className={`text-sm font-semibold mb-1 font-display tracking-wide ${headingClass}`}>{children}</h4>
+          ),
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noopener noreferrer" className={linkClass}>
               {children}
@@ -54,15 +75,15 @@ export default function ChatMarkdown({ content, size = 'sm', inverted = false }:
             );
           },
           pre: ({ children }) => <pre className={`${codeBg} p-2 rounded mb-2 overflow-x-auto`}>{children}</pre>,
-          strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-          em: ({ children }) => <em className="italic">{children}</em>,
+          strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+          em: ({ children }) => <em className="italic opacity-90">{children}</em>,
           blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-gray-400/60 pl-3 italic mb-2 opacity-90">{children}</blockquote>
+            <blockquote className="border-l-4 border-neon-cyan/50 pl-3 italic mb-2 opacity-90">{children}</blockquote>
           ),
-          hr: () => <hr className="my-2 border-gray-500/30" />,
+          hr: () => <hr className="my-3 border-white/15" />,
         }}
       >
-        {content}
+        {normalized}
       </ReactMarkdown>
     </div>
   );
