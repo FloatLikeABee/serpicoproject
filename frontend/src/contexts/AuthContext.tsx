@@ -12,7 +12,7 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithApple: () => Promise<void>;
   logout: () => void;
@@ -20,6 +20,11 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/** Demo access for the game world. */
+export const DEMO_USERNAME = 'serpico';
+export const DEMO_PASSWORD = 'cops123';
+export const DEMO_USER_ID = 'demo-serpico';
 
 const createUserId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -32,11 +37,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return saved ? JSON.parse(saved) : null;
   });
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
+    const normalized = username.trim().toLowerCase();
+    if (normalized !== DEMO_USERNAME || password !== DEMO_PASSWORD) {
+      throw new Error('Invalid username or password');
+    }
     const mockUser: User = {
-      id: createUserId(),
-      email: email || 'demo@serpico.com',
-      name: 'Demo User',
+      id: DEMO_USER_ID,
+      email: DEMO_USERNAME,
+      name: 'Officer Serpico',
       role: 'police',
       rank: 'Officer',
     };
@@ -96,4 +105,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

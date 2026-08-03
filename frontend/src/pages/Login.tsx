@@ -1,23 +1,41 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { DEMO_PASSWORD, DEMO_USERNAME, useAuth } from '../contexts/AuthContext';
 import ShieldLogo from '../components/ShieldLogo';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle, loginWithApple } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email, password);
-    navigate('/');
+    setError('');
+    setLoading(true);
+    try {
+      await login(username, password);
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleQuickLogin = async () => {
-    await login('demo@serpico.com', 'demo');
-    navigate('/');
+    setError('');
+    setLoading(true);
+    try {
+      await login(DEMO_USERNAME, DEMO_PASSWORD);
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,17 +59,24 @@ const Login: React.FC = () => {
             </div>
           </div>
 
+          {error ? (
+            <div className="mb-3 rounded-lg border border-serpico-red/40 bg-serpico-red/10 px-3 py-2 text-xs text-serpico-red">
+              {error}
+            </div>
+          ) : null}
+
           <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             <div>
               <label className="block text-xs font-display font-semibold mb-2 text-neon-cyan/90 tracking-widest uppercase">
-                Agent ID
+                Username
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="synth-input"
-                placeholder="demo@serpico.com"
+                placeholder={DEMO_USERNAME}
+                autoComplete="username"
               />
             </div>
 
@@ -65,21 +90,30 @@ const Login: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="synth-input"
                 placeholder="••••••••"
+                autoComplete="current-password"
               />
             </div>
 
-            <button type="submit" className="w-full btn-neon-primary py-3.5 rounded-lg">
-              Enter Game World
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full btn-neon-primary py-3.5 rounded-lg disabled:opacity-50"
+            >
+              {loading ? 'Signing in…' : 'Enter Game World'}
             </button>
           </form>
 
           <div className="mt-4 sm:mt-6">
             <button
               onClick={handleQuickLogin}
-              className="w-full btn-neon-danger py-3.5 rounded-lg"
+              disabled={loading}
+              className="w-full btn-neon-danger py-3.5 rounded-lg disabled:opacity-50"
             >
-              Quick Deploy (Mock)
+              Quick Deploy (Demo)
             </button>
+            <p className="mt-2 text-center text-[10px] font-mono text-synth-muted/70">
+              Demo: {DEMO_USERNAME} / {DEMO_PASSWORD}
+            </p>
           </div>
 
           <div className="mt-4 sm:mt-6 space-y-3">

@@ -12,7 +12,7 @@ import (
 	"serpico/backend/internal/database"
 )
 
-// Mock login handler
+// Mock login handler — demo user serpico / cops123
 func handleLogin(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email"`
@@ -24,11 +24,16 @@ func handleLogin(c *gin.Context) {
 		return
 	}
 
-	// Mock authentication - always succeeds
+	username := strings.TrimSpace(strings.ToLower(req.Email))
+	if username != "serpico" || req.Password != "cops123" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+		return
+	}
+
 	user := gin.H{
-		"id":    uuid.New().String(),
-		"email": req.Email,
-		"name":  "Demo User",
+		"id":    "demo-serpico",
+		"email": "serpico",
+		"name":  "Officer Serpico",
 		"role":  "police",
 		"rank":  "Officer",
 	}
@@ -83,9 +88,9 @@ func handleGetUser(c *gin.Context, db *database.Database) {
 		// Fallback to mock data if no users in database
 		c.JSON(http.StatusOK, gin.H{
 			"user": gin.H{
-				"id":    "1",
-				"email": "demo@serpico.com",
-				"name":  "Demo User",
+				"id":    "demo-serpico",
+				"email": "serpico",
+				"name":  "Officer Serpico",
 				"role":  "police",
 				"rank":  "Officer",
 			},
