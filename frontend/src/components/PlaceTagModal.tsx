@@ -52,7 +52,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
     setDraft(tag);
     setError('');
     setEditing(startInEditMode);
-    setAiExpanded(startInEditMode && autoEnrich);
+    setAiExpanded(autoEnrich || (!startInEditMode && !!tag.enrichment));
     autoStarted.current = false;
   }, [tag.id, startInEditMode, autoEnrich]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -186,7 +186,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-lg flex flex-col max-h-[min(88dvh,100%)] sm:max-h-[85vh] game-panel border border-neon-cyan/35 rounded-t-xl sm:rounded-xl shadow-2xl"
+        className="w-full sm:max-w-lg flex flex-col h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] sm:h-auto sm:max-h-[85vh] game-panel border border-neon-cyan/35 rounded-t-xl sm:rounded-xl shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="place-tag-title"
@@ -307,11 +307,11 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 </span>
               </button>
               {aiExpanded ? (
-                <div className="px-3 pb-3 max-h-44 overflow-y-auto overscroll-contain text-gray-200 leading-snug border-t border-neon-magenta/20">
+                <div className="px-3 pb-3 max-h-[min(52vh,28rem)] overflow-y-auto overscroll-contain text-gray-200 leading-snug border-t border-neon-magenta/20">
                   <ChatMarkdown content={aiSummary} size="xs" />
                 </div>
               ) : (
-                <p className="px-3 pb-2 text-[11px] text-gray-400 line-clamp-2 border-t border-neon-magenta/20 pt-2">
+                <p className="px-3 pb-2 text-[11px] text-gray-400 line-clamp-4 border-t border-neon-magenta/20 pt-2">
                   {aiSummary.replace(/[#*_`]/g, '').slice(0, 140)}
                   {aiSummary.length > 140 ? '…' : ''}
                 </p>
