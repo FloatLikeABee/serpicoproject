@@ -10,6 +10,8 @@ interface PlaceTagModalProps {
   onClose: () => void;
   /** Kick off AI web lookup when the modal opens (e.g. right after placing). */
   autoEnrich?: boolean;
+  /** New pins start in edit mode; reopening a saved tag starts compact view. */
+  startInEditMode?: boolean;
 }
 
 const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
@@ -18,20 +20,23 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   onDelete,
   onClose,
   autoEnrich = false,
+  startInEditMode = false,
 }) => {
   const [draft, setDraft] = useState(tag);
+  const [editing, setEditing] = useState(startInEditMode);
   const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState('');
+  const [aiExpanded, setAiExpanded] = useState(false);
   const autoStarted = React.useRef(false);
   const meta = tagMeta(draft.kind);
 
-  // Reset draft when opening a different tag — not on every parent prop tweak
-  // (e.g. reverse-geocode address), which would wipe notes mid-edit.
   useEffect(() => {
     setDraft(tag);
     setError('');
+    setEditing(startInEditMode);
+    setAiExpanded(startInEditMode && autoEnrich);
     autoStarted.current = false;
-  }, [tag.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tag.id, startInEditMode, autoEnrich]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pull address updates from geocode without clobbering typed notes/name.
   useEffect(() => {
@@ -48,6 +53,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   const enrichWithAI = async () => {
     setEnriching(true);
     setError('');
+    setAiExpanded(true);
     try {
       const placeLabel = draft.address || `${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}`;
       const prompt = [
@@ -88,9 +94,9 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoEnrich, tag.id]);
 
+  const openedInViewMode = !startInEditMode;
+
   const save = () => {
-    // Parent upsert closes the modal — do not call onClose(); that rewrote mapTags
-    // with the stale pre-edit activeTag and wiped notes.
     onChange({
       ...draft,
       name: draft.name.trim() || meta.short,
@@ -99,6 +105,9 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
     });
   };
 
+  const aiSummary = draft.enrichment?.summary;
+  const aiFetchedAt = draft.enrichment?.fetchedAt;
+
   return (
     <div
       className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4"
@@ -106,141 +115,219 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto game-panel border border-neon-cyan/35 rounded-t-xl sm:rounded-xl p-4 space-y-3"
+        className="w-full sm:max-w-lg flex flex-col max-h-[min(88dvh,100%)] sm:max-h-[85vh] game-panel border border-neon-cyan/35 rounded-t-xl sm:rounded-xl shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="place-tag-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] font-display uppercase tracking-wider" style={{ color: meta.color }}>
-              {meta.label}
-            </p>
-            <h2 id="place-tag-title" className="text-lg font-display font-bold text-white truncate">
-              Map tag
-            </h2>
-            <p className="text-[11px] text-synth-muted mt-0.5">
-              {draft.lat.toFixed(5)}, {draft.lng.toFixed(5)}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-synth-muted hover:text-white text-sm px-2 min-h-0 min-w-0"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-
-        {error ? (
-          <div className="rounded-lg border border-serpico-red/40 bg-serpico-red/10 px-3 py-2 text-xs text-serpico-red">
-            {error}
-          </div>
-        ) : null}
-
-        <label className="block space-y-1">
-          <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Type</span>
-          <select
-            value={draft.kind}
-            onChange={(e) => setDraft((p) => ({ ...p, kind: e.target.value as MapTagKind }))}
-            className="w-full px-3 py-2 rounded-lg border border-white/10 bg-[#0b0818] text-sm text-white"
-            style={{ colorScheme: 'dark' }}
-          >
-            {MAP_TAG_KINDS.map((k) => (
-              <option key={k.kind} value={k.kind}>
-                {k.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block space-y-1">
-          <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Name</span>
-          <input
-            value={draft.name}
-            onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
-            placeholder="Label for this pin"
-            className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white"
-          />
-        </label>
-
-        <label className="block space-y-1">
-          <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Location</span>
-          <input
-            value={draft.address || ''}
-            onChange={(e) => setDraft((p) => ({ ...p, address: e.target.value }))}
-            placeholder="Address or place description"
-            className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white"
-          />
-        </label>
-
-        <label className="block space-y-1">
-          <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Notes</span>
-          <textarea
-            value={draft.notes}
-            onChange={(e) => setDraft((p) => ({ ...p, notes: e.target.value }))}
-            rows={4}
-            placeholder="Case notes, observations, leads… (Markdown supported)"
-            className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white resize-y font-mono text-[12px]"
-          />
-          {draft.notes.trim() ? (
-            <div className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
-              <p className="text-[9px] font-display uppercase tracking-wider text-synth-muted mb-1">Preview</p>
-              <ChatMarkdown content={draft.notes} size="xs" />
+        {/* Header — fixed */}
+        <div className="flex-shrink-0 px-4 pt-4 pb-3 border-b border-white/10">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] font-display uppercase tracking-wider" style={{ color: meta.color }}>
+                {meta.label}
+              </p>
+              <h2 id="place-tag-title" className="text-lg font-display font-bold text-white truncate">
+                {editing ? 'Map tag' : draft.name || meta.short}
+              </h2>
+              <p className="text-[11px] text-synth-muted mt-0.5 truncate">
+                {draft.address || `${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}`}
+              </p>
             </div>
-          ) : null}
-        </label>
-
-        {draft.enrichment?.summary ? (
-          <div className="rounded-lg border border-neon-magenta/30 bg-neon-magenta/5 px-3 py-2 space-y-1.5">
-            <p className="text-[9px] font-display uppercase tracking-wider text-neon-magenta">
-              AI location check
-              {draft.enrichment.fetchedAt
-                ? ` · ${new Date(draft.enrichment.fetchedAt).toLocaleString()}`
-                : ''}
-            </p>
-            <div className="text-gray-200 leading-snug">
-              <ChatMarkdown content={draft.enrichment.summary} size="xs" />
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => void enrichWithAI()}
-            disabled={enriching}
-            className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-magenta/40 text-neon-magenta hover:bg-neon-magenta/15 disabled:opacity-50"
-          >
-            {enriching ? 'Checking…' : 'AI check place'}
-          </button>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm('Delete this map tag?')) onDelete(draft.id);
-              }}
-              className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-serpico-red/40 text-serpico-red"
-            >
-              Delete
-            </button>
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-white/15 text-gray-300"
+              className="text-synth-muted hover:text-white text-sm px-2 min-h-0 min-w-0 flex-shrink-0"
+              aria-label="Close"
             >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase bg-serpico-blue/80 text-white hover:bg-serpico-blue"
-            >
-              Save
+              ✕
             </button>
           </div>
+        </div>
+
+        {/* Body — scrollable */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 space-y-3">
+          {error ? (
+            <div className="rounded-lg border border-serpico-red/40 bg-serpico-red/10 px-3 py-2 text-xs text-serpico-red">
+              {error}
+            </div>
+          ) : null}
+
+          {editing ? (
+            <>
+              <label className="block space-y-1">
+                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Type</span>
+                <select
+                  value={draft.kind}
+                  onChange={(e) => setDraft((p) => ({ ...p, kind: e.target.value as MapTagKind }))}
+                  className="w-full px-3 py-2 rounded-lg border border-white/10 bg-[#0b0818] text-sm text-white"
+                  style={{ colorScheme: 'dark' }}
+                >
+                  {MAP_TAG_KINDS.map((k) => (
+                    <option key={k.kind} value={k.kind}>
+                      {k.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Name</span>
+                <input
+                  value={draft.name}
+                  onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="Label for this pin"
+                  className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Location</span>
+                <input
+                  value={draft.address || ''}
+                  onChange={(e) => setDraft((p) => ({ ...p, address: e.target.value }))}
+                  placeholder="Address or place description"
+                  className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Notes</span>
+                <textarea
+                  value={draft.notes}
+                  onChange={(e) => setDraft((p) => ({ ...p, notes: e.target.value }))}
+                  rows={3}
+                  placeholder="Observations, leads… (Markdown supported)"
+                  className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white resize-none"
+                />
+              </label>
+            </>
+          ) : (
+            <>
+              {draft.notes.trim() ? (
+                <div className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
+                  <p className="text-[9px] font-display uppercase tracking-wider text-synth-muted mb-1">Notes</p>
+                  <ChatMarkdown content={draft.notes} size="xs" />
+                </div>
+              ) : null}
+            </>
+          )}
+
+          {aiSummary ? (
+            <div className="rounded-lg border border-neon-magenta/30 bg-neon-magenta/5 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setAiExpanded((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-neon-magenta/10"
+              >
+                <span className="text-[9px] font-display uppercase tracking-wider text-neon-magenta">
+                  AI location check
+                  {aiFetchedAt ? ` · ${new Date(aiFetchedAt).toLocaleString()}` : ''}
+                </span>
+                <span className="text-[10px] text-neon-magenta/80 flex-shrink-0">
+                  {aiExpanded ? 'Hide' : 'Show'}
+                </span>
+              </button>
+              {aiExpanded ? (
+                <div className="px-3 pb-3 max-h-44 overflow-y-auto overscroll-contain text-gray-200 leading-snug border-t border-neon-magenta/20">
+                  <ChatMarkdown content={aiSummary} size="xs" />
+                </div>
+              ) : (
+                <p className="px-3 pb-2 text-[11px] text-gray-400 line-clamp-2 border-t border-neon-magenta/20 pt-2">
+                  {aiSummary.replace(/[#*_`]/g, '').slice(0, 140)}
+                  {aiSummary.length > 140 ? '…' : ''}
+                </p>
+              )}
+            </div>
+          ) : enriching ? (
+            <p className="text-[11px] text-neon-magenta animate-pulse px-1">AI location check running…</p>
+          ) : null}
+        </div>
+
+        {/* Footer — fixed */}
+        <div className="flex-shrink-0 px-4 py-3 border-t border-white/10 bg-[#07050f]/95">
+          {editing ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => void enrichWithAI()}
+                disabled={enriching}
+                className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-magenta/40 text-neon-magenta hover:bg-neon-magenta/15 disabled:opacity-50"
+              >
+                {enriching ? 'Checking…' : 'AI check'}
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Delete this map tag?')) onDelete(draft.id);
+                  }}
+                  className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-serpico-red/40 text-serpico-red"
+                >
+                  Delete
+                </button>
+                {!openedInViewMode ? (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-white/15 text-gray-300"
+                  >
+                    Cancel
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditing(false)}
+                    className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-white/15 text-gray-300"
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={save}
+                  className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase bg-serpico-blue/80 text-white hover:bg-serpico-blue"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => void enrichWithAI()}
+                disabled={enriching}
+                className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-magenta/40 text-neon-magenta hover:bg-neon-magenta/15 disabled:opacity-50"
+              >
+                {enriching ? 'Checking…' : 'AI check'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Delete this map tag?')) onDelete(draft.id);
+                }}
+                className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-serpico-red/40 text-serpico-red"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-neon-cyan/40 text-neon-cyan"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase bg-serpico-blue/80 text-white hover:bg-serpico-blue"
+              >
+                Close
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
