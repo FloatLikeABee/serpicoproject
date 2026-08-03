@@ -145,7 +145,7 @@ const AIChat: React.FC = () => {
   const [showSidebar, setShowSidebar] = useState(false);
 
   return (
-    <div className={`h-full min-h-0 flex overflow-hidden ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className="page-fill min-h-0 flex overflow-hidden bg-synth-void">
       {/* Left Sidebar - Chat Sessions */}
       <div className={`hidden sm:flex w-64 border-r flex-shrink-0 ${
         theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
@@ -204,9 +204,7 @@ const AIChat: React.FC = () => {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full min-w-0">
         {/* Header */}
-        <div className={`p-3 sm:p-4 border-b flex-shrink-0 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        }`}>
+        <div className="game-header p-3 sm:p-4 border-b border-white/10 flex-shrink-0">
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={() => setShowSidebar(!showSidebar)}
@@ -270,10 +268,8 @@ const AIChat: React.FC = () => {
               <div
                 className={`max-w-[85%] sm:max-w-[70%] rounded-lg p-2.5 sm:p-3 ${
                   message.role === 'user'
-                    ? 'bg-serpico-blue text-white'
-                    : theme === 'dark'
-                    ? 'bg-gray-700 text-gray-100'
-                    : 'bg-gray-100 text-gray-900'
+                    ? 'bg-serpico-blue/90 text-white border border-neon-cyan/30'
+                    : 'game-panel border border-white/10 text-synth-text'
                 }`}
               >
                 <ChatMarkdown
@@ -306,9 +302,7 @@ const AIChat: React.FC = () => {
         </div>
 
         {/* Input */}
-        <div className={`p-3 sm:p-4 border-t flex-shrink-0 ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        }`}>
+        <div className="game-header p-3 sm:p-4 border-t border-white/10 flex-shrink-0">
           <div className="flex gap-2">
             <input
               type="text"

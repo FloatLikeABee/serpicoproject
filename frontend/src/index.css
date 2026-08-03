@@ -371,3 +371,16 @@ html.synth-world ::-webkit-scrollbar-thumb {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Officer Serpico chat — rendered markdown */
+.chat-markdown {
+  word-break: break-word;
+}
+
+.chat-markdown :where(h1, h2, h3, h4):not(:first-child) {
+  margin-top: 0.75rem;
+}
+
+.chat-markdown :where(ul, ol) {
+  margin-top: 0.25rem;
+}
