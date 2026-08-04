@@ -77,6 +77,20 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		chaseGame.POST("/:id/respond", func(c *gin.Context) { handleChaseGameRespond(c, aiService) })
 	}
 
+	// Investigation Helper — brainstorm crime scenes + interview questions
+	invHelper := r.Group("/investigation-helper")
+	{
+		invHelper.GET("/sessions", func(c *gin.Context) { handleHelperListSessions(c, db) })
+		invHelper.POST("/sessions", func(c *gin.Context) { handleHelperCreateSession(c, db) })
+		invHelper.GET("/sessions/:id", func(c *gin.Context) { handleHelperGetSession(c, db) })
+		invHelper.PUT("/sessions/:id", func(c *gin.Context) { handleHelperUpdateSession(c, db) })
+		invHelper.DELETE("/sessions/:id", func(c *gin.Context) { handleHelperDeleteSession(c, db) })
+		invHelper.POST("/sessions/:id/uploads", func(c *gin.Context) { handleHelperUpload(c, db) })
+		invHelper.DELETE("/sessions/:id/files/:fileId", func(c *gin.Context) { handleHelperDeleteFile(c, db) })
+		invHelper.POST("/sessions/:id/chat", func(c *gin.Context) { handleHelperChat(c, db, aiService) })
+		invHelper.GET("/files/:fileId", func(c *gin.Context) { handleHelperGetFile(c, db) })
+	}
+
 	// Pursuit Exam routes (per-user map strategy training)
 	pursuitExam := r.Group("/pursuit-exam")
 	{
