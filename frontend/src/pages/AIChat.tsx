@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -84,7 +85,6 @@ const AIChat: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
 
   const routeContext = () => {
     const path = location.pathname;
@@ -111,6 +111,21 @@ const AIChat: React.FC = () => {
 
   const userId = user?.id || 'guest';
   const suggestions = isInterview ? INTERVIEW_SUGGESTIONS : GENERAL_SUGGESTIONS;
+  const isDark = theme === 'dark';
+
+  const primaryTabs = useMemo(() => {
+    const interview =
+      sessions.find((s) => s.id === INTERVIEW_SESSION_ID || s.context === INTERVIEW_CONTEXT) ||
+      interviewSession();
+    const general =
+      sessions.find((s) => s.id !== interview.id && (s.context === 'general' || s.id === '1')) ||
+      sessions.find((s) => s.id !== interview.id) ||
+      defaultGeneralSession();
+    return [
+      { id: interview.id, label: 'Interview', full: interview.title },
+      { id: general.id, label: 'General', full: general.title },
+    ];
+  }, [sessions]);
 
   useEffect(() => {
     setMessages(loadChatHistory(userId, context, currentSessionId));
@@ -128,22 +143,15 @@ const AIChat: React.FC = () => {
 
   useEffect(() => {
     if (!pickerOpen) return;
-    const onPointer = (e: MouseEvent | TouchEvent) => {
-      const el = pickerRef.current;
-      if (el && !el.contains(e.target as Node)) {
-        setPickerOpen(false);
-      }
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setPickerOpen(false);
     };
-    document.addEventListener('mousedown', onPointer);
-    document.addEventListener('touchstart', onPointer);
     document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('mousedown', onPointer);
-      document.removeEventListener('touchstart', onPointer);
       document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
     };
   }, [pickerOpen]);
 
@@ -231,127 +239,156 @@ const AIChat: React.FC = () => {
     ? 'Suspect said: … / My thoughts: …  (or paste a case brief)'
     : 'Ask Officer Serpico…';
 
-  const isDark = theme === 'dark';
+  const sessionSheet =
+    pickerOpen &&
+    createPortal(
+      <div
+        className="fixed inset-0 z-[10000] flex flex-col justify-end sm:justify-center sm:items-center"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Chat sessions"
+      >
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/70"
+          aria-label="Close sessions"
+          onClick={() => setPickerOpen(false)}
+        />
+        <div
+          className={`relative z-[10001] w-full sm:max-w-md sm:mx-4 max-h-[80dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border shadow-2xl ${
+            isDark ? 'bg-gray-950 border-white/15' : 'bg-white border-gray-200'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10">
+            <h2 className="font-display text-sm uppercase tracking-wider text-synth-text">
+              Chat sessions
+            </h2>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(false)}
+              className={`px-3 py-1.5 rounded-lg text-sm touch-manipulation ${
+                isDark ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-800'
+              }`}
+            >
+              Close
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+            {sessions.map((session) => {
+              const active = session.id === currentSessionId;
+              return (
+                <button
+                  key={session.id}
+                  type="button"
+                  onClick={() => selectSession(session.id)}
+                  className={`w-full text-left px-4 py-3 rounded-xl border transition-colors touch-manipulation ${
+                    active
+                      ? 'border-serpico-blue bg-serpico-blue/15 text-serpico-blue'
+                      : isDark
+                        ? 'border-white/10 bg-gray-900 text-gray-200 active:bg-gray-800'
+                        : 'border-gray-200 bg-gray-50 text-gray-900 active:bg-gray-100'
+                  }`}
+                >
+                  <div className="font-semibold text-sm">{session.title}</div>
+                  <div
+                    className={`text-xs mt-1 line-clamp-2 ${
+                      isDark ? 'text-gray-400' : 'text-gray-500'
+                    }`}
+                  >
+                    {session.lastMessage}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="p-3 border-t border-white/10 safe-area-inset-bottom">
+            <button
+              type="button"
+              onClick={handleNewSession}
+              className="w-full px-4 py-3 rounded-xl text-sm font-semibold bg-serpico-blue text-white touch-manipulation"
+            >
+              + New Session
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
 
   return (
     <div className="h-full min-h-0 flex flex-col overflow-hidden bg-synth-void">
-      {/* Header with always-visible session picker */}
-      <div className="game-header p-3 sm:p-4 border-b border-white/10 flex-shrink-0 relative z-30">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0 relative" ref={pickerRef}>
-            <button
-              type="button"
-              onClick={() => setPickerOpen((v) => !v)}
-              aria-expanded={pickerOpen}
-              aria-haspopup="listbox"
-              className={`w-full max-w-md flex items-center gap-2 px-3 py-2 rounded-lg border text-left touch-manipulation ${
-                isDark
-                  ? 'bg-gray-800 border-white/15 text-synth-text hover:border-white/30'
-                  : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400'
-              }`}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] uppercase tracking-wider text-synth-muted">
-                  Chat session
-                </div>
-                <div className="font-semibold text-sm sm:text-base truncate">
-                  {currentSession?.title || 'Select session'}
-                </div>
-              </div>
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className={`flex-shrink-0 transition-transform ${pickerOpen ? 'rotate-180' : ''}`}
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
-
-            {pickerOpen && (
-              <div
-                role="listbox"
-                className={`absolute left-0 right-0 mt-2 max-w-md rounded-xl border shadow-xl overflow-hidden z-40 ${
-                  isDark
-                    ? 'bg-gray-900 border-white/15'
-                    : 'bg-white border-gray-200'
-                }`}
-              >
-                <div className="max-h-[min(60vh,22rem)] overflow-y-auto p-2 space-y-1">
-                  {sessions.map((session) => {
-                    const active = session.id === currentSessionId;
-                    return (
-                      <button
-                        key={session.id}
-                        type="button"
-                        role="option"
-                        aria-selected={active}
-                        onClick={() => selectSession(session.id)}
-                        className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors touch-manipulation ${
-                          active
-                            ? 'bg-serpico-blue/20 text-serpico-blue'
-                            : isDark
-                              ? 'hover:bg-gray-800 text-gray-200'
-                              : 'hover:bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        <div className="font-medium text-sm truncate">{session.title}</div>
-                        <div
-                          className={`text-xs mt-0.5 truncate ${
-                            isDark ? 'text-gray-400' : 'text-gray-500'
-                          }`}
-                        >
-                          {session.lastMessage}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div
-                  className={`p-2 border-t ${
-                    isDark ? 'border-white/10' : 'border-gray-200'
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={handleNewSession}
-                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium touch-manipulation ${
-                      isDark
-                        ? 'bg-gray-800 hover:bg-gray-700 text-gray-200'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
-                    }`}
-                  >
-                    + New Session
-                  </button>
-                </div>
-              </div>
-            )}
+      <div className="game-header flex-shrink-0 border-b border-white/10">
+        <div className="px-3 pt-3 pb-2 flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-wider text-synth-muted font-display">
+              Officer Serpico
+            </div>
+            <div className="font-semibold text-sm sm:text-base truncate text-synth-text">
+              {currentSession?.title || 'AI Chat'}
+            </div>
           </div>
-
           <button
             type="button"
             onClick={handleClearChat}
             className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-medium touch-manipulation ${
               isDark
-                ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-white/10'
-                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+                ? 'bg-gray-800 text-gray-300 border border-white/10'
+                : 'bg-gray-100 text-gray-700 border border-gray-200'
             }`}
-            title="Clear chat history"
           >
             Clear
           </button>
         </div>
-        <p className="text-xs text-synth-muted mt-2 hidden sm:block">
-          {isInterview
-            ? 'PEACE · free recall · SUE — AI proposes questions; you report suspect answers + your thoughts'
-            : 'Olathe PD field advisor · Markdown intel briefs'}
-        </p>
+
+        {/* Always-visible session tabs — no menu required for Interview / General */}
+        <div className="px-3 pb-3 flex items-center gap-2">
+          <div
+            className={`flex-1 flex p-1 rounded-xl border ${
+              isDark ? 'bg-black/40 border-white/10' : 'bg-gray-100 border-gray-200'
+            }`}
+            role="tablist"
+            aria-label="Primary chat sessions"
+          >
+            {primaryTabs.map((tab) => {
+              const active = tab.id === currentSessionId;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  title={tab.full}
+                  onClick={() => selectSession(tab.id)}
+                  className={`flex-1 min-w-0 px-2 py-2.5 rounded-lg text-xs sm:text-sm font-semibold touch-manipulation transition-colors ${
+                    active
+                      ? 'bg-serpico-blue text-white shadow'
+                      : isDark
+                        ? 'text-gray-300 active:bg-white/5'
+                        : 'text-gray-700 active:bg-white'
+                  }`}
+                >
+                  <span className="truncate block">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-xs font-semibold border touch-manipulation ${
+              isDark
+                ? 'bg-gray-800 border-white/15 text-gray-200'
+                : 'bg-white border-gray-300 text-gray-800'
+            }`}
+            aria-label="All sessions"
+          >
+            All
+          </button>
+        </div>
       </div>
 
-      {/* Messages */}
+      {sessionSheet}
+
       <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
         {messages.map((message) => (
           <div
@@ -392,7 +429,6 @@ const AIChat: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggestions (compact, always available) */}
       <div className="flex-shrink-0 px-3 pt-1 overflow-x-auto">
         <div className="flex gap-2 pb-1">
           {suggestions.slice(0, 3).map((suggestion, index) => (
@@ -412,7 +448,6 @@ const AIChat: React.FC = () => {
         </div>
       </div>
 
-      {/* Input */}
       <div className="game-header p-3 sm:p-4 border-t border-white/10 flex-shrink-0">
         <div className="flex gap-2">
           <input
