@@ -5,9 +5,9 @@ import { chaseGameAPI, ChaseGameSession } from '../../services/api';
 type GamePhase = 'lobby' | 'playing' | 'evaluation';
 
 const DIFFICULTIES = [
-  { id: 'easy', label: 'Rookie', desc: 'Extra hints' },
-  { id: 'medium', label: 'Patrol', desc: 'Standard' },
-  { id: 'hard', label: 'SWAT', desc: 'Think fast' },
+  { id: 'easy', label: 'Rookie', desc: 'Extra hints, forgiving scoring' },
+  { id: 'medium', label: 'Patrol', desc: 'Standard pursuit training' },
+  { id: 'hard', label: 'SWAT', desc: 'Chaos mode — think fast' },
 ];
 
 const ChaseGame: React.FC = () => {
@@ -80,7 +80,7 @@ const ChaseGame: React.FC = () => {
               Chase Game
             </h1>
             {phase === 'lobby' ? (
-              <p className={`text-xs mt-0.5 ${muted}`}>AI pursuit training — pick difficulty & go</p>
+              <p className={`text-xs mt-0.5 ${muted}`}>Pursuit training — vehicle & foot scenarios</p>
             ) : (
               <p className={`text-xs sm:text-sm mt-0.5 ${muted}`}>
                 Pursuit training sim — vehicle & foot scenarios
@@ -124,16 +124,35 @@ const ChaseGame: React.FC = () => {
           </div>
         )}
 
-        {/* Lobby — compact so Start stays on-screen */}
+        {/* Lobby — instruction pane + compact difficulty; Start stays pinned */}
         {phase === 'lobby' && (
           <div className="max-w-lg mx-auto w-full flex-1 min-h-0 flex flex-col">
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pb-2">
-              <p className={`text-sm ${muted}`}>
-                Make tactical calls in AI vehicle & foot pursuits. Scored vs doctrine — earn ranks from Rookie to Pursuit Legend.
-              </p>
+            <div className="flex-1 min-h-0 overflow-y-auto pb-2">
+              <div
+                className={`p-3.5 sm:p-4 rounded-2xl ${cardBg} shadow-sm border ${
+                  isDark ? 'border-gray-700' : 'border-gray-200'
+                }`}
+              >
+                <h2 className="text-base sm:text-lg font-bold dark:text-white mb-1.5">
+                  Ready for pursuit training?
+                </h2>
+                <p className={`text-sm ${muted} mb-3`}>
+                  AI Game Master drops you into cinematic vehicle & foot pursuit scenarios.
+                  Make tactical calls, handle twists, then get scored against the operation codex
+                  and real specimen cases.
+                </p>
+                <ul className={`text-sm space-y-1.5 ${muted} mb-3`}>
+                  <li>AI-generated scenario + scene image</li>
+                  <li>Interactive what-if rounds</li>
+                  <li>Scored against IACP & Olathe PD doctrine</li>
+                  <li>Earn ranks — Rookie to Pursuit Legend</li>
+                </ul>
 
-              <div>
-                <p className={`text-xs font-medium mb-1.5 uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p
+                  className={`text-xs font-medium mb-1.5 uppercase tracking-wide ${
+                    isDark ? 'text-gray-400' : 'text-gray-600'
+                  }`}
+                >
                   Difficulty
                 </p>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -146,12 +165,16 @@ const ChaseGame: React.FC = () => {
                         difficulty === d.id
                           ? 'border-serpico-blue bg-serpico-blue/10'
                           : isDark
-                          ? 'border-gray-700 bg-gray-800'
-                          : 'border-gray-200 bg-white'
+                          ? 'border-gray-700 bg-gray-900'
+                          : 'border-gray-200 bg-gray-50'
                       }`}
                     >
-                      <p className="font-bold text-xs sm:text-sm dark:text-white leading-tight">{d.label}</p>
-                      <p className={`text-[10px] leading-snug mt-0.5 line-clamp-2 ${muted}`}>{d.desc}</p>
+                      <p className="font-bold text-xs sm:text-sm dark:text-white leading-tight">
+                        {d.label}
+                      </p>
+                      <p className={`text-[10px] leading-snug mt-0.5 line-clamp-2 ${muted}`}>
+                        {d.desc}
+                      </p>
                     </button>
                   ))}
                 </div>
