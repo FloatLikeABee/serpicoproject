@@ -241,13 +241,13 @@ export type InvestigationHelperPayload = {
   files: InvestigationHelperFile[];
 };
 
-const helperHeaders = (userId: string) => ({ 'X-User-Id': userId || 'guest' });
+const helperParams = (userId: string) => ({ userId: userId || 'guest' });
 
 export const investigationHelperAPI = {
   listSessions: async (userId: string): Promise<{ sessions: InvestigationHelperSession[] }> => {
     const response = await api.get<{ sessions: InvestigationHelperSession[] }>(
       '/investigation-helper/sessions',
-      { headers: helperHeaders(userId), timeout: 15000 }
+      { params: helperParams(userId), timeout: 15000 }
     );
     return response.data;
   },
@@ -258,14 +258,14 @@ export const investigationHelperAPI = {
     const response = await api.post<InvestigationHelperPayload>(
       '/investigation-helper/sessions',
       payload || {},
-      { headers: helperHeaders(userId) }
+      { params: helperParams(userId), timeout: 20000 }
     );
     return response.data;
   },
   getSession: async (userId: string, sessionId: string): Promise<InvestigationHelperPayload> => {
     const response = await api.get<InvestigationHelperPayload>(
       `/investigation-helper/sessions/${sessionId}`,
-      { headers: helperHeaders(userId) }
+      { params: helperParams(userId) }
     );
     return response.data;
   },
@@ -277,13 +277,13 @@ export const investigationHelperAPI = {
     const response = await api.put<InvestigationHelperPayload>(
       `/investigation-helper/sessions/${sessionId}`,
       payload,
-      { headers: helperHeaders(userId) }
+      { params: helperParams(userId) }
     );
     return response.data;
   },
   deleteSession: async (userId: string, sessionId: string): Promise<void> => {
     await api.delete(`/investigation-helper/sessions/${sessionId}`, {
-      headers: helperHeaders(userId),
+      params: helperParams(userId),
     });
   },
   uploadFile: async (
@@ -297,7 +297,7 @@ export const investigationHelperAPI = {
       `/investigation-helper/sessions/${sessionId}/uploads`,
       form,
       {
-        headers: helperHeaders(userId),
+        params: helperParams(userId),
         timeout: 60000,
       }
     );
@@ -305,7 +305,7 @@ export const investigationHelperAPI = {
   },
   deleteFile: async (userId: string, sessionId: string, fileId: string): Promise<void> => {
     await api.delete(`/investigation-helper/sessions/${sessionId}/files/${fileId}`, {
-      headers: helperHeaders(userId),
+      params: helperParams(userId),
     });
   },
   chat: async (
@@ -316,15 +316,21 @@ export const investigationHelperAPI = {
     const response = await api.post<InvestigationHelperPayload>(
       `/investigation-helper/sessions/${sessionId}/chat`,
       { message },
-      { headers: helperHeaders(userId), timeout: 90000 }
+      { params: helperParams(userId), timeout: 90000 }
     );
     return response.data;
   },
-  fileUrl: (relativeUrl: string) => {
+  fileUrl: (relativeUrl: string, userId?: string) => {
     if (!relativeUrl) return '';
-    if (relativeUrl.startsWith('http')) return relativeUrl;
+    if (relativeUrl.startsWith('http')) {
+      if (!userId) return relativeUrl;
+      const join = relativeUrl.includes('?') ? '&' : '?';
+      return `${relativeUrl}${join}userId=${encodeURIComponent(userId)}`;
+    }
     const base = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
-    return `${base}${relativeUrl.startsWith('/') ? '' : '/'}${relativeUrl}`;
+    const path = `${base}${relativeUrl.startsWith('/') ? '' : '/'}${relativeUrl}`;
+    if (!userId) return path;
+    return `${path}?userId=${encodeURIComponent(userId)}`;
   },
 };
 
