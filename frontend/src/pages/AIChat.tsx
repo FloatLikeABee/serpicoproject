@@ -27,11 +27,12 @@ interface ChatSession {
 
 const INTERVIEW_SESSION_ID = 'suspect-interview';
 const INTERVIEW_CONTEXT = 'suspect-interview';
+const interviewWelcomeLastMessage = 'Send a case brief to start…';
 
 const interviewSession = (): ChatSession => ({
   id: INTERVIEW_SESSION_ID,
   title: 'Suspect Interview Helper',
-  lastMessage: 'PEACE / SUE interview coaching — ask the first question…',
+  lastMessage: interviewWelcomeLastMessage,
   timestamp: new Date(),
   context: INTERVIEW_CONTEXT,
   pinned: true,
@@ -158,9 +159,46 @@ const AIChat: React.FC = () => {
   const handleClearChat = () => {
     clearChatHistory(userId, context, currentSessionId);
     setMessages(createInitialMessages(context));
+    if (isInterview) {
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === currentSessionId
+            ? { ...s, lastMessage: interviewWelcomeLastMessage, timestamp: new Date() }
+            : s
+        )
+      );
+    }
+  };
+
+  /** Clear interview history and return to case-brief gate. */
+  const handleClearInterview = () => {
+    clearChatHistory(userId, INTERVIEW_CONTEXT, INTERVIEW_SESSION_ID);
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === INTERVIEW_SESSION_ID || s.context === INTERVIEW_CONTEXT
+          ? {
+              ...s,
+              id: INTERVIEW_SESSION_ID,
+              title: 'Suspect Interview Helper',
+              lastMessage: interviewWelcomeLastMessage,
+              timestamp: new Date(),
+              context: INTERVIEW_CONTEXT,
+              pinned: true,
+            }
+          : s
+      )
+    );
+    setCurrentSessionId(INTERVIEW_SESSION_ID);
+    setMessages(createInitialMessages(INTERVIEW_CONTEXT));
+    setInput('');
+    setPickerOpen(false);
   };
 
   const handleNewSession = () => {
+    if (isInterview || currentSessionId === INTERVIEW_SESSION_ID) {
+      handleClearInterview();
+      return;
+    }
     const id = `session-${Date.now().toString(36)}`;
     const next: ChatSession = {
       id,
@@ -236,7 +274,7 @@ const AIChat: React.FC = () => {
   };
 
   const placeholder = isInterview
-    ? 'Suspect said: … / My thoughts: …  (or paste a case brief)'
+    ? 'Paste case brief first… then Suspect said: … / My thoughts: …'
     : 'Ask Officer Serpico…';
 
   const sessionSheet =
@@ -301,13 +339,24 @@ const AIChat: React.FC = () => {
               );
             })}
           </div>
-          <div className="p-3 border-t border-white/10 safe-area-inset-bottom">
+          <div className="p-3 border-t border-white/10 space-y-2 safe-area-inset-bottom">
+            <button
+              type="button"
+              onClick={handleClearInterview}
+              className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border touch-manipulation ${
+                isDark
+                  ? 'border-white/15 bg-gray-900 text-gray-200'
+                  : 'border-gray-200 bg-gray-50 text-gray-800'
+              }`}
+            >
+              Clear interview (new case brief)
+            </button>
             <button
               type="button"
               onClick={handleNewSession}
-              className="w-full px-4 py-3 rounded-xl text-sm font-semibold bg-serpico-blue text-white touch-manipulation"
+              className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold bg-serpico-blue text-white touch-manipulation"
             >
-              + New Session
+              {isInterview ? 'New interview' : '+ New Session'}
             </button>
           </div>
         </div>
@@ -318,32 +367,9 @@ const AIChat: React.FC = () => {
   return (
     <div className="h-full min-h-0 flex flex-col overflow-hidden bg-synth-void">
       <div className="game-header flex-shrink-0 border-b border-white/10">
-        <div className="px-3 pt-3 pb-2 flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-wider text-synth-muted font-display">
-              Officer Serpico
-            </div>
-            <div className="font-semibold text-sm sm:text-base truncate text-synth-text">
-              {currentSession?.title || 'AI Chat'}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleClearChat}
-            className={`flex-shrink-0 px-2.5 py-2 rounded-lg text-xs font-medium touch-manipulation ${
-              isDark
-                ? 'bg-gray-800 text-gray-300 border border-white/10'
-                : 'bg-gray-100 text-gray-700 border border-gray-200'
-            }`}
-          >
-            Clear
-          </button>
-        </div>
-
-        {/* Always-visible session tabs — no menu required for Interview / General */}
-        <div className="px-3 pb-3 flex items-center gap-2">
+        <div className="px-2.5 py-1.5 flex items-center gap-1.5">
           <div
-            className={`flex-1 flex p-1 rounded-xl border ${
+            className={`flex-1 flex p-0.5 rounded-lg border min-w-0 ${
               isDark ? 'bg-black/40 border-white/10' : 'bg-gray-100 border-gray-200'
             }`}
             role="tablist"
@@ -359,9 +385,9 @@ const AIChat: React.FC = () => {
                   aria-selected={active}
                   title={tab.full}
                   onClick={() => selectSession(tab.id)}
-                  className={`flex-1 min-w-0 px-2 py-2.5 rounded-lg text-xs sm:text-sm font-semibold touch-manipulation transition-colors ${
+                  className={`flex-1 min-w-0 px-2 py-1 rounded-md text-[11px] font-semibold touch-manipulation transition-colors ${
                     active
-                      ? 'bg-serpico-blue text-white shadow'
+                      ? 'bg-serpico-blue text-white'
                       : isDark
                         ? 'text-gray-300 active:bg-white/5'
                         : 'text-gray-700 active:bg-white'
@@ -372,10 +398,11 @@ const AIChat: React.FC = () => {
               );
             })}
           </div>
+
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
-            className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-xs font-semibold border touch-manipulation ${
+            className={`flex-shrink-0 px-2 py-1 rounded-md text-[11px] font-semibold border touch-manipulation ${
               isDark
                 ? 'bg-gray-800 border-white/15 text-gray-200'
                 : 'bg-white border-gray-300 text-gray-800'
@@ -384,6 +411,34 @@ const AIChat: React.FC = () => {
           >
             All
           </button>
+
+          {isInterview ? (
+            <button
+              type="button"
+              onClick={handleClearInterview}
+              className={`flex-shrink-0 px-2 py-1 rounded-md text-[11px] font-semibold border touch-manipulation ${
+                isDark
+                  ? 'bg-gray-800 border-white/15 text-gray-200'
+                  : 'bg-gray-100 border-gray-200 text-gray-700'
+              }`}
+              title="Clear interview and start a new case brief"
+            >
+              Clear
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleClearChat}
+              className={`flex-shrink-0 px-2 py-1 rounded-md text-[11px] font-semibold border touch-manipulation ${
+                isDark
+                  ? 'bg-gray-800 border-white/15 text-gray-200'
+                  : 'bg-gray-100 border-gray-200 text-gray-700'
+              }`}
+              title="Clear chat history"
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 

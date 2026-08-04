@@ -63,20 +63,20 @@ What do you need?`,
 
   'suspect-interview': `### Officer Serpico — Suspect Interview Helper
 
-**10-4.** This channel coaches **legit, non-coercive interview questions** for a live suspect interview (PEACE · free recall · SUE).
+**10-4.** I'll coach **legit, non-coercive interview questions** (PEACE · free recall · SUE).
 
-#### How we work
-1. I give you the **next question** to ask.
-2. You ask the suspect.
-3. You reply with **Suspect said:** … and **My thoughts:** …
-4. I give the next question, backups, and actions.
+#### Start with a case brief
+Before the first question, send a short **case review**:
 
-#### Ask first (Engage / free account)
-> Tell me everything that happened from your point of view — start wherever you want, and take your time. I won't interrupt.
+- **Offense** (what happened)
+- **Known facts / evidence**
+- **Interview goal**
+- **Rights status** (Miranda / counsel / recording)
 
-**Optional:** Before you ask that, send a short case brief (offense, known facts/evidence, interview goal, rights status) and I'll tailor the opener.
+Example:
+> Case brief: residential burglary ~02:30, prints on rear window, suspect denies being there. Goal: timeline + alibi. Rights given; interview recorded.
 
-Then paste the suspect's answer + your thoughts after each round.`,
+Once I have that, I'll give the **first question**. Then you ask the suspect and reply with **Suspect said:** … **My thoughts:** …`,
 };
 
 export function getChatInitialMessage(context?: string): string {
