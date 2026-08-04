@@ -206,9 +206,9 @@ func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, 
 	}
 
 	if isSuspectInterviewContext(context) {
-		b.WriteString("**Officer turn (case brief, or Suspect answer + Officer thoughts):** ")
+		b.WriteString("**Officer turn (case brief required first; later: Suspect answer + Officer thoughts):** ")
 		b.WriteString(userMessage)
-		b.WriteString("\n\nRespond in Markdown as Officer Serpico using the Suspect Interview Helper format. Lead with the next question the officer should ask.")
+		b.WriteString("\n\nRespond in Markdown as Officer Serpico using the Suspect Interview Helper rules. If no usable case brief is in this turn or prior conversation, ask for the case brief only — do not give interview questions yet.")
 	} else {
 		b.WriteString("**Officer query:** ")
 		b.WriteString(userMessage)

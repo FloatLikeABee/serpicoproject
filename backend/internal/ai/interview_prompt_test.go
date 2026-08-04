@@ -23,6 +23,12 @@ func TestSuspectInterviewPromptInjected(t *testing.T) {
 	if !strings.Contains(prompt, "Strategic Use of Evidence") {
 		t.Fatal("expected SUE technique guidance")
 	}
+	if !strings.Contains(prompt, "Case brief is mandatory") {
+		t.Fatal("expected mandatory case brief rule")
+	}
+	if !strings.Contains(prompt, "ask for the case brief only") {
+		t.Fatal("expected case-brief gate in closing instruction")
+	}
 	if strings.Contains(prompt, "Prefer admin-curated RAG and digests over web search") {
 		t.Fatal("interview mode should use interview closing instruction")
 	}
