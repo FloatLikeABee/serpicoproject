@@ -1,6 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import InPursue from '../pages/police/InPursue';
 import Mysteries from '../pages/police/Mysteries';
@@ -12,15 +11,6 @@ import Notes from '../pages/Notes';
 import AIChat from '../pages/AIChat';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
-
-  const getDefaultView = () => {
-    if (user?.role === 'police') {
-      return <InPursue />;
-    }
-    return <NearbyOfficers />;
-  };
-
   return (
     <div className="app-shell synth-grid-bg synth-scanlines">
       <div className="flex-1 min-h-0 overflow-hidden relative">
@@ -43,7 +33,7 @@ const Dashboard: React.FC = () => {
           <Route path="/notes" element={<Notes />} />
           <Route path="/notes/:caseId" element={<Notes />} />
           <Route path="/settings" element={<Notes />} />
-          <Route path="/" element={getDefaultView()} />
+          <Route path="/" element={<Navigate to="/ai-chat" replace />} />
         </Routes>
       </div>
 
