@@ -207,6 +207,127 @@ export const chaseGameAPI = {
   },
 };
 
+export interface InvestigationHelperSession {
+  id: string;
+  userId: string;
+  title: string;
+  summary: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvestigationHelperMessage {
+  id: string;
+  sessionId: string;
+  role: 'user' | 'assistant' | string;
+  content: string;
+  createdAt: string;
+}
+
+export interface InvestigationHelperFile {
+  id: string;
+  sessionId: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  url: string;
+  createdAt: string;
+}
+
+export type InvestigationHelperPayload = {
+  session: InvestigationHelperSession;
+  messages: InvestigationHelperMessage[];
+  files: InvestigationHelperFile[];
+};
+
+const helperHeaders = (userId: string) => ({ 'X-User-Id': userId || 'guest' });
+
+export const investigationHelperAPI = {
+  listSessions: async (userId: string): Promise<{ sessions: InvestigationHelperSession[] }> => {
+    const response = await api.get<{ sessions: InvestigationHelperSession[] }>(
+      '/investigation-helper/sessions',
+      { headers: helperHeaders(userId), timeout: 15000 }
+    );
+    return response.data;
+  },
+  createSession: async (
+    userId: string,
+    payload?: { title?: string; summary?: string; notes?: string }
+  ): Promise<InvestigationHelperPayload> => {
+    const response = await api.post<InvestigationHelperPayload>(
+      '/investigation-helper/sessions',
+      payload || {},
+      { headers: helperHeaders(userId) }
+    );
+    return response.data;
+  },
+  getSession: async (userId: string, sessionId: string): Promise<InvestigationHelperPayload> => {
+    const response = await api.get<InvestigationHelperPayload>(
+      `/investigation-helper/sessions/${sessionId}`,
+      { headers: helperHeaders(userId) }
+    );
+    return response.data;
+  },
+  updateSession: async (
+    userId: string,
+    sessionId: string,
+    payload: { title?: string; summary?: string; notes?: string }
+  ): Promise<InvestigationHelperPayload> => {
+    const response = await api.put<InvestigationHelperPayload>(
+      `/investigation-helper/sessions/${sessionId}`,
+      payload,
+      { headers: helperHeaders(userId) }
+    );
+    return response.data;
+  },
+  deleteSession: async (userId: string, sessionId: string): Promise<void> => {
+    await api.delete(`/investigation-helper/sessions/${sessionId}`, {
+      headers: helperHeaders(userId),
+    });
+  },
+  uploadFile: async (
+    userId: string,
+    sessionId: string,
+    file: File
+  ): Promise<{ file: InvestigationHelperFile }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await api.post<{ file: InvestigationHelperFile }>(
+      `/investigation-helper/sessions/${sessionId}/uploads`,
+      form,
+      {
+        headers: helperHeaders(userId),
+        timeout: 60000,
+      }
+    );
+    return response.data;
+  },
+  deleteFile: async (userId: string, sessionId: string, fileId: string): Promise<void> => {
+    await api.delete(`/investigation-helper/sessions/${sessionId}/files/${fileId}`, {
+      headers: helperHeaders(userId),
+    });
+  },
+  chat: async (
+    userId: string,
+    sessionId: string,
+    message: string
+  ): Promise<InvestigationHelperPayload> => {
+    const response = await api.post<InvestigationHelperPayload>(
+      `/investigation-helper/sessions/${sessionId}/chat`,
+      { message },
+      { headers: helperHeaders(userId), timeout: 90000 }
+    );
+    return response.data;
+  },
+  fileUrl: (relativeUrl: string) => {
+    if (!relativeUrl) return '';
+    if (relativeUrl.startsWith('http')) return relativeUrl;
+    const base = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+    return `${base}${relativeUrl.startsWith('/') ? '' : '/'}${relativeUrl}`;
+  },
+};
+
 export const pursuitExamAPI = {
   getState: async (userId: string): Promise<{ session: PursuitExamSession }> => {
     const response = await api.get<{ session: PursuitExamSession }>('/pursuit-exam/state', {

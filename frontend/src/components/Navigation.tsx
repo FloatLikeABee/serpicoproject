@@ -9,10 +9,19 @@ const Navigation: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
 
-  const isActive = (path: string) =>
-    path === '/notes'
-      ? location.pathname === '/notes' || location.pathname.startsWith('/notes/')
-      : location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === '/notes') {
+      return location.pathname === '/notes' || location.pathname.startsWith('/notes/');
+    }
+    if (path === '/chase-game') {
+      return (
+        location.pathname === '/chase-game' ||
+        location.pathname === '/investigation-helper' ||
+        location.pathname.startsWith('/chase-game')
+      );
+    }
+    return location.pathname === path;
+  };
 
   const PursueIcon = () => (
     <svg {...iconProps}>
@@ -82,7 +91,7 @@ const Navigation: React.FC = () => {
 
   const policeNavItems: NavItem[] = [
     { path: '/in-pursue', label: 'Pursue', shortLabel: 'Go', icon: <PursueIcon /> },
-    { path: '/chase-game', label: 'Chase', shortLabel: 'Game', icon: <ChaseGameIcon /> },
+    { path: '/chase-game', label: 'Chase', shortLabel: 'Inv', icon: <ChaseGameIcon /> },
     { path: '/board', label: 'Board', shortLabel: 'Board', icon: <BoardIcon /> },
   ];
 

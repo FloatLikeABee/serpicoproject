@@ -196,6 +196,36 @@ func createTables(db *sql.DB) error {
 			FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_investigation_nodes_case_time ON investigation_nodes(case_id, event_time)`,
+		`CREATE TABLE IF NOT EXISTS investigation_helper_sessions (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			title TEXT NOT NULL,
+			summary TEXT,
+			notes TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_inv_helper_sessions_user ON investigation_helper_sessions(user_id, updated_at)`,
+		`CREATE TABLE IF NOT EXISTS investigation_helper_messages (
+			id TEXT PRIMARY KEY,
+			session_id TEXT NOT NULL,
+			role TEXT NOT NULL,
+			content TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (session_id) REFERENCES investigation_helper_sessions(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_inv_helper_messages_session ON investigation_helper_messages(session_id, created_at)`,
+		`CREATE TABLE IF NOT EXISTS investigation_helper_files (
+			id TEXT PRIMARY KEY,
+			session_id TEXT NOT NULL,
+			filename TEXT NOT NULL,
+			mime_type TEXT,
+			size_bytes INTEGER DEFAULT 0,
+			storage_path TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (session_id) REFERENCES investigation_helper_sessions(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_inv_helper_files_session ON investigation_helper_files(session_id)`,
 	}
 
 	for _, query := range queries {

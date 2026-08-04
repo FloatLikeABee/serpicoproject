@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
 import InPursue from '../pages/police/InPursue';
 import Mysteries from '../pages/police/Mysteries';
-import ChaseGame from '../pages/police/ChaseGame';
+import ChaseHub from '../pages/police/ChaseHub';
 import NearbyOfficers from '../pages/civilian/NearbyOfficers';
 import NearbyPerps from '../pages/civilian/NearbyPerps';
 import SafeRoutes from '../pages/civilian/SafeRoutes';
@@ -30,7 +30,8 @@ const Dashboard: React.FC = () => {
           <Route path="/board" element={<Mysteries />} />
           <Route path="/mysteries" element={<Mysteries />} />
           <Route path="/leisure" element={<Mysteries />} />
-          <Route path="/chase-game" element={<ChaseGame />} />
+          <Route path="/chase-game" element={<ChaseHub />} />
+          <Route path="/investigation-helper" element={<ChaseHub />} />
 
           {/* Civilian routes */}
           <Route path="/nearby-officers" element={<NearbyOfficers />} />

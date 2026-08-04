@@ -103,8 +103,9 @@ func contextLabel(context string) string {
 		"nearby-officers":    "Unit locations and officer availability",
 		"nearby-perps":       "Recent criminal activity in the area",
 		"safe-routes":        "Route safety based on crime patterns",
-		"chase-game":         "Pursuit training / Chase Game",
-		"suspect-interview":  "Suspect interview coaching (PEACE / SUE)",
+		"chase-game":            "Pursuit training / Chase Game",
+		"suspect-interview":     "Suspect interview coaching (PEACE / SUE)",
+		"investigation-helper":  "Crime-scene investigation brainstorm + interview questions",
 	}
 	if label, ok := labels[context]; ok {
 		return label
@@ -175,6 +176,10 @@ func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, 
 		b.WriteString(suspectInterviewPrompt)
 		b.WriteString("\n\n")
 	}
+	if isInvestigationHelperContext(context) {
+		b.WriteString(investigationHelperPrompt)
+		b.WriteString("\n\n")
+	}
 
 	if context != "" {
 		b.WriteString(fmt.Sprintf("**Operational context:** %s\n\n", contextLabel(context)))
@@ -209,6 +214,10 @@ func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, 
 		b.WriteString("**Officer turn (case brief required first; later: Suspect answer + Officer thoughts):** ")
 		b.WriteString(userMessage)
 		b.WriteString("\n\nRespond in Markdown as Officer Serpico using the Suspect Interview Helper rules. If no usable case brief is in this turn or prior conversation, ask for the case brief only — do not give interview questions yet.")
+	} else if isInvestigationHelperContext(context) {
+		b.WriteString("**Investigation Helper turn:** ")
+		b.WriteString(userMessage)
+		b.WriteString("\n\nRespond in Markdown as Officer Serpico in Investigation Helper brainstorm mode. Help investigate and draft interview questions when useful.")
 	} else {
 		b.WriteString("**Officer query:** ")
 		b.WriteString(userMessage)
