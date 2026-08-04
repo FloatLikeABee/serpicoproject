@@ -47,6 +47,14 @@ const InvestigationHelper: React.FC = () => {
     []
   );
 
+  const apiErrorMessage = (err: unknown, fallback: string) => {
+    const anyErr = err as { response?: { data?: { error?: string }; status?: number }; message?: string };
+    if (anyErr?.response?.data?.error) return anyErr.response.data.error;
+    if (anyErr?.response?.status === 404) return 'Investigation Helper API not found — backend may still be deploying.';
+    if (anyErr?.message?.includes('Network')) return 'Network error reaching the API (CORS or offline).';
+    return fallback;
+  };
+
   const refreshList = useCallback(async () => {
     try {
       const { sessions: list } = await investigationHelperAPI.listSessions(userId);
@@ -54,7 +62,7 @@ const InvestigationHelper: React.FC = () => {
       return list || [];
     } catch (err) {
       console.error(err);
-      setError('Could not load investigation sessions.');
+      setError(apiErrorMessage(err, 'Could not load investigation sessions.'));
       return [];
     }
   }, [userId]);
@@ -69,7 +77,7 @@ const InvestigationHelper: React.FC = () => {
         setListOpen(false);
       } catch (err) {
         console.error(err);
-        setError('Could not open session.');
+        setError(apiErrorMessage(err, 'Could not open session.'));
       } finally {
         setLoading(false);
       }
@@ -87,7 +95,7 @@ const InvestigationHelper: React.FC = () => {
       setListOpen(false);
     } catch (err) {
       console.error(err);
-      setError('Could not create session.');
+      setError(apiErrorMessage(err, 'Could not create session.'));
     } finally {
       setLoading(false);
     }
@@ -279,7 +287,6 @@ const InvestigationHelper: React.FC = () => {
             <p className={`text-xs ${muted}`}>Upload photos or case files, then brainstorm below.</p>
           )}
           {files.map((f) => {
-            const src = investigationHelperAPI.fileUrl(f.url);
             const isImage = (f.mimeType || '').startsWith('image/');
             return (
               <div
@@ -289,7 +296,11 @@ const InvestigationHelper: React.FC = () => {
                 }`}
               >
                 {isImage ? (
-                  <img src={`${src}?userId=${encodeURIComponent(userId)}`} alt={f.filename} className="w-full h-full object-cover" />
+                  <img
+                    src={investigationHelperAPI.fileUrl(f.url, userId)}
+                    alt={f.filename}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center p-1 text-[9px] text-center text-synth-muted">
                     {f.filename}
