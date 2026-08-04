@@ -5,9 +5,9 @@ import { chaseGameAPI, ChaseGameSession } from '../../services/api';
 type GamePhase = 'lobby' | 'playing' | 'evaluation';
 
 const DIFFICULTIES = [
-  { id: 'easy', label: 'Rookie', icon: '🎖️', desc: 'Extra hints, forgiving scoring' },
-  { id: 'medium', label: 'Patrol', icon: '🚔', desc: 'Standard pursuit training' },
-  { id: 'hard', label: 'SWAT', icon: '⚡', desc: 'Chaos mode — think fast!' },
+  { id: 'easy', label: 'Rookie', desc: 'Extra hints' },
+  { id: 'medium', label: 'Patrol', desc: 'Standard' },
+  { id: 'hard', label: 'SWAT', desc: 'Think fast' },
 ];
 
 const ChaseGame: React.FC = () => {
@@ -73,20 +73,24 @@ const ChaseGame: React.FC = () => {
 
   return (
     <div className={`page-fill ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className="game-header p-2 sm:p-4 flex-shrink-0">
+      <div className="game-header px-3 py-2 sm:p-3 flex-shrink-0">
         <div className="flex items-center justify-between gap-2">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-serpico-red dark:text-serpico-red-light flex items-center gap-2">
-              <span>🏁</span> Chase Game
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-serpico-red dark:text-serpico-red-light truncate">
+              Chase Game
             </h1>
-            <p className={`text-sm mt-0.5 ${muted}`}>
-              Pursuit training sim — vehicle & foot scenarios powered by AI
-            </p>
+            {phase === 'lobby' ? (
+              <p className={`text-xs mt-0.5 ${muted}`}>AI pursuit training — pick difficulty & go</p>
+            ) : (
+              <p className={`text-xs sm:text-sm mt-0.5 ${muted}`}>
+                Pursuit training sim — vehicle & foot scenarios
+              </p>
+            )}
           </div>
           {phase !== 'lobby' && (
             <button
               onClick={resetGame}
-              className={`text-xs sm:text-sm px-3 py-1.5 rounded-lg border ${
+              className={`text-xs sm:text-sm px-3 py-1.5 rounded-lg border flex-shrink-0 ${
                 isDark ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -96,7 +100,7 @@ const ChaseGame: React.FC = () => {
         </div>
 
         {phase !== 'lobby' && session && (
-          <div className="mt-3">
+          <div className="mt-2">
             <div className="flex justify-between text-xs mb-1">
               <span className={muted}>Mission progress</span>
               <span className="font-medium text-serpico-blue">
@@ -113,60 +117,57 @@ const ChaseGame: React.FC = () => {
         )}
       </div>
 
-      <div className="scroll-area p-2 sm:p-4">
+      <div className={`flex-1 min-h-0 ${phase === 'lobby' ? 'flex flex-col overflow-hidden' : 'scroll-area'} p-2 sm:p-4`}>
         {error && (
-          <div className="mb-3 p-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">
+          <div className="mb-2 flex-shrink-0 p-2.5 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm">
             {error}
           </div>
         )}
 
-        {/* Lobby */}
+        {/* Lobby — compact so Start stays on-screen */}
         {phase === 'lobby' && (
-          <div className="max-w-lg mx-auto space-y-4">
-            <div className={`p-5 rounded-2xl ${cardBg} shadow-sm border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-              <h2 className="text-lg font-bold dark:text-white mb-2">Ready for pursuit training?</h2>
-              <p className={`text-sm ${muted} mb-4`}>
-                AI Game Master drops you into cinematic vehicle & foot pursuit scenarios.
-                Make tactical calls, handle twists, then get scored against the operation codex and real specimen cases.
+          <div className="max-w-lg mx-auto w-full flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pb-2">
+              <p className={`text-sm ${muted}`}>
+                Make tactical calls in AI vehicle & foot pursuits. Scored vs doctrine — earn ranks from Rookie to Pursuit Legend.
               </p>
-              <ul className={`text-sm space-y-2 ${muted}`}>
-                <li>🎬 AI-generated scenario + scene image</li>
-                <li>🔄 Interactive what-if rounds</li>
-                <li>📋 Scored against IACP & Olathe PD doctrine</li>
-                <li>🏆 Earn ranks — Rookie to Pursuit Legend</li>
-              </ul>
-            </div>
 
-            <div>
-              <p className={`text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Pick difficulty</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {DIFFICULTIES.map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => setDifficulty(d.id)}
-                    className={`p-3 rounded-xl border-2 text-left transition-all ${
-                      difficulty === d.id
-                        ? 'border-serpico-blue bg-serpico-blue/10'
-                        : isDark
-                        ? 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <span className="text-2xl">{d.icon}</span>
-                    <p className="font-bold text-sm dark:text-white mt-1">{d.label}</p>
-                    <p className={`text-xs ${muted}`}>{d.desc}</p>
-                  </button>
-                ))}
+              <div>
+                <p className={`text-xs font-medium mb-1.5 uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Difficulty
+                </p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {DIFFICULTIES.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setDifficulty(d.id)}
+                      className={`px-1.5 py-2 rounded-lg border-2 text-center transition-all touch-manipulation ${
+                        difficulty === d.id
+                          ? 'border-serpico-blue bg-serpico-blue/10'
+                          : isDark
+                          ? 'border-gray-700 bg-gray-800'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                    >
+                      <p className="font-bold text-xs sm:text-sm dark:text-white leading-tight">{d.label}</p>
+                      <p className={`text-[10px] leading-snug mt-0.5 line-clamp-2 ${muted}`}>{d.desc}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={startGame}
-              disabled={loading}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-serpico-red to-serpico-blue text-white font-bold text-lg shadow-lg hover:opacity-95 disabled:opacity-50 transition-opacity"
-            >
-              {loading ? 'Generating mission...' : '🚨 Start Chase Game'}
-            </button>
+            <div className="flex-shrink-0 pt-2 pb-1">
+              <button
+                type="button"
+                onClick={startGame}
+                disabled={loading}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-serpico-red to-serpico-blue text-white font-bold text-base shadow-lg hover:opacity-95 disabled:opacity-50 transition-opacity touch-manipulation"
+              >
+                {loading ? 'Generating mission...' : 'Start Chase Game'}
+              </button>
+            </div>
           </div>
         )}
 
