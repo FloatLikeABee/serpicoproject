@@ -1,9 +1,9 @@
 /** Shared officer-voice greeting messages for AI chat (Markdown). */
 
 const contextMessages: Record<string, string> = {
-  'in-pursue': `### Officer Serpico — Pursuit Advisory
+  'in-pursue': `### Officer Serpico — Pursue Map
 
-**10-4.** I'm on channel for pursuit operations — active units, suspect movement, and intercept strategy.
+**10-4.** Pursue is the Olathe intel map — drop pins, add notes, and I'll help with locations or tag context.
 
 What do you need, officer?`,
 
