@@ -55,9 +55,11 @@ What intel do you need?`,
 
 Where are you headed?`,
 
-  'chase-game': `### Officer Serpico — Pursuit Training
+  'chase-game': `### Officer Serpico — Fleet Desk
 
-**Ready for training.** Chase Game rules, pursuit codex, and debrief — or hit the **Chase** tab for a live scenario.
+**10-4.** Fleet is the city map for stations, police vehicles, and crime-scene / event pins — not a chase game.
+
+Drop a marker, add notes, then switch cities to jump the map.
 
 What do you need?`,
 

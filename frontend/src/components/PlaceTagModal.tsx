@@ -22,6 +22,8 @@ interface PlaceTagModalProps {
   autoEnrich?: boolean;
   /** New pins start in edit mode; reopening a saved tag starts compact view. */
   startInEditMode?: boolean;
+  /** Limit type dropdown (Fleet uses stations / vehicles / scenes). */
+  kindOptions?: typeof MAP_TAG_KINDS;
 }
 
 const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
@@ -32,7 +34,9 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   onLocationUpdate,
   autoEnrich = false,
   startInEditMode = false,
+  kindOptions,
 }) => {
+  const kinds = kindOptions && kindOptions.length > 0 ? kindOptions : MAP_TAG_KINDS;
   const [draft, setDraft] = useState(tag);
   const [editing, setEditing] = useState(startInEditMode);
   const [enriching, setEnriching] = useState(false);
@@ -41,7 +45,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   const [aiExpanded, setAiExpanded] = useState(false);
   const autoStarted = React.useRef(false);
   const mappedPinKeyRef = React.useRef('');
-  const meta = tagMeta(draft.kind);
+  const meta = kinds.find((k) => k.kind === draft.kind) ?? tagMeta(draft.kind);
 
   const applyLocation = (next: MapTag) => {
     setDraft(next);
@@ -235,7 +239,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                   className="w-full px-3 py-2 rounded-lg border border-white/10 bg-[#0b0818] text-sm text-white"
                   style={{ colorScheme: 'dark' }}
                 >
-                  {MAP_TAG_KINDS.map((k) => (
+                  {kinds.map((k) => (
                     <option key={k.kind} value={k.kind}>
                       {k.label}
                     </option>

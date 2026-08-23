@@ -91,6 +91,15 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		invHelper.GET("/files/:fileId", func(c *gin.Context) { handleHelperGetFile(c, db) })
 	}
 
+	// Fleet map — stations, vehicles, crime/event markers
+	fleet := r.Group("/fleet")
+	{
+		fleet.GET("/markers", func(c *gin.Context) { handleFleetListMarkers(c, db) })
+		fleet.POST("/markers", func(c *gin.Context) { handleFleetCreateMarker(c, db) })
+		fleet.PUT("/markers/:id", func(c *gin.Context) { handleFleetUpdateMarker(c, db) })
+		fleet.DELETE("/markers/:id", func(c *gin.Context) { handleFleetDeleteMarker(c, db) })
+	}
+
 	// Pursuit Exam routes (per-user map strategy training)
 	pursuitExam := r.Group("/pursuit-exam")
 	{
