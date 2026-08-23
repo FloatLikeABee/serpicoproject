@@ -226,6 +226,20 @@ func createTables(db *sql.DB) error {
 			FOREIGN KEY (session_id) REFERENCES investigation_helper_sessions(id) ON DELETE CASCADE
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_inv_helper_files_session ON investigation_helper_files(session_id)`,
+		`CREATE TABLE IF NOT EXISTS fleet_markers (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			city_id TEXT NOT NULL,
+			kind TEXT NOT NULL,
+			name TEXT NOT NULL,
+			lat REAL NOT NULL,
+			lng REAL NOT NULL,
+			address TEXT,
+			notes TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_fleet_markers_user_city ON fleet_markers(user_id, city_id)`,
 	}
 
 	for _, query := range queries {

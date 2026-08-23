@@ -91,7 +91,7 @@ const Navigation: React.FC = () => {
 
   const policeNavItems: NavItem[] = [
     { path: '/in-pursue', label: 'Pursue', shortLabel: 'Go', icon: <PursueIcon /> },
-    { path: '/chase-game', label: 'Chase', shortLabel: 'Inv', icon: <ChaseGameIcon /> },
+    { path: '/chase-game', label: 'Fleet', shortLabel: 'Fleet', icon: <ChaseGameIcon /> },
     { path: '/board', label: 'Board', shortLabel: 'Board', icon: <BoardIcon /> },
   ];
 

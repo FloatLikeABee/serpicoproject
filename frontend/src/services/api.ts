@@ -581,5 +581,76 @@ export const investigationAPI = {
   },
 };
 
+export interface FleetMarkerPayload {
+  id: string;
+  cityId: string;
+  kind: string;
+  name: string;
+  lat: number;
+  lng: number;
+  address?: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const fleetAPI = {
+  listMarkers: async (
+    userId: string,
+    cityId?: string
+  ): Promise<{ markers: FleetMarkerPayload[] }> => {
+    const response = await api.get<{ markers: FleetMarkerPayload[] }>('/fleet/markers', {
+      params: { ...helperParams(userId), ...(cityId ? { cityId } : {}) },
+      timeout: 15000,
+    });
+    return response.data;
+  },
+  createMarker: async (
+    userId: string,
+    payload: {
+      id?: string;
+      cityId: string;
+      kind: string;
+      name: string;
+      lat: number;
+      lng: number;
+      address?: string;
+      notes?: string;
+    }
+  ): Promise<{ marker: FleetMarkerPayload }> => {
+    const response = await api.post<{ marker: FleetMarkerPayload }>('/fleet/markers', payload, {
+      params: helperParams(userId),
+      timeout: 20000,
+    });
+    return response.data;
+  },
+  updateMarker: async (
+    userId: string,
+    markerId: string,
+    payload: {
+      cityId?: string;
+      kind?: string;
+      name?: string;
+      lat?: number;
+      lng?: number;
+      address?: string;
+      notes?: string;
+    }
+  ): Promise<{ marker: FleetMarkerPayload }> => {
+    const response = await api.put<{ marker: FleetMarkerPayload }>(
+      `/fleet/markers/${markerId}`,
+      payload,
+      { params: helperParams(userId), timeout: 20000 }
+    );
+    return response.data;
+  },
+  deleteMarker: async (userId: string, markerId: string): Promise<void> => {
+    await api.delete(`/fleet/markers/${markerId}`, {
+      params: helperParams(userId),
+      timeout: 15000,
+    });
+  },
+};
+
 export default api;
 
