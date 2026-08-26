@@ -13,9 +13,10 @@ import (
 )
 
 var fleetKinds = map[string]bool{
-	"police_station":  true,
-	"police_vehicle":  true,
-	"investigation":   true,
+	"police_station": true,
+	"personnel":      true,
+	"police_vehicle": true,
+	"investigation":  true,
 }
 
 type fleetMarkerRow struct {
@@ -116,7 +117,7 @@ func handleFleetCreateMarker(c *gin.Context, db *database.Database) {
 
 	kind := strings.TrimSpace(req.Kind)
 	if !fleetKinds[kind] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "kind must be police_station, police_vehicle, or investigation"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "kind must be police_station, personnel, police_vehicle, or investigation"})
 		return
 	}
 	cityID := strings.TrimSpace(req.CityID)
@@ -183,7 +184,7 @@ func handleFleetUpdateMarker(c *gin.Context, db *database.Database) {
 	if strings.TrimSpace(req.Kind) != "" {
 		kind = strings.TrimSpace(req.Kind)
 		if !fleetKinds[kind] {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "kind must be police_station, police_vehicle, or investigation"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "kind must be police_station, personnel, police_vehicle, or investigation"})
 			return
 		}
 	}

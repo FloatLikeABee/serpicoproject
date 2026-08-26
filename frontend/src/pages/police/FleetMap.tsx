@@ -35,6 +35,7 @@ function toFleetMarker(tag: MapTag, cityId: string, existing?: FleetMarker): Fle
 
 const emptyCounts = (): Record<FleetMarkerKind, number> => ({
   police_station: 0,
+  personnel: 0,
   police_vehicle: 0,
   investigation: 0,
 });
@@ -360,7 +361,7 @@ const FleetMap: React.FC = () => {
         {cityMarkers.length === 0 ? (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1100] w-[min(360px,92vw)] pointer-events-none">
             <div className="rounded-lg border border-neon-cyan/30 bg-black/70 px-3 py-2 text-[11px] text-gray-200 text-center">
-              Tap the map to mark a station, vehicle, or crime scene. Switch cities from the list above.
+              Tap the map to mark a station, personnel, vehicle, or crime scene. Switch cities from the list above.
             </div>
           </div>
         ) : null}
@@ -371,7 +372,6 @@ const FleetMap: React.FC = () => {
           tag={activeTag}
           kindOptions={kindOptions}
           startInEditMode={autoEnrichTagId === activeTag.id}
-          autoEnrich={autoEnrichTagId === activeTag.id && !activeTag.enrichment}
           onLocationUpdate={syncTagLocation}
           onChange={saveMarker}
           onDelete={deleteMarker}

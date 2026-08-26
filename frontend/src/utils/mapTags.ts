@@ -2,6 +2,7 @@
 
 export type MapTagKind =
   | 'police_officer'
+  | 'personnel'
   | 'police_vehicle'
   | 'police_station'
   | 'perp'
@@ -39,6 +40,7 @@ export const MAP_TAG_KINDS: Array<{
   glyph: string;
 }> = [
   { kind: 'police_officer', label: 'Police officer', short: 'Officer', color: '#38bdf8', glyph: 'O' },
+  { kind: 'personnel', label: 'Personnel', short: 'Staff', color: '#0ea5e9', glyph: 'N' },
   { kind: 'police_vehicle', label: 'Police vehicle', short: 'PD car', color: '#2563eb', glyph: 'V' },
   { kind: 'police_station', label: 'Police station', short: 'Station', color: '#1e3a8a', glyph: 'S' },
   { kind: 'perp', label: 'Perp', short: 'Perp', color: '#ef4444', glyph: 'P' },
