@@ -2,7 +2,7 @@ import type { MapTag, MapTagKind } from './mapTags';
 import { createMapTag, MAP_TAG_KINDS, tagMeta } from './mapTags';
 
 /** Fleet pin categories — stations, vehicles, crime/event zones. */
-export type FleetMarkerKind = 'police_station' | 'police_vehicle' | 'investigation';
+export type FleetMarkerKind = 'police_station' | 'personnel' | 'police_vehicle' | 'investigation';
 
 export const FLEET_MARKER_KINDS: Array<{
   kind: FleetMarkerKind;
@@ -12,6 +12,7 @@ export const FLEET_MARKER_KINDS: Array<{
   glyph: string;
 }> = [
   { kind: 'police_station', label: 'Station / facility', short: 'Station', color: '#1e3a8a', glyph: 'S' },
+  { kind: 'personnel', label: 'Personnel', short: 'Staff', color: '#0ea5e9', glyph: 'N' },
   { kind: 'police_vehicle', label: 'Police vehicle', short: 'Vehicle', color: '#2563eb', glyph: 'V' },
   { kind: 'investigation', label: 'Crime scene / event', short: 'Scene', color: '#c026d3', glyph: 'C' },
 ];
@@ -67,9 +68,9 @@ export function createFleetMarker(
 }
 
 export function fleetKindsForModal() {
-  return MAP_TAG_KINDS.filter((k) => FLEET_KIND_SET.has(k.kind)).map((k) => {
-    const fleet = fleetKindMeta(k.kind);
-    return { ...k, label: fleet.label, short: fleet.short, color: fleet.color, glyph: fleet.glyph };
+  return FLEET_MARKER_KINDS.map((fleet) => {
+    const base = MAP_TAG_KINDS.find((k) => k.kind === fleet.kind) ?? MAP_TAG_KINDS[MAP_TAG_KINDS.length - 1];
+    return { ...base, label: fleet.label, short: fleet.short, color: fleet.color, glyph: fleet.glyph };
   });
 }
 

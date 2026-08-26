@@ -18,11 +18,9 @@ interface PlaceTagModalProps {
   onClose: () => void;
   /** Live pin/address updates while the modal is open (auto mapping). */
   onLocationUpdate?: (tag: MapTag) => void;
-  /** Kick off AI web lookup when the modal opens (e.g. right after placing). */
-  autoEnrich?: boolean;
   /** New pins start in edit mode; reopening a saved tag starts compact view. */
   startInEditMode?: boolean;
-  /** Limit type dropdown (Fleet uses stations / vehicles / scenes). */
+  /** Limit type dropdown (Fleet uses stations / personnel / vehicles / scenes). */
   kindOptions?: typeof MAP_TAG_KINDS;
 }
 
@@ -32,7 +30,6 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   onDelete,
   onClose,
   onLocationUpdate,
-  autoEnrich = false,
   startInEditMode = false,
   kindOptions,
 }) => {
@@ -43,7 +40,6 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   const [mappingLocation, setMappingLocation] = useState(false);
   const [error, setError] = useState('');
   const [aiExpanded, setAiExpanded] = useState(false);
-  const autoStarted = React.useRef(false);
   const mappedPinKeyRef = React.useRef('');
   const meta = kinds.find((k) => k.kind === draft.kind) ?? tagMeta(draft.kind);
 
@@ -56,9 +52,8 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
     setDraft(tag);
     setError('');
     setEditing(startInEditMode);
-    setAiExpanded(autoEnrich || (!startInEditMode && !!tag.enrichment));
-    autoStarted.current = false;
-  }, [tag.id, startInEditMode, autoEnrich]); // eslint-disable-line react-hooks/exhaustive-deps
+    setAiExpanded(!!tag.enrichment);
+  }, [tag.id, startInEditMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pull address updates from geocode without clobbering typed notes/name.
   useEffect(() => {
@@ -125,7 +120,15 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
     }
   };
 
+  const hasFilledInfo =
+    draft.name.trim().length > 0 &&
+    (draft.notes.trim().length > 0 || (!!draft.address && !isCoordsOnlyAddress(draft.address)));
+
   const enrichWithAI = async () => {
+    if (!hasFilledInfo) {
+      setError('Fill in a name plus notes or a street address, then create AI info.');
+      return;
+    }
     setEnriching(true);
     setError('');
     setAiExpanded(true);
@@ -161,13 +164,6 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
       setEnriching(false);
     }
   };
-
-  useEffect(() => {
-    if (!autoEnrich || autoStarted.current || tag.enrichment) return;
-    autoStarted.current = true;
-    void enrichWithAI();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoEnrich, tag.id]);
 
   const openedInViewMode = !startInEditMode;
 
@@ -282,6 +278,9 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                   placeholder="Observations, leads… (Markdown supported)"
                   className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white resize-none"
                 />
+                <p className="text-[10px] text-synth-muted/80">
+                  Fill name and notes or address, then tap Create AI info.
+                </p>
               </label>
             </>
           ) : (
@@ -322,7 +321,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
               )}
             </div>
           ) : enriching ? (
-            <p className="text-[11px] text-neon-magenta animate-pulse px-1">AI location check running…</p>
+            <p className="text-[11px] text-neon-magenta animate-pulse px-1">Creating AI info…</p>
           ) : null}
         </div>
 
@@ -333,10 +332,15 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
               <button
                 type="button"
                 onClick={() => void enrichWithAI()}
-                disabled={enriching}
+                disabled={enriching || !hasFilledInfo}
+                title={
+                  hasFilledInfo
+                    ? 'Create AI info from the filled name, notes, and address'
+                    : 'Add a name plus notes or a street address first'
+                }
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-magenta/40 text-neon-magenta hover:bg-neon-magenta/15 disabled:opacity-50"
               >
-                {enriching ? 'Checking…' : 'AI check'}
+                {enriching ? 'Creating…' : 'Create AI info'}
               </button>
               <div className="flex gap-2">
                 <button
@@ -379,10 +383,15 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
               <button
                 type="button"
                 onClick={() => void enrichWithAI()}
-                disabled={enriching}
+                disabled={enriching || !hasFilledInfo}
+                title={
+                  hasFilledInfo
+                    ? 'Create AI info from the filled name, notes, and address'
+                    : 'Add a name plus notes or a street address first'
+                }
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-magenta/40 text-neon-magenta hover:bg-neon-magenta/15 disabled:opacity-50"
               >
-                {enriching ? 'Checking…' : 'AI check'}
+                {enriching ? 'Creating…' : 'Create AI info'}
               </button>
               <button
                 type="button"
