@@ -94,14 +94,79 @@ func TestBuildChatPromptPlaceTag_NYCDoesNotUseOlatheIdentityOrStats(t *testing.T
 	}
 }
 
-func TestBuildChatPromptPlaceTag_OlathePinCanUseMatchingRAG(t *testing.T) {
-	docs := filterRAGDocsForPlace([]RAGDocument{olatheCrimeDoc()}, olathePlaceMessage())
+func footPursuitDoc() RAGDocument {
+	return RAGDocument{
+		ID:       "rag-chase-003",
+		Title:    "Foot Pursuit Operation Codex",
+		Content:  "Foot pursuit protocol: 1) Announce foot pursuit on radio with direction of travel. 2) Primary pursuer must not enter blind alleys alone — hold containment. 3) K-9 request within first 2 minutes when available. 4) Perimeter units seal exits before interior entry. 5) Less-lethal and med standby for known armed subjects. 6) Document suspect description and discarded clothing/weapons.",
+		Category: "chase-game",
+		Location: "Olathe, KS",
+		Tags:     []string{"chase", "game", "foot", "pursuit", "codex"},
+	}
+}
+
+func TestFilterRAGDocsForPlace_DropsChaseGameEvenInOlathe(t *testing.T) {
+	got := filterRAGDocsForPlace([]RAGDocument{footPursuitDoc(), olatheCrimeDoc()}, olathePlaceMessage())
+	for _, doc := range got {
+		if doc.ID == "rag-chase-003" || strings.Contains(doc.Content, "Foot pursuit protocol") {
+			t.Fatalf("map pins must not use chase-game SOPs, got %#v", got)
+		}
+	}
+	if len(got) != 1 || got[0].ID != "rag-001" {
+		t.Fatalf("expected only Olathe crime stats through the filter helper, got %#v", got)
+	}
+}
+
+func TestBuildChatPromptPlaceTag_OlathePinDoesNotPasteFootPursuit(t *testing.T) {
+	docs := filterRAGDocsForPlace([]RAGDocument{footPursuitDoc(), olatheCrimeDoc()}, olathePlaceMessage())
 	prompt := BuildChatPrompt(olathePlaceMessage(), "in-pursue-place", nil, docs, "", "")
-	if !strings.Contains(prompt, "Olathe PD reported 1,234") {
-		t.Fatal("Olathe pin should still receive matching department records")
+	if strings.Contains(prompt, "Foot pursuit protocol") {
+		t.Fatal("place-tag prompt must not include foot pursuit SOP")
 	}
 	if !strings.Contains(prompt, "Do not mention Olathe or Kansas unless that is the pin address") {
 		t.Fatal("expected geographic closing instruction")
+	}
+}
+
+func TestPlaceTagFallbackNeverDumpsFootPursuitCodex(t *testing.T) {
+	s := &AIService{}
+	out := s.generateFallbackResponse(olathePlaceMessage(), []RAGDocument{footPursuitDoc()}, "in-pursue-place", "")
+	if strings.Contains(out, "Foot pursuit protocol") {
+		t.Fatalf("fallback pasted chase-game SOP: %s", out)
+	}
+	if strings.Contains(out, "Here's what I pulled from department records") {
+		t.Fatalf("place-tag fallback must not dump department records: %s", out)
+	}
+	if !strings.Contains(out, "Unit 12") {
+		t.Fatalf("fallback should use the pin name, got %s", out)
+	}
+	if !strings.Contains(out, "Olathe") {
+		t.Fatalf("fallback should use the pin city, got %s", out)
+	}
+	if !strings.Contains(out, "Subject left the station lot") {
+		t.Fatalf("fallback should use officer notes, got %s", out)
+	}
+}
+
+func TestPlaceTagFallbackDoesNotDumpUnrelatedRAG(t *testing.T) {
+	s := &AIService{}
+	out := s.generateFallbackResponse(nycPlaceMessage(), nil, "in-pursue-place", "")
+	if strings.Contains(out, "Olathe") {
+		t.Fatalf("fallback for NYC pin leaked Olathe: %s", out)
+	}
+	if strings.Contains(out, "Foot pursuit protocol") {
+		t.Fatalf("fallback for NYC pin leaked chase SOP: %s", out)
+	}
+	if !strings.Contains(out, "New York") {
+		t.Fatalf("fallback should mention the pin city, got %s", out)
+	}
+	if !strings.Contains(out, "Tom Bind") {
+		t.Fatalf("fallback should mention the pin name, got %s", out)
+	}
+
+	general := s.generateFallbackResponse("crime stats?", []RAGDocument{olatheCrimeDoc()}, "in-pursue", "")
+	if !strings.Contains(general, "Olathe PD reported 1,234") {
+		t.Fatal("non-place fallback should still dump matching department records")
 	}
 }
 
@@ -118,21 +183,5 @@ func TestPlaceTagWebQueryUsesAddressNotContextSlug(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(q), "olathe") {
 		t.Fatalf("NYC pin search must not include Olathe, got %q", q)
-	}
-}
-
-func TestPlaceTagFallbackDoesNotDumpUnrelatedRAG(t *testing.T) {
-	s := &AIService{}
-	out := s.generateFallbackResponse(nycPlaceMessage(), nil, "in-pursue-place")
-	if strings.Contains(out, "Olathe") {
-		t.Fatalf("fallback for NYC pin leaked Olathe: %s", out)
-	}
-	if !strings.Contains(out, "New York") {
-		t.Fatalf("fallback should mention the pin city, got %s", out)
-	}
-
-	general := s.generateFallbackResponse("crime stats?", []RAGDocument{olatheCrimeDoc()}, "in-pursue")
-	if !strings.Contains(general, "Olathe PD reported 1,234") {
-		t.Fatal("non-place fallback should still dump matching department records")
 	}
 }

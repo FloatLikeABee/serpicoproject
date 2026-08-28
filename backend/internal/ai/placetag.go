@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 )
@@ -77,13 +78,31 @@ func placeTagLocationHaystack(userMessage string) string {
 	return strings.Join(parts, " ")
 }
 
+func isPlaceTagExcludedRAG(doc RAGDocument) bool {
+	cat := strings.ToLower(strings.TrimSpace(doc.Category))
+	switch cat {
+	case "chase-game", "chase", "strategy", "tactics":
+		return true
+	}
+	for _, tag := range doc.Tags {
+		t := strings.ToLower(strings.TrimSpace(tag))
+		if t == "chase" || t == "game" || t == "codex" {
+			return true
+		}
+	}
+	return false
+}
+
 func ragDocMatchesPlace(doc RAGDocument, haystack string) bool {
+	if isPlaceTagExcludedRAG(doc) {
+		return false
+	}
 	h := normalizePlaceText(haystack)
 	if h == "" {
 		return false
 	}
 	loc := strings.TrimSpace(doc.Location)
-	if loc == "" || strings.EqualFold(loc, "general") {
+	if loc == "" || strings.EqualFold(loc, "general") || strings.EqualFold(loc, "national") {
 		return false
 	}
 	normLoc := normalizePlaceText(loc)
@@ -220,6 +239,53 @@ func buildPlaceTagChatPrompt(userMessage string, history []ChatHistoryMessage, r
 
 	b.WriteString("**Officer query:** ")
 	b.WriteString(userMessage)
-	b.WriteString("\n\nRespond in Markdown as Officer Serpico. Write only about this pin's address and city. Do not mention Olathe or Kansas unless that is the pin address. Do not dump another city's crime statistics.")
+	b.WriteString("\n\nRespond in Markdown as Officer Serpico. Write only about this pin's address, name, and notes. Do not paste department pursuit protocols, chase-game codex, or crime stats unless they are specifically about this pin's city. Do not mention Olathe or Kansas unless that is the pin address.")
+	return b.String()
+}
+
+func fallbackPlain(value, empty string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return empty
+	}
+	return value
+}
+
+func generatePlaceTagFallback(query, webResult string) string {
+	kind := firstLabeledField(query, []string{"PIN TYPE:", "Tag type:"})
+	name := firstLabeledField(query, []string{"NAME:", "Name:"})
+	address := firstLabeledField(query, []string{"ADDRESS:", "Address / place:", "PIN ADDRESS:"})
+	city := firstLabeledField(query, []string{"CITY / JURISDICTION:", "CITY:"})
+	notes := firstLabeledField(query, []string{"OFFICER NOTES:", "Officer notes so far:"})
+	coords := firstLabeledField(query, []string{"COORDINATES:", "Coordinates:"})
+
+	loc := address
+	if loc == "" {
+		loc = city
+	}
+	if loc == "" {
+		loc = coords
+	}
+	if loc == "" {
+		loc = "this pin"
+	}
+
+	var b strings.Builder
+	b.WriteString("**Copy that.** Live model lookup is down, so this is a field brief from the pin you entered — not department records.\n\n")
+	b.WriteString(fmt.Sprintf("- **%s:** %s\n", fallbackPlain(kind, "Map tag"), fallbackPlain(name, "unnamed")))
+	b.WriteString(fmt.Sprintf("- **Location:** %s\n", loc))
+	if notes != "" {
+		b.WriteString(fmt.Sprintf("- **Officer notes:** %s\n", notes))
+	}
+	if strings.TrimSpace(webResult) != "" && !strings.Contains(strings.ToLower(webResult), "rely on admin rag") {
+		b.WriteString("\n### Headlines for this address\n")
+		b.WriteString(strings.TrimSpace(webResult))
+		b.WriteString("\n")
+	}
+	b.WriteString("\n**Suggested next checks**\n")
+	b.WriteString("- Confirm this address with local dispatch for this city.\n")
+	b.WriteString("- Canvas nearby cameras and businesses using the notes as the behavior window.\n")
+	b.WriteString("- Retry **Create AI info** for a live neighborhood brief.\n")
+	b.WriteString("\n*Intel may be incomplete — confirm through official channels before action.*")
 	return b.String()
 }

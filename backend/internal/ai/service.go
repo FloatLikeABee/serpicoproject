@@ -73,11 +73,12 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 	placeTag := isPlaceTagContext(context)
 
 	// Step 2: Admin knowledge base (RAG) — includes backstage auto_intel docs.
-	// Prefer these over web search, except map pins which must match the pin city.
+	// Map pins skip RAG entirely: Search(userMessage+" in-pursue-place") ranks
+	// chase-game SOPs (foot pursuit protocol) because the context slug matches
+	// "pursue", and those records are not about the tapped address.
 	var ragResults []RAGDocument
 	if placeTag {
-		ragResults = filterRAGDocsForPlace(s.rag.Search(userMessage, 12), userMessage)
-		log.Printf("Place-tag RAG after location filter: %d", len(ragResults))
+		log.Printf("Place-tag RAG skipped (pin location brief, not department SOPs)")
 	} else {
 		ragResults = s.rag.Search(userMessage+" "+context, 8)
 		log.Printf("RAG search returned %d results (admin knowledge preferred)", len(ragResults))
@@ -124,7 +125,7 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 			if mistralErr != nil {
 				log.Printf("Mistral API error: %v", mistralErr)
 				// Fallback response
-				return s.generateFallbackResponse(userMessage, ragResults, context), nil
+				return s.generateFallbackResponse(userMessage, ragResults, context, webResult), nil
 			}
 			return mistralResponse, nil
 		}
@@ -135,7 +136,7 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 		if mistralErr != nil {
 			log.Printf("Mistral API error: %v", mistralErr)
 			// Fallback response
-			return s.generateFallbackResponse(userMessage, ragResults, context), nil
+			return s.generateFallbackResponse(userMessage, ragResults, context, webResult), nil
 		}
 		return mistralResponse, nil
 	}
@@ -153,16 +154,9 @@ func (s *AIService) isServiceUnavailable(err error) bool {
 		strings.Contains(errStr, "overloaded")
 }
 
-func (s *AIService) generateFallbackResponse(query string, ragDocs []RAGDocument, context string) string {
+func (s *AIService) generateFallbackResponse(query string, ragDocs []RAGDocument, context string, webResult string) string {
 	if isPlaceTagContext(context) {
-		if len(ragDocs) > 0 {
-			return fmt.Sprintf("**Copy that.** Here's what I pulled from department records for this pin's city:\n\n%s\n\n*Intel may be incomplete — confirm through official channels before action.*", ragDocs[0].Content)
-		}
-		place := strings.TrimSpace(placeTagLocationHaystack(query))
-		if place == "" {
-			place = "this pin"
-		}
-		return fmt.Sprintf("**Heads up** — live lookup is down and I don't have department records for **%s**. Retry Create AI info, or add notes from local dispatch for this city.", compactQuery(place, 80))
+		return generatePlaceTagFallback(query, webResult)
 	}
 	if len(ragDocs) > 0 {
 		return fmt.Sprintf("**Copy that.** Here's what I pulled from department records:\n\n%s\n\n*Intel may be incomplete — confirm through official channels before action.*", ragDocs[0].Content)
