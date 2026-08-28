@@ -24,6 +24,17 @@ interface PlaceTagModalProps {
   kindOptions?: typeof MAP_TAG_KINDS;
 }
 
+function cityFromMapAddress(address: string): string {
+  const parts = address
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return parts.slice(-2).join(', ');
+  }
+  return address.trim();
+}
+
 const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   tag,
   onChange,
@@ -134,16 +145,17 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
     setAiExpanded(true);
     try {
       const placeLabel = draft.address || `${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}`;
+      const cityHint = cityFromMapAddress(placeLabel);
       const prompt = [
-        `Investigate this tagged map location for police intel.`,
-        `Tag type: ${meta.label}`,
-        `Name: ${draft.name || meta.short}`,
-        `Coordinates: ${draft.lat}, ${draft.lng}`,
-        `Address / place: ${placeLabel}`,
-        draft.notes ? `Officer notes so far: ${draft.notes}` : '',
-        `Use web search / crime news if available.`,
-        `Summarize: what this place appears to be, nearby context, any relevant crime or investigative angles, and suggested next checks.`,
-        `Respond in clean Markdown (headings, bullets, bold as useful). No JSON.`,
+        `MAP PIN FIELD BRIEF — answer only about this pin.`,
+        `PIN TYPE: ${meta.label}`,
+        `NAME: ${draft.name || meta.short}`,
+        `COORDINATES: ${draft.lat}, ${draft.lng}`,
+        `ADDRESS: ${placeLabel}`,
+        `CITY / JURISDICTION: ${cityHint}`,
+        draft.notes ? `OFFICER NOTES: ${draft.notes}` : '',
+        `Write a short Markdown brief on this address and this ${meta.label.toLowerCase()}. Cover neighborhood/jurisdiction, how the notes apply, relevant public-safety context for THIS city, and suggested next checks.`,
+        `Hard rules: the pin is in ${cityHint}. Do not mention Olathe, Kansas, Olathe PD, or any other city's crime stats unless that is this pin's city. If you lack records for this address, say so and stay in ${cityHint}.`,
       ]
         .filter(Boolean)
         .join('\n');

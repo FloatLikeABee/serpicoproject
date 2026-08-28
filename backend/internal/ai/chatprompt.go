@@ -93,19 +93,19 @@ func NeedsCrimeDataWebSearch(message, context string) bool {
 
 func contextLabel(context string) string {
 	labels := map[string]string{
-		"in-pursue":          "Active pursuit / pursuit exam operations",
-		"in-pursue-place":    "Map place-tag location research",
-		"perps-cases":        "Suspect and case library research",
-		"perps":              "Suspect intelligence",
-		"case-library":       "Historical case files",
-		"mysteries":          "Cold cases and unsolved investigations",
-		"leisure":            "Investigative research (off-duty)",
-		"nearby-officers":    "Unit locations and officer availability",
-		"nearby-perps":       "Recent criminal activity in the area",
-		"safe-routes":        "Route safety based on crime patterns",
-		"chase-game":            "Pursuit training / Chase Game",
-		"suspect-interview":     "Suspect interview coaching (PEACE / SUE)",
-		"investigation-helper":  "Crime-scene investigation brainstorm + interview questions",
+		"in-pursue":            "Active pursuit / pursuit exam operations",
+		"in-pursue-place":      "Map place-tag location research",
+		"perps-cases":          "Suspect and case library research",
+		"perps":                "Suspect intelligence",
+		"case-library":         "Historical case files",
+		"mysteries":            "Cold cases and unsolved investigations",
+		"leisure":              "Investigative research (off-duty)",
+		"nearby-officers":      "Unit locations and officer availability",
+		"nearby-perps":         "Recent criminal activity in the area",
+		"safe-routes":          "Route safety based on crime patterns",
+		"chase-game":           "Pursuit training / Chase Game",
+		"suspect-interview":    "Suspect interview coaching (PEACE / SUE)",
+		"investigation-helper": "Crime-scene investigation brainstorm + interview questions",
 	}
 	if label, ok := labels[context]; ok {
 		return label
@@ -168,6 +168,10 @@ func buildHistoryContextString(history []ChatHistoryMessage) string {
 // BuildChatPrompt assembles the full prompt for Gemini/Mistral chat generation.
 // Source order is intentional: admin RAG + admin MD digests first, web search last.
 func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, ragDocs []RAGDocument, webSearchResult, newsDigests string) string {
+	if isPlaceTagContext(context) {
+		return buildPlaceTagChatPrompt(userMessage, history, ragDocs, webSearchResult)
+	}
+
 	var b strings.Builder
 	b.WriteString(officerChatSystemPrompt)
 	b.WriteString("\n\n")
