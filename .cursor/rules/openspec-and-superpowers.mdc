@@ -1,0 +1,28 @@
+---
+description: Load OpenSpec and Superpowers skills for every Cursor agent session
+alwaysApply: true
+---
+
+This repository ships **OpenSpec** and **Superpowers** as project skills so every Cursor Agent session (desktop and Cloud Agents) can use them. Marketplace plugins are not copied to Cloud Agents; these files are.
+
+## Where they live
+
+- OpenSpec skills: `.cursor/skills/openspec-*`
+- OpenSpec slash commands: `.cursor/commands/opsx-*.md` (type `/opsx-propose`, `/opsx-apply`, `/opsx-explore`, `/opsx-update`, `/opsx-sync`, `/opsx-archive`)
+- Superpowers skills: `.cursor/skills/` (`using-superpowers`, `brainstorming`, `writing-plans`, `test-driven-development`, `systematic-debugging`, and the rest)
+- Spec store: `openspec/`
+
+## How to use them
+
+1. Read `.cursor/skills/using-superpowers/SKILL.md` at the start of non-trivial work.
+2. For a new feature or behavior change, prefer OpenSpec: `/opsx-propose` (or the `openspec-propose` skill), then `/opsx-apply` after the user accepts the plan.
+3. For a bug, use `systematic-debugging`. For implementation, use `test-driven-development` when tests exist or can be added.
+4. Invoke a skill by **reading its `SKILL.md`** and following it. Announce which skill you are using.
+
+## OpenSpec CLI
+
+Skills expect an `openspec` binary. If it is not on `PATH`, run:
+
+`npx --yes @fission-ai/openspec@latest <command>`
+
+Do not skip these workflows because the CLI is missing — install via npx and continue.
