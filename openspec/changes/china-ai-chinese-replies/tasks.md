@@ -13,5 +13,5 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run `CI=true npm test` in `frontend` and `go test ./...` in `backend` and confirm they pass
-- [ ] 3.2 In the browser on China: Interview Helper Chinese case brief does not show the English Heads up dispatch line; pin Create AI info fallback is Chinese; switch to United States and confirm English fallbacks still appear
+- [x] 3.1 Run `CI=true npm test` in `frontend` and `go test ./...` in `backend` and confirm they pass
+- [x] 3.2 In the browser on China: Interview Helper Chinese case brief does not show the English Heads up dispatch line; pin Create AI info fallback is Chinese; switch to United States and confirm English fallbacks still appear
