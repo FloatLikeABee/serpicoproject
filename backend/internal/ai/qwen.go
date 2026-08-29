@@ -3,9 +3,11 @@ package ai
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -13,9 +15,16 @@ import (
 
 const (
 	defaultLiveModel   = "deepseek-ai/DeepSeek-V4-Flash"
-	defaultLiveBaseURL = "https://api.siliconflow.cn/v1"
-	defaultLiveAPIKey  = "sk-bdyzoncdtphfzkuobciwamljfykkooyenxknyhoulvyqpyzoq"
+	defaultLiveBaseURL = "https://api.siliconflow.com/v1"
+	chinaLiveBaseURL   = "https://api.siliconflow.cn/v1"
 	qwenAttempts       = 3
+)
+
+const (
+	liveErrAuth    = "auth"
+	liveErrTimeout = "timeout"
+	liveErrNetwork = "network"
+	liveErrAPI     = "api"
 )
 
 // defaultQwenModel / defaultQwenBaseURL are aliases used by older call sites.
@@ -107,6 +116,69 @@ func (q *QwenClient) GenerateWithPrompt(systemPrompt, userPrompt string) (string
 	})
 }
 
+type liveModelCallError struct {
+	Class  string
+	Status int
+	Host   string
+	Model  string
+	Msg    string
+	Err    error
+}
+
+func (e *liveModelCallError) Error() string {
+	if e == nil {
+		return "live model error"
+	}
+	return fmt.Sprintf("live model class=%s status=%d host=%s model=%s: %s", e.Class, e.Status, e.Host, e.Model, e.Msg)
+}
+
+func (e *liveModelCallError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+func classifyTransportError(err error) string {
+	if err == nil {
+		return liveErrNetwork
+	}
+	var ne net.Error
+	if errors.As(err, &ne) && ne.Timeout() {
+		return liveErrTimeout
+	}
+	s := strings.ToLower(err.Error())
+	if strings.Contains(s, "timeout") || strings.Contains(s, "deadline") {
+		return liveErrTimeout
+	}
+	return liveErrNetwork
+}
+
+func classifyHTTPStatus(status int, body string) string {
+	lower := strings.ToLower(body)
+	if status == http.StatusUnauthorized || strings.Contains(lower, "api key is invalid") || strings.Contains(lower, "token is invalid") {
+		return liveErrAuth
+	}
+	return liveErrAPI
+}
+
+func isRetryableLiveError(err error) bool {
+	var le *liveModelCallError
+	if errors.As(err, &le) {
+		if le.Class == liveErrAuth {
+			return false
+		}
+		if le.Class == liveErrTimeout || le.Class == liveErrNetwork {
+			return true
+		}
+		if le.Status == http.StatusTooManyRequests || le.Status >= 500 {
+			return true
+		}
+		return false
+	}
+	return isRetryableGeminiError(err)
+}
+
 func (q *QwenClient) generate(request qwenChatRequest) (string, error) {
 	if !q.Enabled() {
 		return "", fmt.Errorf("live model is not configured (set SILICONFLOW_API_KEY)")
@@ -120,10 +192,15 @@ func (q *QwenClient) generate(request qwenChatRequest) (string, error) {
 			return text, nil
 		}
 		lastErr = err
-		if attempt == qwenAttempts || !isRetryableGeminiError(err) {
+		var le *liveModelCallError
+		if errors.As(err, &le) {
+			log.Printf("Live model class=%s status=%d host=%s model=%s attempt %d/%d: %s", le.Class, le.Status, le.Host, le.Model, attempt, qwenAttempts, le.Msg)
+		} else {
+			log.Printf("Live model %s @ %s attempt %d/%d failed (%v)", q.model, q.baseURL, attempt, qwenAttempts, err)
+		}
+		if attempt == qwenAttempts || !isRetryableLiveError(err) {
 			break
 		}
-		log.Printf("Live model %s attempt %d/%d failed (%v); retrying same model", q.model, attempt, qwenAttempts, err)
 		time.Sleep(time.Duration(attempt) * 400 * time.Millisecond)
 	}
 	return "", lastErr
@@ -144,13 +221,26 @@ func (q *QwenClient) generateOnce(request qwenChatRequest) (string, error) {
 
 	resp, err := q.client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to make request: %w", err)
+		return "", &liveModelCallError{
+			Class: classifyTransportError(err),
+			Host:  q.baseURL,
+			Model: q.model,
+			Msg:   err.Error(),
+			Err:   err,
+		}
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API error: %d - %s", resp.StatusCode, string(body))
+		msg := strings.TrimSpace(string(body))
+		return "", &liveModelCallError{
+			Class:  classifyHTTPStatus(resp.StatusCode, msg),
+			Status: resp.StatusCode,
+			Host:   q.baseURL,
+			Model:  q.model,
+			Msg:    msg,
+		}
 	}
 
 	var chatResp qwenChatResponse

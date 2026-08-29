@@ -70,7 +70,7 @@ services:
       - key: GEMINI_DEFAULT_MODEL
         value: gemini-2.5-flash
       - key: SILICONFLOW_API_KEY
-        sync: false  # SiliconFlow key; falls back to built-in default
+        sync: false  # Required; no built-in key
       - key: QWEN_API_KEY
         sync: false
       - key: DASHSCOPE_API_KEY
@@ -80,9 +80,9 @@ services:
       - key: SILICONFLOW_MODEL
         value: deepseek-ai/DeepSeek-V4-Flash
       - key: QWEN_BASE_URL
-        value: https://api.siliconflow.cn/v1
+        value: https://api.siliconflow.com/v1
       - key: SILICONFLOW_BASE_URL
-        value: https://api.siliconflow.cn/v1
+        value: https://api.siliconflow.com/v1
       - key: RAG_DATA_PATH
         value: /var/data/rag
       - key: ENABLE_WEB_SEARCH
