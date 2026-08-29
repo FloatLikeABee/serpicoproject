@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import PlaceTagModal from '../../components/PlaceTagModal';
 import FleetMapCanvas from '../../components/FleetMapCanvas';
 import { useAuth } from '../../contexts/AuthContext';
-import { fleetAPI } from '../../services/api';
+import { fleetAPI, FleetMarkerPayload } from '../../services/api';
 import {
   cityLabel,
   DEFAULT_FLEET_CITY_ID,
@@ -22,6 +22,13 @@ import {
   loadCachedFleetMarkers,
   saveCachedFleetMarkers,
 } from '../../utils/fleetMarkers';
+import {
+  FLEET_SYNC_COPY,
+  FleetSyncStatus,
+  fleetSyncBanner,
+  mergeFleetMarkers,
+  retryFleetList,
+} from '../../utils/fleetSync';
 import { autoMapTagLocation, isCoordsOnlyAddress, MapTag } from '../../utils/mapTags';
 
 function toFleetMarker(tag: MapTag, cityId: string, existing?: FleetMarker): FleetMarker {
@@ -30,6 +37,22 @@ function toFleetMarker(tag: MapTag, cityId: string, existing?: FleetMarker): Fle
     ...tag,
     kind,
     cityId: existing?.cityId || cityId,
+  };
+}
+
+function fromRemotePayload(m: FleetMarkerPayload): FleetMarker | null {
+  if (!isFleetKind(m.kind)) return null;
+  return {
+    id: m.id,
+    kind: m.kind,
+    name: m.name,
+    lat: m.lat,
+    lng: m.lng,
+    address: m.address || '',
+    notes: m.notes || '',
+    cityId: m.cityId || DEFAULT_FLEET_CITY_ID,
+    createdAt: m.createdAt,
+    updatedAt: m.updatedAt,
   };
 }
 
@@ -50,13 +73,17 @@ const FleetMap: React.FC = () => {
   const [activeTag, setActiveTag] = useState<FleetMarker | null>(null);
   const [autoEnrichTagId, setAutoEnrichTagId] = useState<string | null>(null);
   const [placingBusy, setPlacingBusy] = useState(false);
-  const [syncError, setSyncError] = useState('');
+  const [syncStatus, setSyncStatus] = useState<FleetSyncStatus>('idle');
+  const [writeError, setWriteError] = useState('');
 
   const placeKindRef = useRef(placeKind);
   const placingBusyRef = useRef(false);
   const cityIdRef = useRef(cityId);
   const syncedIdsRef = useRef<Set<string>>(new Set());
   const locationMappedRef = useRef<Set<string>>(new Set());
+  const syncStatusRef = useRef<FleetSyncStatus>('idle');
+  const loadingListRef = useRef(false);
+  const loadGenRef = useRef(0);
 
   const city = useMemo(() => fleetCityById(cityId), [cityId]);
   const cityMarkers = useMemo(
@@ -87,43 +114,96 @@ const FleetMap: React.FC = () => {
   }, [userId, cityId]);
 
   useEffect(() => {
+    syncStatusRef.current = syncStatus;
+  }, [syncStatus]);
+
+  useEffect(() => {
     saveCachedFleetMarkers(userId, markers);
   }, [userId, markers]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setSyncError('');
-    fleetAPI
-      .listMarkers(userId)
-      .then(({ markers: remote }) => {
-        if (cancelled) return;
-        const next: FleetMarker[] = (remote || [])
-          .filter((m) => isFleetKind(m.kind))
-          .map((m) => ({
-            id: m.id,
-            kind: m.kind as FleetMarkerKind,
-            name: m.name,
-            lat: m.lat,
-            lng: m.lng,
-            address: m.address || '',
-            notes: m.notes || '',
-            cityId: m.cityId || DEFAULT_FLEET_CITY_ID,
-            createdAt: m.createdAt,
-            updatedAt: m.updatedAt,
-          }));
-        syncedIdsRef.current = new Set(next.map((m) => m.id));
-        setMarkers(next);
-        saveCachedFleetMarkers(userId, next);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.warn('fleet markers load failed', err);
-        setSyncError('Showing pins saved on this device — server sync unavailable.');
+  const flushLocalOnly = useCallback(
+    async (merged: FleetMarker[], remoteIds: Set<string>) => {
+      for (const marker of merged) {
+        if (remoteIds.has(marker.id) || syncedIdsRef.current.has(marker.id)) continue;
+        try {
+          await fleetAPI.createMarker(userId, {
+            id: marker.id,
+            cityId: marker.cityId,
+            kind: marker.kind,
+            name: marker.name,
+            lat: marker.lat,
+            lng: marker.lng,
+            address: marker.address,
+            notes: marker.notes,
+          });
+          syncedIdsRef.current.add(marker.id);
+        } catch (err) {
+          console.warn('fleet local-only flush failed', err);
+        }
+      }
+    },
+    [userId]
+  );
+
+  const loadFromServer = useCallback(async () => {
+    if (loadingListRef.current) return;
+    const gen = ++loadGenRef.current;
+    const stale = () => gen !== loadGenRef.current;
+    loadingListRef.current = true;
+    try {
+      const { markers: remote } = await retryFleetList(() => fleetAPI.listMarkers(userId), {
+        isCancelled: stale,
+        onRetry: () => {
+          if (!stale()) setSyncStatus('connecting');
+        },
       });
+      if (stale()) return;
+      const mapped = (remote || [])
+        .map(fromRemotePayload)
+        .filter((m): m is FleetMarker => m != null);
+      const remoteIds = new Set(mapped.map((m) => m.id));
+      let merged: FleetMarker[] = mapped;
+      setMarkers((prev) => {
+        merged = mergeFleetMarkers(prev, mapped);
+        saveCachedFleetMarkers(userId, merged);
+        return merged;
+      });
+      syncedIdsRef.current = new Set(remoteIds);
+      setSyncStatus('idle');
+      setWriteError('');
+      void flushLocalOnly(merged, remoteIds);
+    } catch (err) {
+      if (stale()) return;
+      console.warn('fleet markers load failed', err);
+      setSyncStatus('offline');
+    } finally {
+      if (!stale()) loadingListRef.current = false;
+    }
+  }, [flushLocalOnly, userId]);
+
+  useEffect(() => {
+    setWriteError('');
+    setSyncStatus('idle');
+    void loadFromServer();
     return () => {
-      cancelled = true;
+      loadGenRef.current += 1;
+      loadingListRef.current = false;
     };
-  }, [userId]);
+  }, [loadFromServer]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (syncStatusRef.current !== 'offline') return;
+      void loadFromServer();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [loadFromServer]);
 
   const upsertLocal = useCallback((marker: FleetMarker) => {
     setMarkers((prev) => {
@@ -147,10 +227,11 @@ const FleetMap: React.FC = () => {
           notes: marker.notes,
         });
         syncedIdsRef.current.add(marker.id);
-        setSyncError('');
+        setWriteError('');
+        setSyncStatus('idle');
       } catch (err) {
         console.warn('fleet create failed', err);
-        setSyncError('Pin saved on this device. Server sync failed.');
+        setWriteError(FLEET_SYNC_COPY.writeFailed);
       }
     },
     [userId]
@@ -174,10 +255,11 @@ const FleetMap: React.FC = () => {
           await fleetAPI.createMarker(userId, { id: marker.id, ...payload });
           syncedIdsRef.current.add(marker.id);
         }
-        setSyncError('');
+        setWriteError('');
+        setSyncStatus('idle');
       } catch (err) {
         console.warn('fleet update failed', err);
-        setSyncError('Pin saved on this device. Server sync failed.');
+        setWriteError(FLEET_SYNC_COPY.writeFailed);
       }
     },
     [userId]
@@ -270,7 +352,7 @@ const FleetMap: React.FC = () => {
         syncedIdsRef.current.delete(id);
       } catch (err) {
         console.warn('fleet delete failed', err);
-        setSyncError('Could not delete pin on the server.');
+        setWriteError(FLEET_SYNC_COPY.deleteFailed);
       }
     },
     [userId]
@@ -339,7 +421,15 @@ const FleetMap: React.FC = () => {
           <span className="font-semibold">{fleetKindMeta(placeKind).label.toLowerCase()}</span> pin
           {placingBusy ? '…' : '.'}
         </p>
-        {syncError ? <p className="text-[10px] text-serpico-red px-0.5">{syncError}</p> : null}
+        {writeError || fleetSyncBanner(syncStatus) ? (
+          <p
+            className={`text-[10px] px-0.5 ${
+              writeError || syncStatus === 'offline' ? 'text-serpico-red' : 'text-neon-cyan'
+            }`}
+          >
+            {writeError || fleetSyncBanner(syncStatus)}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex-1 min-h-0 relative">

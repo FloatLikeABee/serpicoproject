@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import axios from 'axios';
+import { COLD_BACKEND_TIMEOUT_MS } from '../utils/fleetSync';
 
 const HEALTH_CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutes
 // Cold Render instances can take a while to wake — keep the ping patient.
@@ -10,7 +11,7 @@ export const useHealthCheck = () => {
     const checkHealth = async () => {
       try {
         await axios.get(`${HEALTH_CHECK_URL}/health`, {
-          timeout: 45000,
+          timeout: COLD_BACKEND_TIMEOUT_MS,
         });
       } catch (error) {
         console.warn('Backend health check failed:', error);

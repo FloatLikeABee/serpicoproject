@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { COLD_BACKEND_TIMEOUT_MS } from '../utils/fleetSync';
 
 // Backend API base URL
 // Priority:
@@ -601,7 +602,7 @@ export const fleetAPI = {
   ): Promise<{ markers: FleetMarkerPayload[] }> => {
     const response = await api.get<{ markers: FleetMarkerPayload[] }>('/fleet/markers', {
       params: { ...helperParams(userId), ...(cityId ? { cityId } : {}) },
-      timeout: 15000,
+      timeout: COLD_BACKEND_TIMEOUT_MS,
     });
     return response.data;
   },
@@ -620,7 +621,7 @@ export const fleetAPI = {
   ): Promise<{ marker: FleetMarkerPayload }> => {
     const response = await api.post<{ marker: FleetMarkerPayload }>('/fleet/markers', payload, {
       params: helperParams(userId),
-      timeout: 20000,
+      timeout: COLD_BACKEND_TIMEOUT_MS,
     });
     return response.data;
   },
@@ -640,14 +641,14 @@ export const fleetAPI = {
     const response = await api.put<{ marker: FleetMarkerPayload }>(
       `/fleet/markers/${markerId}`,
       payload,
-      { params: helperParams(userId), timeout: 20000 }
+      { params: helperParams(userId), timeout: COLD_BACKEND_TIMEOUT_MS }
     );
     return response.data;
   },
   deleteMarker: async (userId: string, markerId: string): Promise<void> => {
     await api.delete(`/fleet/markers/${markerId}`, {
       params: helperParams(userId),
-      timeout: 15000,
+      timeout: COLD_BACKEND_TIMEOUT_MS,
     });
   },
 };
