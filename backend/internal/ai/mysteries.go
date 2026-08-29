@@ -1137,12 +1137,7 @@ func (s *MysteriesService) generate(system, user string) (string, error) {
 	if s.ai == nil {
 		return "", fmt.Errorf("ai service unavailable")
 	}
-	text, err := s.ai.gemini.GenerateWithPrompt(system, user)
-	if err == nil && strings.TrimSpace(text) != "" {
-		return text, nil
-	}
-	log.Printf("mysteries: gemini error: %v", err)
-	return s.ai.mistral.GenerateWithPrompt(system, user)
+	return s.ai.generateWithLiveModel(system, user)
 }
 
 func trim(s string, n int) string {

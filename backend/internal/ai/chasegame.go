@@ -23,39 +23,39 @@ Rules:
 - Scoring must cite codex principles (e.g., IACP pursuit policy, Olathe PD protocols).`
 
 type ChaseScenario struct {
-	Title            string `json:"title"`
-	Setting          string `json:"setting"`
-	Situation        string `json:"situation"`
-	SuspectProfile   string `json:"suspectProfile"`
-	VehiclePhase     string `json:"vehiclePhase"`
-	FootPhase        string `json:"footPhase"`
-	CodexReference   string `json:"codexReference"`
-	CaseStudyRef     string `json:"caseStudyRef"`
-	ImagePrompt      string `json:"imagePrompt"`
-	OpeningQuestion  string `json:"openingQuestion"`
-	FunHook          string `json:"funHook"`
+	Title           string `json:"title"`
+	Setting         string `json:"setting"`
+	Situation       string `json:"situation"`
+	SuspectProfile  string `json:"suspectProfile"`
+	VehiclePhase    string `json:"vehiclePhase"`
+	FootPhase       string `json:"footPhase"`
+	CodexReference  string `json:"codexReference"`
+	CaseStudyRef    string `json:"caseStudyRef"`
+	ImagePrompt     string `json:"imagePrompt"`
+	OpeningQuestion string `json:"openingQuestion"`
+	FunHook         string `json:"funHook"`
 }
 
 type ChaseTurnResponse struct {
-	Narrative       string `json:"narrative"`
-	Twist           string `json:"twist"`
-	Question        string `json:"question"`
-	Hint            string `json:"hint"`
-	ReactionEmoji   string `json:"reactionEmoji"`
-	TurnLabel       string `json:"turnLabel"`
+	Narrative     string `json:"narrative"`
+	Twist         string `json:"twist"`
+	Question      string `json:"question"`
+	Hint          string `json:"hint"`
+	ReactionEmoji string `json:"reactionEmoji"`
+	TurnLabel     string `json:"turnLabel"`
 }
 
 type ChaseEvaluation struct {
-	Score           int      `json:"score"`
-	MaxScore        int      `json:"maxScore"`
-	Rank            string   `json:"rank"`
-	Badge           string   `json:"badge"`
-	Summary         string   `json:"summary"`
-	Strengths       []string `json:"strengths"`
-	Improvements    []string `json:"improvements"`
-	CodexAlignment  string   `json:"codexAlignment"`
-	CaseStudyNotes  string   `json:"caseStudyNotes"`
-	FunClosing      string   `json:"funClosing"`
+	Score          int      `json:"score"`
+	MaxScore       int      `json:"maxScore"`
+	Rank           string   `json:"rank"`
+	Badge          string   `json:"badge"`
+	Summary        string   `json:"summary"`
+	Strengths      []string `json:"strengths"`
+	Improvements   []string `json:"improvements"`
+	CodexAlignment string   `json:"codexAlignment"`
+	CaseStudyNotes string   `json:"caseStudyNotes"`
+	FunClosing     string   `json:"funClosing"`
 }
 
 type ChaseTurnRecord struct {
@@ -66,18 +66,18 @@ type ChaseTurnRecord struct {
 }
 
 type ChaseGameSession struct {
-	ID           string            `json:"id"`
-	Phase        string            `json:"phase"`
-	Difficulty   string            `json:"difficulty"`
-	Turn         int               `json:"turn"`
-	MaxTurns     int               `json:"maxTurns"`
-	Scenario     *ChaseScenario    `json:"scenario,omitempty"`
-	ImageURL     string            `json:"imageUrl,omitempty"`
-	CurrentTurn  *ChaseTurnResponse `json:"currentTurn,omitempty"`
-	History      []ChaseTurnRecord `json:"history"`
-	Evaluation   *ChaseEvaluation  `json:"evaluation,omitempty"`
-	CreatedAt    time.Time         `json:"createdAt"`
-	UpdatedAt    time.Time         `json:"updatedAt"`
+	ID          string             `json:"id"`
+	Phase       string             `json:"phase"`
+	Difficulty  string             `json:"difficulty"`
+	Turn        int                `json:"turn"`
+	MaxTurns    int                `json:"maxTurns"`
+	Scenario    *ChaseScenario     `json:"scenario,omitempty"`
+	ImageURL    string             `json:"imageUrl,omitempty"`
+	CurrentTurn *ChaseTurnResponse `json:"currentTurn,omitempty"`
+	History     []ChaseTurnRecord  `json:"history"`
+	Evaluation  *ChaseEvaluation   `json:"evaluation,omitempty"`
+	CreatedAt   time.Time          `json:"createdAt"`
+	UpdatedAt   time.Time          `json:"updatedAt"`
 }
 
 type ChaseGameService struct {
@@ -329,12 +329,7 @@ Return JSON:
 }
 
 func (s *AIService) generateGameJSON(systemPrompt, userPrompt string) (string, error) {
-	response, err := s.gemini.GenerateWithPrompt(systemPrompt, userPrompt)
-	if err == nil {
-		return response, nil
-	}
-	log.Printf("Chase game Gemini error: %v", err)
-	return s.mistral.GenerateWithPrompt(systemPrompt, userPrompt)
+	return s.generateWithLiveModel(systemPrompt, userPrompt)
 }
 
 func extractJSON(raw string) string {

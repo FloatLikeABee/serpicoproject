@@ -10,6 +10,7 @@ import (
 // AIService coordinates all AI functionality
 type AIService struct {
 	config      *Config
+	qwen        *QwenClient
 	gemini      *GeminiClient
 	mistral     *MistralClient
 	rag         *RAGDatabase
@@ -22,6 +23,7 @@ type AIService struct {
 }
 
 func NewAIService(config *Config) (*AIService, error) {
+	qwen := NewQwenClient(config.QwenAPIKey, config.QwenModel, config.QwenBaseURL)
 	gemini := NewGeminiClient(config.GeminiAPIKey, config.GeminiModel)
 	mistral := NewMistralClient(config.MistralAPIKey, config.MistralModel)
 
@@ -35,8 +37,15 @@ func NewAIService(config *Config) (*AIService, error) {
 	screener := NewPromptScreener()
 	imageGen := NewImageGenerator(config)
 
+	if qwen.Enabled() {
+		log.Printf("Live AI model: Qwen %s @ %s", qwen.model, qwen.baseURL)
+	} else {
+		log.Printf("Qwen is not configured — set QWEN_API_KEY or DASHSCOPE_API_KEY (model=%s)", config.QwenModel)
+	}
+
 	service := &AIService{
 		config:    config,
+		qwen:      qwen,
 		gemini:    gemini,
 		mistral:   mistral,
 		rag:       rag,
@@ -114,21 +123,33 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 		}
 	}
 
-	// Step 5: Always use the configured Gemini model (same model for every
-	// nation, interview helper, and map-tag brief). Retry lives in the client.
-	// Do not switch to Mistral — that is a different model and often has no key,
-	// which doubled latency and produced "field model unavailable" copy.
-	response, err := s.gemini.GenerateResponse(userMessage, context, history, ragResults, webResult, newsDigests)
+	// Step 5: Always use DashScope Qwen (same model for every nation, interview,
+	// map-tag brief, and helper). Do not switch to Gemini or Mistral.
+	response, err := s.generateChat(userMessage, context, history, ragResults, webResult, newsDigests)
 	if err != nil {
-		model := ""
-		if s.config != nil {
-			model = s.config.GeminiModel
+		model := defaultQwenModel
+		if s.config != nil && s.config.QwenModel != "" {
+			model = s.config.QwenModel
 		}
-		log.Printf("Gemini API error (%s): %v", model, err)
+		log.Printf("Qwen API error (%s): %v", model, err)
 		return s.generateFallbackResponse(userMessage, ragResults, context, webResult), nil
 	}
 
 	return response, nil
+}
+
+func (s *AIService) generateChat(userMessage, context string, history []ChatHistoryMessage, ragResults []RAGDocument, webResult, newsDigests string) (string, error) {
+	if s.qwen == nil || !s.qwen.Enabled() {
+		return "", fmt.Errorf("qwen is not configured (set QWEN_API_KEY or DASHSCOPE_API_KEY)")
+	}
+	return s.qwen.GenerateResponse(userMessage, context, history, ragResults, webResult, newsDigests)
+}
+
+func (s *AIService) generateWithLiveModel(systemPrompt, userPrompt string) (string, error) {
+	if s == nil || s.qwen == nil || !s.qwen.Enabled() {
+		return "", fmt.Errorf("qwen is not configured (set QWEN_API_KEY or DASHSCOPE_API_KEY)")
+	}
+	return s.qwen.GenerateWithPrompt(systemPrompt, userPrompt)
 }
 
 func (s *AIService) generateFallbackResponse(query string, ragDocs []RAGDocument, context string, webResult string) string {

@@ -69,6 +69,14 @@ services:
         sync: false  # Set this in Render dashboard
       - key: GEMINI_DEFAULT_MODEL
         value: gemini-2.5-flash
+      - key: QWEN_API_KEY
+        sync: false  # DashScope key; QWEN_API_KEY or DASHSCOPE_API_KEY
+      - key: DASHSCOPE_API_KEY
+        sync: false
+      - key: QWEN_MODEL
+        value: qwen-plus
+      - key: QWEN_BASE_URL
+        value: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       - key: RAG_DATA_PATH
         value: /var/data/rag
       - key: ENABLE_WEB_SEARCH
