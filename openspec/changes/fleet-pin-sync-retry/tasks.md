@@ -13,4 +13,4 @@
 ## 3. Verification
 
 - [x] 3.1 Run `CI=true npm test -- --watchAll=false` in `frontend` and confirm fleetSync (and existing) tests pass
-- [ ] 3.2 Exercise Fleet in the browser: open map, confirm no hard outage on a warm API, drop a pin, switch city and back; if a browser is unavailable, curl `GET /api/v1/fleet/markers` and note the UI gap
+- [x] 3.2 Exercise Fleet in the browser: open map, confirm no hard outage on a warm API, drop a pin, switch city and back; if a browser is unavailable, curl `GET /api/v1/fleet/markers` and note the UI gap
