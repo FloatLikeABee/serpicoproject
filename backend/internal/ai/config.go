@@ -7,11 +7,13 @@ import (
 )
 
 type Config struct {
-	GeminiAPIKey string
-	// GeminiModel is the sole interactive chat model (interview, map tags, helper).
+	GeminiAPIKey        string
 	GeminiModel         string
 	MistralAPIKey       string
 	MistralModel        string
+	QwenAPIKey          string
+	QwenModel           string
+	QwenBaseURL         string
 	RAGDataPath         string
 	IntelDataPath       string
 	EnableWebSearch     bool
@@ -83,11 +85,19 @@ func LoadConfig() *Config {
 		mistralKey = "2IGzr4XnznEjh3O3vs0wFf0lwh7r7yhU"
 	}
 
+	qwenKey := strings.TrimSpace(os.Getenv("QWEN_API_KEY"))
+	if qwenKey == "" {
+		qwenKey = strings.TrimSpace(os.Getenv("DASHSCOPE_API_KEY"))
+	}
+
 	return &Config{
 		GeminiAPIKey:        geminiKey,
 		GeminiModel:         envOrDefault("GEMINI_MODEL", envOrDefault("GEMINI_DEFAULT_MODEL", "gemini-2.5-flash")),
 		MistralAPIKey:       mistralKey,
 		MistralModel:        envOrDefault("MISTRAL_MODEL", "mistral-large-latest"),
+		QwenAPIKey:          qwenKey,
+		QwenModel:           envOrDefault("QWEN_MODEL", defaultQwenModel),
+		QwenBaseURL:         envOrDefault("QWEN_BASE_URL", defaultQwenBaseURL),
 		RAGDataPath:         envOrDefault("RAG_DATA_PATH", "data/rag"),
 		IntelDataPath:       envOrDefault("INTEL_DATA_PATH", "data/intel"),
 		EnableWebSearch:     envBool("ENABLE_WEB_SEARCH", true),
