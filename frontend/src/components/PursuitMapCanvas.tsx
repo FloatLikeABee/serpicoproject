@@ -50,6 +50,9 @@ interface PursuitMapCanvasProps {
   onMapClick?: (lat: number, lng: number) => void;
   onLandmarkClick?: (landmark: MapLandmark) => void;
   onTagClick?: (tag: MapTag) => void;
+  mapBounds?: { latMin: number; latMax: number; lngMin: number; lngMax: number };
+  minZoom?: number;
+  maxZoom?: number;
 }
 
 const OLATHE_LATLNG_BOUNDS = L.latLngBounds(
@@ -57,18 +60,20 @@ const OLATHE_LATLNG_BOUNDS = L.latLngBounds(
   [OLATHE_BOUNDS.latMax, OLATHE_BOUNDS.lngMax]
 );
 
-/** Hard-lock pan/zoom so the camera cannot leave the Olathe city box. */
-const OlatheMapLock: React.FC = () => {
+const RegionMapLock: React.FC<{
+  bounds: L.LatLngBounds;
+  minZoom: number;
+  maxZoom: number;
+}> = ({ bounds, minZoom, maxZoom }) => {
   const map = useMap();
 
   useEffect(() => {
-    map.setMaxBounds(OLATHE_LATLNG_BOUNDS);
-    map.setMinZoom(OLATHE_MIN_ZOOM);
-    map.setMaxZoom(OLATHE_MAX_ZOOM);
+    map.setMaxBounds(bounds);
+    map.setMinZoom(minZoom);
+    map.setMaxZoom(maxZoom);
     map.options.maxBoundsViscosity = 1.0;
-    // Keep the view inside after any layout change.
     const keepInside = () => {
-      map.panInsideBounds(OLATHE_LATLNG_BOUNDS, { animate: false });
+      map.panInsideBounds(bounds, { animate: false });
     };
     map.on('drag', keepInside);
     map.on('zoomend', keepInside);
@@ -77,7 +82,7 @@ const OlatheMapLock: React.FC = () => {
       map.off('drag', keepInside);
       map.off('zoomend', keepInside);
     };
-  }, [map]);
+  }, [map, bounds, minZoom, maxZoom]);
 
   return null;
 };
@@ -492,7 +497,20 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   onMapClick,
   onLandmarkClick,
   onTagClick,
+  mapBounds,
+  minZoom = OLATHE_MIN_ZOOM,
+  maxZoom = OLATHE_MAX_ZOOM,
 }) => {
+  const lockBounds = useMemo(
+    () =>
+      mapBounds
+        ? L.latLngBounds(
+            [mapBounds.latMin, mapBounds.lngMin],
+            [mapBounds.latMax, mapBounds.lngMax]
+          )
+        : OLATHE_LATLNG_BOUNDS,
+    [mapBounds]
+  );
   const visibleVehicles = useMemo(() => (hideVehicles ? [] : vehicles), [hideVehicles, vehicles]);
   const selectedVehicle = visibleVehicles.find((v) => v.id === selectedId);
 
@@ -544,17 +562,17 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
       zoom={zoom}
       style={{ height: '100%', width: '100%' }}
       scrollWheelZoom
-      maxBounds={OLATHE_LATLNG_BOUNDS}
+      maxBounds={lockBounds}
       maxBoundsViscosity={1}
-      minZoom={OLATHE_MIN_ZOOM}
-      maxZoom={OLATHE_MAX_ZOOM}
+      minZoom={minZoom}
+      maxZoom={maxZoom}
       worldCopyJump={false}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <OlatheMapLock />
+      <RegionMapLock bounds={lockBounds} minZoom={minZoom} maxZoom={maxZoom} />
       <MapZoomControls />
       <FitVehiclesOnce
         vehicles={visibleVehicles}

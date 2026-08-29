@@ -31,7 +31,8 @@ func handleMysteriesListCases(c *gin.Context, aiService interface{}) {
 		return
 	}
 	category := c.Query("category")
-	cases, err := ms.ListCases(category)
+	nation := helperNation(c)
+	cases, err := ms.ListCasesNation(category, nation)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -52,8 +53,9 @@ func handleMysteriesRefreshCases(c *gin.Context, aiService interface{}) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "mysteries service unavailable"})
 		return
 	}
+	nation := helperNation(c)
 	go func() {
-		_ = ms.RefreshCases(true)
+		_ = ms.RefreshCasesNation(nation, true)
 	}()
 	c.JSON(http.StatusAccepted, gin.H{"ok": true, "message": "cases refresh started"})
 }
@@ -64,7 +66,8 @@ func handleMysteriesListBriefings(c *gin.Context, aiService interface{}) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "mysteries service unavailable"})
 		return
 	}
-	list, err := ms.ListBriefings(12)
+	nation := helperNation(c)
+	list, err := ms.ListBriefingsNation(12, nation)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -72,7 +75,7 @@ func handleMysteriesListBriefings(c *gin.Context, aiService interface{}) {
 	if list == nil {
 		list = []ai.MysteryBriefing{}
 	}
-	latest, _ := ms.LatestBriefing()
+	latest, _ := ms.LatestBriefingNation(nation)
 	c.JSON(http.StatusOK, gin.H{
 		"briefings": list,
 		"latest":    latest,
@@ -86,8 +89,9 @@ func handleMysteriesRefreshBriefing(c *gin.Context, aiService interface{}) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "mysteries service unavailable"})
 		return
 	}
+	nation := helperNation(c)
 	go func() {
-		_ = ms.RefreshBriefing(true)
+		_ = ms.RefreshBriefingNation(nation, true)
 	}()
 	c.JSON(http.StatusAccepted, gin.H{"ok": true, "message": "briefing refresh started"})
 }

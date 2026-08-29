@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useT } from '../i18n/useT';
 
 const iconProps = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 
@@ -8,6 +9,7 @@ const Navigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const t = useT();
 
   const isActive = (path: string) => {
     if (path === '/notes') {
@@ -90,9 +92,9 @@ const Navigation: React.FC = () => {
   type NavItem = { path: string; label: string; shortLabel: string; icon: JSX.Element };
 
   const policeNavItems: NavItem[] = [
-    { path: '/in-pursue', label: 'Pursue', shortLabel: 'Go', icon: <PursueIcon /> },
-    { path: '/chase-game', label: 'Fleet', shortLabel: 'Fleet', icon: <ChaseGameIcon /> },
-    { path: '/board', label: 'Board', shortLabel: 'Board', icon: <BoardIcon /> },
+    { path: '/in-pursue', label: t('nav.pursue'), shortLabel: t('nav.goShort'), icon: <PursueIcon /> },
+    { path: '/chase-game', label: t('nav.fleet'), shortLabel: t('nav.fleet'), icon: <ChaseGameIcon /> },
+    { path: '/board', label: t('nav.board'), shortLabel: t('nav.board'), icon: <BoardIcon /> },
   ];
 
   const civilianNavItems: NavItem[] = [
@@ -135,12 +137,12 @@ const Navigation: React.FC = () => {
           <React.Fragment key={item.path}>
             {renderNavButton(item.path, item.label, item.shortLabel, item.icon)}
             {user?.role === 'police' && index === 1 &&
-              renderNavButton('/ai-chat', 'AI Chat', 'AI', <AIIcon />)
+              renderNavButton('/ai-chat', t('nav.chat'), 'AI', <AIIcon />)
             }
           </React.Fragment>
         ))}
 
-        {renderNavButton('/notes', 'Cases', 'Case', <NotesIcon />)}
+        {renderNavButton('/notes', t('nav.cases'), t('nav.caseShort'), <NotesIcon />)}
       </div>
     </nav>
   );

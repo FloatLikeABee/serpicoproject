@@ -81,18 +81,22 @@ func handleLogout(c *gin.Context) {
 }
 
 func handleGetUser(c *gin.Context, db *database.Database) {
-	// Get first user from database as demo
-	var id, email, name, role, rank string
-	err := db.SQLite.QueryRow("SELECT id, email, name, role, rank FROM users LIMIT 1").Scan(&id, &email, &name, &role, &rank)
+	userID := helperUserID(c)
+	var id, email, name, role, rank, nation string
+	err := db.SQLite.QueryRow(
+		`SELECT id, email, name, role, COALESCE(rank,''), COALESCE(nation,'us') FROM users WHERE id = ?`,
+		userID,
+	).Scan(&id, &email, &name, &role, &rank, &nation)
 	if err != nil {
-		// Fallback to mock data if no users in database
+		nation, _ = GetUserNation(db.SQLite, userID)
 		c.JSON(http.StatusOK, gin.H{
 			"user": gin.H{
-				"id":    "demo-serpico",
-				"email": "serpico",
-				"name":  "Officer Serpico",
-				"role":  "police",
-				"rank":  "Officer",
+				"id":     userID,
+				"email":  "serpico",
+				"name":   "Officer Serpico",
+				"role":   "police",
+				"rank":   "Officer",
+				"nation": ParseNation(nation),
 			},
 		})
 		return
@@ -100,21 +104,23 @@ func handleGetUser(c *gin.Context, db *database.Database) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"id":    id,
-			"email": email,
-			"name":  name,
-			"role":  role,
-			"rank":  rank,
+			"id":     id,
+			"email":  email,
+			"name":   name,
+			"role":   role,
+			"rank":   rank,
+			"nation": ParseNation(nation),
 		},
 	})
 }
 
-func handleUpdateUser(c *gin.Context) {
+func handleUpdateUser(c *gin.Context, db *database.Database) {
 	var req struct {
-		Name  string `json:"name"`
-		Email string `json:"email"`
-		Role  string `json:"role"`
-		Rank  string `json:"rank"`
+		Name   string `json:"name"`
+		Email  string `json:"email"`
+		Role   string `json:"role"`
+		Rank   string `json:"rank"`
+		Nation string `json:"nation"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -122,13 +128,25 @@ func handleUpdateUser(c *gin.Context) {
 		return
 	}
 
+	userID := helperUserID(c)
+	nation := ParseNation(req.Nation)
+	if req.Nation == "" {
+		nation = helperNation(c)
+	}
+	if err := UpsertUserNation(db.SQLite, userID, nation); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User updated successfully",
 		"user": gin.H{
-			"name":  req.Name,
-			"email": req.Email,
-			"role":  req.Role,
-			"rank":  req.Rank,
+			"id":     userID,
+			"name":   req.Name,
+			"email":  req.Email,
+			"role":   req.Role,
+			"rank":   req.Rank,
+			"nation": nation,
 		},
 	})
 }
@@ -453,14 +471,28 @@ func handleGetEmergency(c *gin.Context, db *database.Database) {
 
 func handleChat(c *gin.Context, aiService interface{}) {
 	var req struct {
-		Message string                   `json:"message"`
-		Context string                   `json:"context"`
-		History []ai.ChatHistoryMessage  `json:"history"`
+		Message string                  `json:"message"`
+		Context string                  `json:"context"`
+		History []ai.ChatHistoryMessage `json:"history"`
+		Nation  string                  `json:"nation"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	nation := helperNation(c)
+	if req.Nation != "" {
+		nation = ParseNation(req.Nation)
+	}
+	ctx := req.Context
+	if nation == "cn" && !strings.Contains(ctx, "[nation:") {
+		if ctx == "" {
+			ctx = "[nation:cn]"
+		} else {
+			ctx = ctx + "\n[nation:cn]"
+		}
 	}
 
 	// Type assert to get AIService
@@ -473,7 +505,7 @@ func handleChat(c *gin.Context, aiService interface{}) {
 	}
 
 	// Process chat with AI service
-	content, err := ai.ProcessChat(req.Message, req.Context, req.History)
+	content, err := ai.ProcessChat(req.Message, ctx, req.History)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

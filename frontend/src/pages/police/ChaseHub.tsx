@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useT } from '../../i18n/useT';
 import FleetMap from './FleetMap';
 import InvestigationHelper from './InvestigationHelper';
 
@@ -8,6 +9,7 @@ type HubTab = 'investigation' | 'fleet';
 const ChaseHub: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const t = useT();
 
   const tabFromPath = useMemo<HubTab>(() => {
     if (location.pathname.includes('investigation')) return 'investigation';
@@ -48,7 +50,7 @@ const ChaseHub: React.FC = () => {
               tab === 'fleet' ? 'bg-serpico-blue text-white' : 'text-synth-muted active:bg-white/5'
             }`}
           >
-            Fleet
+            {t('chase.fleetTab')}
           </button>
           <button
             type="button"
@@ -61,7 +63,7 @@ const ChaseHub: React.FC = () => {
                 : 'text-synth-muted active:bg-white/5'
             }`}
           >
-            Investigation Helper
+            {t('helper.title')}
           </button>
         </div>
       </div>

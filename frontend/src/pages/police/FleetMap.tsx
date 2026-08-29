@@ -6,11 +6,12 @@ import { fleetAPI } from '../../services/api';
 import {
   cityLabel,
   DEFAULT_FLEET_CITY_ID,
-  FLEET_CITIES,
+  fleetCitiesForNation,
   fleetCityById,
   loadFleetCityId,
   saveFleetCityId,
 } from '../../utils/cities';
+import { useT, useNation } from '../../i18n/useT';
 import {
   createFleetMarker,
   FLEET_MARKER_KINDS,
@@ -43,8 +44,10 @@ const emptyCounts = (): Record<FleetMarkerKind, number> => ({
 const FleetMap: React.FC = () => {
   const { user } = useAuth();
   const userId = user?.id || 'guest';
+  const nation = useNation();
+  const t = useT();
 
-  const [cityId, setCityId] = useState(() => loadFleetCityId(userId));
+  const [cityId, setCityId] = useState(() => loadFleetCityId(userId, nation));
   const [markers, setMarkers] = useState<FleetMarker[]>(() => loadCachedFleetMarkers(userId));
   const [placeKind, setPlaceKind] = useState<FleetMarkerKind>('police_station');
   const [activeTag, setActiveTag] = useState<FleetMarker | null>(null);
@@ -58,7 +61,8 @@ const FleetMap: React.FC = () => {
   const syncedIdsRef = useRef<Set<string>>(new Set());
   const locationMappedRef = useRef<Set<string>>(new Set());
 
-  const city = useMemo(() => fleetCityById(cityId), [cityId]);
+  const city = useMemo(() => fleetCityById(cityId, nation), [cityId, nation]);
+  const cities = useMemo(() => fleetCitiesForNation(nation), [nation]);
   const cityMarkers = useMemo(
     () => markers.filter((m) => m.cityId === cityId),
     [markers, cityId]
@@ -78,13 +82,13 @@ const FleetMap: React.FC = () => {
   }, [cityId]);
 
   useEffect(() => {
-    setCityId(loadFleetCityId(userId));
+    setCityId(loadFleetCityId(userId, nation));
     setMarkers(loadCachedFleetMarkers(userId));
-  }, [userId]);
+  }, [userId, nation]);
 
   useEffect(() => {
-    saveFleetCityId(userId, cityId);
-  }, [userId, cityId]);
+    saveFleetCityId(userId, nation, cityId);
+  }, [userId, nation, cityId]);
 
   useEffect(() => {
     saveCachedFleetMarkers(userId, markers);
@@ -289,7 +293,7 @@ const FleetMap: React.FC = () => {
       <div className="flex-shrink-0 px-2.5 py-1.5 border-b border-white/10 space-y-1.5">
         <div className="flex items-center gap-2">
           <label className="sr-only" htmlFor="fleet-city">
-            City
+            {t('fleet.city')}
           </label>
           <select
             id="fleet-city"
@@ -301,14 +305,14 @@ const FleetMap: React.FC = () => {
             className="flex-1 min-w-0 px-2 py-1.5 rounded-md border border-white/15 bg-black/50 text-xs sm:text-sm text-white"
             style={{ colorScheme: 'dark' }}
           >
-            {FLEET_CITIES.map((c) => (
+            {cities.map((c) => (
               <option key={c.id} value={c.id}>
-                {cityLabel(c)}
+                {cityLabel(c, nation)}
               </option>
             ))}
           </select>
           <span className="flex-shrink-0 text-[10px] text-synth-muted tabular-nums">
-            {cityMarkers.length} pin{cityMarkers.length === 1 ? '' : 's'}
+            {cityMarkers.length} {cityMarkers.length === 1 ? t('fleet.pin') : t('fleet.pins')}
           </span>
         </div>
 
@@ -319,7 +323,7 @@ const FleetMap: React.FC = () => {
               <button
                 key={k.kind}
                 type="button"
-                title={k.label}
+                title={t(`fleet.kind.${k.kind}`) || k.label}
                 onClick={() => setPlaceKind(k.kind)}
                 className={`px-2 py-1 rounded-md border text-[10px] font-display font-bold uppercase tracking-wide touch-manipulation min-h-0 min-w-0 ${
                   active
@@ -328,17 +332,16 @@ const FleetMap: React.FC = () => {
                 }`}
                 style={active ? { backgroundColor: `${k.color}55`, borderColor: k.color } : undefined}
               >
-                {k.glyph} {k.short}
+                {k.glyph} {t(`fleet.short.${k.kind === 'police_station' ? 'station' : k.kind === 'personnel' ? 'staff' : k.kind === 'police_vehicle' ? 'vehicle' : 'scene'}`)}
                 <span className="ml-1 opacity-70 font-normal tabular-nums">{counts[k.kind]}</span>
               </button>
             );
           })}
         </div>
-        <p className="text-[10px] text-neon-cyan px-0.5">
-          Tap the map in {city.name} to drop a{' '}
-          <span className="font-semibold">{fleetKindMeta(placeKind).label.toLowerCase()}</span> pin
-          {placingBusy ? '…' : '.'}
-        </p>
+          <p className="text-[10px] text-neon-cyan px-0.5">
+            {t('fleet.tap', { city: city.name, kind: t(`fleet.kind.${placeKind}`) })}
+            {placingBusy ? '…' : '.'}
+          </p>
         {syncError ? <p className="text-[10px] text-serpico-red px-0.5">{syncError}</p> : null}
       </div>
 
@@ -354,14 +357,14 @@ const FleetMap: React.FC = () => {
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1200] w-[min(340px,90vw)] pointer-events-none">
           <div className="px-2.5 py-1.5 rounded-lg border border-neon-cyan/50 bg-black/70 backdrop-blur-sm shadow-lg text-center">
             <p className="text-[10px] text-neon-cyan font-display uppercase tracking-wide">
-              {cityLabel(city)} · {fleetKindMeta(placeKind).label}
+              {cityLabel(city, nation)} · {t(`fleet.kind.${placeKind}`)}
             </p>
           </div>
         </div>
         {cityMarkers.length === 0 ? (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1100] w-[min(360px,92vw)] pointer-events-none">
             <div className="rounded-lg border border-neon-cyan/30 bg-black/70 px-3 py-2 text-[11px] text-gray-200 text-center">
-              Tap the map to mark a station, personnel, vehicle, or crime scene. Switch cities from the list above.
+              {t('fleet.empty')}
             </div>
           </div>
         ) : null}

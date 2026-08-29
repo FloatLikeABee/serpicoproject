@@ -304,7 +304,11 @@ analysis draft=%s`,
 		req.Place, req.Location, req.Name, req.Time, req.Event, req.Analysis,
 	)
 
-	content, err := aiSvc.ProcessChat(userMsg, "investigation-node-assist", nil)
+	ctx := "investigation-node-assist"
+	if helperNation(c) == "cn" {
+		ctx += "\n[nation:cn]"
+	}
+	content, err := aiSvc.ProcessChat(userMsg, ctx, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

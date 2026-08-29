@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { chatAPI } from '../services/api';
+import { parseNation } from '../utils/nation';
 import ChatMarkdown from './ChatMarkdown';
 import {
   ChatMessage,
@@ -72,7 +73,10 @@ const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose, context })
 
     try {
       // Call backend AI API
-      const response = await chatAPI.sendMessage(messageText, context, priorHistory);
+      const response = await chatAPI.sendMessage(messageText, context, priorHistory, {
+        nation: parseNation(user?.nation),
+        userId,
+      });
       
       const aiMessage: Message = {
         id: response.response.id || (Date.now() + 1).toString(),

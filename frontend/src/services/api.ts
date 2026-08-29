@@ -181,14 +181,38 @@ export const chatAPI = {
   sendMessage: async (
     message: string,
     context?: string,
-    history?: ChatHistoryEntry[]
+    history?: ChatHistoryEntry[],
+    opts?: { nation?: string; userId?: string }
   ): Promise<ChatResponse> => {
-    const response = await api.post<ChatResponse>('/chat', {
-      message,
-      context: context || '',
-      history: history || [],
+    const nation = opts?.nation || 'us';
+    const response = await api.post<ChatResponse>(
+      '/chat',
+      {
+        message,
+        context: context || '',
+        history: history || [],
+        nation,
+      },
+      { params: { nation, userId: opts?.userId } }
+    );
+    return response.data;
+  },
+};
+
+export const usersAPI = {
+  getMe: async (userId: string): Promise<{ user: { id: string; nation?: string } }> => {
+    const response = await api.get<{ user: { id: string; nation?: string } }>('/users/me', {
+      params: { userId: userId || 'guest' },
+      timeout: 15000,
     });
     return response.data;
+  },
+  upsertNation: async (userId: string, nation: string): Promise<void> => {
+    await api.put(
+      '/users/me',
+      { nation },
+      { params: { userId: userId || 'guest' }, timeout: 15000 }
+    );
   },
 };
 
@@ -241,7 +265,10 @@ export type InvestigationHelperPayload = {
   files: InvestigationHelperFile[];
 };
 
-const helperParams = (userId: string) => ({ userId: userId || 'guest' });
+const helperParams = (userId: string, nation?: string) => ({
+  userId: userId || 'guest',
+  ...(nation ? { nation } : {}),
+});
 
 export const investigationHelperAPI = {
   listSessions: async (userId: string): Promise<{ sessions: InvestigationHelperSession[] }> => {
@@ -311,12 +338,13 @@ export const investigationHelperAPI = {
   chat: async (
     userId: string,
     sessionId: string,
-    message: string
+    message: string,
+    nation?: string
   ): Promise<InvestigationHelperPayload> => {
     const response = await api.post<InvestigationHelperPayload>(
       `/investigation-helper/sessions/${sessionId}/chat`,
       { message },
-      { params: helperParams(userId), timeout: 90000 }
+      { params: helperParams(userId, nation), timeout: 90000 }
     );
     return response.data;
   },
@@ -434,21 +462,26 @@ export interface MysteriesStatus {
 }
 
 export const mysteriesAPI = {
-  getStatus: async (): Promise<MysteriesStatus> => {
-    const response = await api.get<MysteriesStatus>('/mysteries/status');
+  getStatus: async (nation?: string): Promise<MysteriesStatus> => {
+    const response = await api.get<MysteriesStatus>('/mysteries/status', { params: { nation } });
     return response.data;
   },
-  listCases: async (category?: string): Promise<{ cases: MysteryCase[]; total: number; status: MysteriesStatus }> => {
+  listCases: async (
+    category?: string,
+    nation?: string
+  ): Promise<{ cases: MysteryCase[]; total: number; status: MysteriesStatus }> => {
     const response = await api.get<{ cases: MysteryCase[]; total: number; status: MysteriesStatus }>(
       '/mysteries/cases',
-      { params: category && category !== 'all' ? { category } : undefined }
+      { params: { ...(category && category !== 'all' ? { category } : {}), nation } }
     );
     return response.data;
   },
-  refreshCases: async (): Promise<void> => {
-    await api.post('/mysteries/cases/refresh');
+  refreshCases: async (nation?: string): Promise<void> => {
+    await api.post('/mysteries/cases/refresh', {}, { params: { nation } });
   },
-  listBriefings: async (): Promise<{
+  listBriefings: async (
+    nation?: string
+  ): Promise<{
     briefings: MysteryBriefing[];
     latest: MysteryBriefing | null;
     status: MysteriesStatus;
@@ -457,14 +490,16 @@ export const mysteriesAPI = {
       briefings: MysteryBriefing[];
       latest: MysteryBriefing | null;
       status: MysteriesStatus;
-    }>('/mysteries/briefings');
+    }>('/mysteries/briefings', { params: { nation } });
     return response.data;
   },
-  refreshBriefing: async (): Promise<void> => {
-    await api.post('/mysteries/briefings/refresh');
+  refreshBriefing: async (nation?: string): Promise<void> => {
+    await api.post('/mysteries/briefings/refresh', {}, { params: { nation } });
   },
-  listInsights: async (): Promise<{ insights: MysteryInsight[]; total: number }> => {
-    const response = await api.get<{ insights: MysteryInsight[]; total: number }>('/mysteries/insights');
+  listInsights: async (nation?: string): Promise<{ insights: MysteryInsight[]; total: number }> => {
+    const response = await api.get<{ insights: MysteryInsight[]; total: number }>('/mysteries/insights', {
+      params: { nation },
+    });
     return response.data;
   },
   submitInsight: async (payload: {

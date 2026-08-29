@@ -63,5 +63,5 @@ Stay concise. Sound like a calm interview coach for a working police interview r
 `
 
 func isSuspectInterviewContext(context string) bool {
-	return context == "suspect-interview"
+	return contextSlug(context) == "suspect-interview"
 }

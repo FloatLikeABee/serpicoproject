@@ -416,6 +416,14 @@ func handleHelperDeleteFile(c *gin.Context, db *database.Database) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+func helperChatContext(c *gin.Context) string {
+	ctx := "investigation-helper"
+	if helperNation(c) == "cn" {
+		ctx += "\n[nation:cn]"
+	}
+	return ctx
+}
+
 func handleHelperChat(c *gin.Context, db *database.Database, aiService interface{}) {
 	userID := helperUserID(c)
 	sessionID := c.Param("id")
@@ -505,7 +513,7 @@ func handleHelperChat(c *gin.Context, db *database.Database, aiService interface
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI service not available"})
 		return
 	}
-	reply, err := aiSvc.ProcessChat(userPrompt, "investigation-helper", history)
+	reply, err := aiSvc.ProcessChat(userPrompt, helperChatContext(c), history)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

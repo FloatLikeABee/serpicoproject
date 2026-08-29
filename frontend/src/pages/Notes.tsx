@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { useAuth } from '../contexts/AuthContext';
+import { useT } from '../i18n/useT';
 import {
   InvestigationCase,
   InvestigationNode,
@@ -14,6 +15,7 @@ import {
   saveCachedNodes,
   upsertCachedCase,
 } from '../utils/investigationStore';
+import { applyNationToOfficerFields } from '../utils/officerContent';
 
 type NodeForm = {
   place: string;
@@ -185,7 +187,8 @@ function CompactNoteMarkdown({
 
 /** Cases list — expand a case to work its timed notes in-pane. */
 const Notes: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, setNation } = useAuth();
+  const t = useT();
   const navigate = useNavigate();
   const { caseId: routeCaseId } = useParams<{ caseId?: string }>();
 
@@ -463,14 +466,17 @@ const Notes: React.FC = () => {
     setSavingNote(true);
     setError('');
     try {
-      const payload = {
-        place: noteForm.place.trim(),
-        location: noteForm.location.trim(),
-        name: noteForm.name.trim(),
-        time: noteForm.time || new Date().toISOString().slice(0, 16),
-        event: displayNoteText(noteForm.event.trim()),
-        analysis: displayNoteText(noteForm.analysis.trim()),
-      };
+      const payload = applyNationToOfficerFields(
+        {
+          place: noteForm.place.trim(),
+          location: noteForm.location.trim(),
+          name: noteForm.name.trim(),
+          time: noteForm.time || new Date().toISOString().slice(0, 16),
+          event: displayNoteText(noteForm.event.trim()),
+          analysis: displayNoteText(noteForm.analysis.trim()),
+        },
+        user?.nation || 'us'
+      );
 
       let nextNodes = [...(nodesByCase[expandedId] || loadCachedNodes(expandedId))];
       const isLocalCase = expandedId.startsWith('local-');
@@ -605,10 +611,10 @@ const Notes: React.FC = () => {
               Investigation desk
             </p>
             <h1 className="text-xl sm:text-2xl font-display font-bold text-serpico-red tracking-wide">
-              Cases
+              {t('cases.title')}
             </h1>
             <p className="text-[11px] sm:text-xs text-synth-muted mt-0.5">
-              Expand a case to view and add timed notes.
+              {t('cases.subtitle')}
               {syncing ? ' · Syncing…' : ''}
             </p>
           </div>
@@ -617,7 +623,7 @@ const Notes: React.FC = () => {
             onClick={() => setShowCaseForm((v) => !v)}
             className="flex-shrink-0 px-2.5 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-cyan/40 text-neon-cyan hover:bg-neon-cyan/15"
           >
-            {showCaseForm ? 'Cancel' : 'New case'}
+            {showCaseForm ? t('cases.cancel') : t('cases.new')}
           </button>
         </div>
       </div>
@@ -666,24 +672,24 @@ const Notes: React.FC = () => {
               disabled={savingCase || !caseForm.type.trim()}
               className="w-full py-2 rounded-lg bg-serpico-blue/80 text-white text-xs font-display uppercase tracking-wider hover:bg-serpico-blue disabled:opacity-50"
             >
-              {savingCase ? 'Creating…' : 'Create case'}
+              {savingCase ? t('cases.creating') : t('cases.create')}
             </button>
           </form>
         )}
 
         {loading ? (
-          <p className="text-center text-sm text-neon-cyan animate-pulse py-8">Loading cases…</p>
+          <p className="text-center text-sm text-neon-cyan animate-pulse py-8">{t('cases.loading')}</p>
         ) : cases.length === 0 ? (
           <div className="game-panel p-6 text-center space-y-2">
-            <p className="text-sm text-gray-300">No cases yet.</p>
-            <p className="text-xs text-synth-muted">Create a case, then expand it to add timed notes.</p>
+            <p className="text-sm text-gray-300">{t('cases.empty')}</p>
+            <p className="text-xs text-synth-muted">{t('cases.emptyHint')}</p>
             {!showCaseForm && (
               <button
                 type="button"
                 onClick={() => setShowCaseForm(true)}
                 className="mt-2 px-3 py-2 rounded-lg bg-serpico-blue/80 text-white text-xs font-display uppercase tracking-wider hover:bg-serpico-blue"
               >
-                New case
+                {t('cases.new')}
               </button>
             )}
           </div>
@@ -898,7 +904,36 @@ const Notes: React.FC = () => {
         )}
 
         <section className="game-panel p-3 space-y-2 border border-white/10">
-          <p className="text-[10px] font-display uppercase tracking-wider text-synth-muted">Account</p>
+          <p className="text-[10px] font-display uppercase tracking-wider text-synth-muted">{t('account.title')}</p>
+          <div className="space-y-2">
+            <label className="block text-[10px] font-display uppercase tracking-wider text-neon-cyan/90">
+              {t('account.nation')}
+            </label>
+            <div className="flex gap-2" role="group" aria-label={t('account.nation')}>
+              <button
+                type="button"
+                onClick={() => setNation('us')}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-display uppercase border ${
+                  (user?.nation || 'us') === 'us'
+                    ? 'border-neon-cyan bg-neon-cyan/15 text-neon-cyan'
+                    : 'border-white/15 text-gray-300'
+                }`}
+              >
+                {t('account.us')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setNation('cn')}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-display uppercase border ${
+                  user?.nation === 'cn'
+                    ? 'border-neon-cyan bg-neon-cyan/15 text-neon-cyan'
+                    : 'border-white/15 text-gray-300'
+                }`}
+              >
+                {t('account.cn')}
+              </button>
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -908,7 +943,7 @@ const Notes: React.FC = () => {
               }}
               className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-serpico-red/40 text-serpico-red"
             >
-              Logout
+              {t('account.logout')}
             </button>
             {user?.name && (
               <span className="text-[10px] text-synth-muted self-center ml-1">{user.name}</span>

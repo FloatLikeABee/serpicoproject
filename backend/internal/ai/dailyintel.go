@@ -58,6 +58,7 @@ type NewsDigestMeta struct {
 	File      string    `json:"file"`
 	CreatedAt time.Time `json:"created_at"`
 	Summary   string    `json:"summary,omitempty"`
+	Nation    string    `json:"nation,omitempty"`
 }
 
 // DailyIntelService collects worldwide crime intel twice daily.
@@ -217,13 +218,31 @@ func (s *DailyIntelService) Status() DailyIntelStatus {
 
 // ListNews returns recent news digests (newest first).
 func (s *DailyIntelService) ListNews(limit int) []NewsDigestMeta {
+	return s.ListNewsNation("", limit)
+}
+
+func (s *DailyIntelService) ListNewsNation(nation string, limit int) []NewsDigestMeta {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if limit <= 0 || limit > len(s.news) {
-		limit = len(s.news)
+	filtered := s.news
+	if nation != "" {
+		want := ParseNation(nation)
+		filtered = make([]NewsDigestMeta, 0, len(s.news))
+		for _, n := range s.news {
+			got := n.Nation
+			if got == "" {
+				got = "us"
+			}
+			if ParseNation(got) == want {
+				filtered = append(filtered, n)
+			}
+		}
+	}
+	if limit <= 0 || limit > len(filtered) {
+		limit = len(filtered)
 	}
 	out := make([]NewsDigestMeta, limit)
-	copy(out, s.news[:limit])
+	copy(out, filtered[:limit])
 	return out
 }
 
@@ -237,7 +256,7 @@ func (s *DailyIntelService) NewsContextForQuery(query string, limit int) string 
 	if limit <= 0 {
 		limit = 3
 	}
-	items := s.ListNews(maxNewsRetain)
+	items := s.ListNewsNation(nationFromContext(query), maxNewsRetain)
 	if len(items) == 0 {
 		return ""
 	}
@@ -373,7 +392,13 @@ func (s *DailyIntelService) Run(force bool) error {
 		s.mu.Unlock()
 	}()
 
-	addedNews, addedKnowledge, err := s.collect(target)
+	addedNews, addedKnowledge, err := s.collect(target, "us")
+	cnNews, cnKnow, cnErr := s.collect(target, "cn")
+	addedNews += cnNews
+	addedKnowledge += cnKnow
+	if err == nil {
+		err = cnErr
+	}
 	s.mu.Lock()
 	s.status.LastRunAt = time.Now().UTC()
 	s.status.LastAdded = addedNews + addedKnowledge
@@ -401,8 +426,9 @@ func (s *DailyIntelService) rollDayLocked() {
 	}
 }
 
-func (s *DailyIntelService) collect(target int) (newsCount, knowledgeCount int, err error) {
-	hits, err := s.gatherHits()
+func (s *DailyIntelService) collect(target int, nation string) (newsCount, knowledgeCount int, err error) {
+	nation = ParseNation(nation)
+	hits, err := s.gatherHits(nation)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -425,7 +451,7 @@ func (s *DailyIntelService) collect(target int) (newsCount, knowledgeCount int, 
 		fresh = fresh[:24]
 	}
 
-	picks, err := s.pickWithAI(fresh, target)
+	picks, err := s.pickWithAI(fresh, target, nation)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -465,7 +491,7 @@ func (s *DailyIntelService) collect(target int) (newsCount, knowledgeCount int, 
 			}
 			knowledgeCount++
 		default:
-			if err := s.saveNews(pick, hit, title); err != nil {
+			if err := s.saveNews(pick, hit, title, nation); err != nil {
 				log.Printf("daily-intel: news save: %v", err)
 				continue
 			}
@@ -532,7 +558,7 @@ func (s *DailyIntelService) saveKnowledge(pick intelPick, hit intelHit, title st
 	return s.ai.rag.AddDocument(doc)
 }
 
-func (s *DailyIntelService) saveNews(pick intelPick, hit intelHit, title string) error {
+func (s *DailyIntelService) saveNews(pick intelPick, hit intelHit, title, nation string) error {
 	summary := strings.TrimSpace(pick.SummaryMD)
 	if summary == "" {
 		summary = fmt.Sprintf("**%s**\n\n%s", title, strings.TrimSpace(hit.Snippet))
@@ -564,6 +590,7 @@ func (s *DailyIntelService) saveNews(pick intelPick, hit intelHit, title string)
 		File:      filename,
 		CreatedAt: ts,
 		Summary:   trimRunes(stripMD(summary), 280),
+		Nation:    ParseNation(nation),
 	}
 
 	s.mu.Lock()
@@ -581,24 +608,13 @@ func (s *DailyIntelService) saveNews(pick intelPick, hit intelHit, title string)
 	return nil
 }
 
-func (s *DailyIntelService) gatherHits() ([]intelHit, error) {
-	queries := []string{
-		`crime news United States`,
-		`police investigation breakthrough`,
-		`"cold case" solved`,
-		`cold case solved murder`,
-		`fugitive captured OR arrested`,
-		`international crime police`,
-		`major crime Europe OR Asia OR Africa OR "Latin America"`,
-		`homicide investigation update`,
-		`serial offender arrested`,
-		`missing person found police`,
-	}
+func (s *DailyIntelService) gatherHits(nation string) ([]intelHit, error) {
+	queries := intelSearchQueries(nation)
 
 	seen := map[string]bool{}
 	var all []intelHit
 	for _, q := range queries {
-		hits, err := s.searchNews(q, 8)
+		hits, err := s.searchNews(q, 8, nation)
 		if err != nil {
 			log.Printf("daily-intel: rss %q: %v", q, err)
 			continue
@@ -618,11 +634,11 @@ func (s *DailyIntelService) gatherHits() ([]intelHit, error) {
 	return all, nil
 }
 
-func (s *DailyIntelService) searchNews(query string, limit int) ([]intelHit, error) {
-	// Prefer English worldwide feed; still includes US + international wire stories.
+func (s *DailyIntelService) searchNews(query string, limit int, nation string) ([]intelHit, error) {
 	u := fmt.Sprintf(
-		"https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en",
+		"https://news.google.com/rss/search?q=%s&%s",
 		url.QueryEscape(query),
+		googleNewsLocale(nation),
 	)
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {
@@ -666,7 +682,7 @@ func (s *DailyIntelService) searchNews(query string, limit int) ([]intelHit, err
 	return hits, nil
 }
 
-func (s *DailyIntelService) pickWithAI(hits []intelHit, target int) ([]intelPick, error) {
+func (s *DailyIntelService) pickWithAI(hits []intelHit, target int, nation string) ([]intelPick, error) {
 	var listing strings.Builder
 	for i, h := range hits {
 		listing.WriteString(fmt.Sprintf("[%d] %s\n", i, h.Title))
@@ -698,6 +714,18 @@ Output rules (critical):
 - Every string value MUST be one JSON line: escape newlines as \n, tabs as \t, and quotes as \".
 Example shape:
 {"items":[{"source_index":0,"kind":"news","title":"...","location":"...","category":"history","summary_md":"- point one\\n- point two","rag_content":""}]}`
+
+	if ParseNation(nation) == "cn" {
+		system = `你是 Serpico 的一线警情策展人。
+从候选列表中选出最有价值的中国犯罪情报。
+规则：
+- 选择 1 到 TARGET 条。质量优先。
+- 聚焦中国刑事案件、积案告破、在逃抓获、失踪协查。不要用美国 NamUs/FBI 稿件。
+- 全部 title / summary_md / rag_content 使用简体中文。
+- kind=knowledge 或 news。category 为 history, strategy, perps, crime_stats, locations 之一。
+只返回一个 JSON 对象，不要 markdown。
+{"items":[{"source_index":0,"kind":"news","title":"...","location":"...","category":"history","summary_md":"- 要点","rag_content":""}]}`
+	}
 
 	user := fmt.Sprintf("TARGET=%d\n\nCANDIDATES:\n%s", target, listing.String())
 	raw, err := s.generate(system, user)
