@@ -2,6 +2,7 @@ import {
   DEFAULT_NATION,
   loadNation,
   parseNation,
+  resolveAccountNation,
   saveNation,
 } from './nation';
 
@@ -31,5 +32,20 @@ describe('nation storage is per user id', () => {
   it('does not leak nation to another user id', () => {
     saveNation('officer-a', 'cn');
     expect(loadNation('officer-b')).toBe('us');
+  });
+
+  it('explicit us wins over stored cn on the same id', () => {
+    saveNation('demo-serpico', 'cn');
+    expect(resolveAccountNation('demo-serpico', 'us')).toBe('us');
+  });
+
+  it('explicit cn still applies when stored is us', () => {
+    saveNation('demo-serpico', 'us');
+    expect(resolveAccountNation('demo-serpico', 'cn')).toBe('cn');
+  });
+
+  it('falls back to stored nation when explicit is omitted', () => {
+    saveNation('demo-serpico', 'cn');
+    expect(resolveAccountNation('demo-serpico')).toBe('cn');
   });
 });

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { usersAPI } from '../services/api';
-import { DEFAULT_NATION, loadNation, parseNation, saveLastNation, saveNation, type Nation } from '../utils/nation';
+import { DEFAULT_NATION, loadNation, parseNation, resolveAccountNation, saveLastNation, saveNation, type Nation } from '../utils/nation';
 
 export type UserRole = 'police' | 'civilian';
 
@@ -36,10 +36,7 @@ const createUserId = () =>
     : `user-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 function withNation(user: User): User {
-  const stored = loadNation(user.id);
-  const fromUser = parseNation(user.nation);
-  const nation = stored !== DEFAULT_NATION || !user.nation ? stored : fromUser;
-  return { ...user, nation };
+  return { ...user, nation: resolveAccountNation(user.id, user.nation) };
 }
 
 function persistUser(user: User) {
@@ -73,8 +70,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     usersAPI
       .getMe(user.id)
       .then((res) => {
-        const remote = parseNation(res?.user?.nation);
-        if (remote && remote !== user.nation) {
+        const raw = res?.user?.nation;
+        if (raw == null || String(raw).trim() === '') return;
+        const remote = parseNation(raw);
+        if (remote !== user.nation) {
           const merged = persistUser({ ...user, nation: remote });
           setUser(merged);
           document.documentElement.lang = remote === 'cn' ? 'zh-CN' : 'en';

@@ -47,3 +47,14 @@ export function saveNation(userId: string, nation: Nation) {
     console.warn('saveNation failed', err);
   }
 }
+
+/**
+ * Resolve account nation for a user. An explicit value (including `us`) wins
+ * over a previously stored `cn` so Cases → Account can switch back.
+ */
+export function resolveAccountNation(userId: string, explicit?: Nation | string | null): Nation {
+  if (explicit != null && String(explicit).trim() !== '') {
+    return parseNation(explicit);
+  }
+  return loadNation(userId);
+}
