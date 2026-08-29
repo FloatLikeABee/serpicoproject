@@ -127,7 +127,7 @@ const landmarkStyle: Record<
   { color: string; label: string; glyph: string }
 > = {
   bar: { color: '#f59e0b', label: 'Bar', glyph: 'B' },
-  club: { color: '#e879f9', label: 'Club', glyph: 'C' },
+  club: { color: '#5aa8ff', label: 'Club', glyph: 'C' },
   factory: { color: '#94a3b8', label: 'Factory', glyph: 'F' },
   projects: { color: '#fb7185', label: 'Projects', glyph: 'P' },
 };
@@ -140,14 +140,14 @@ function buildLandmarkIcon(landmark: MapLandmark, active = false): L.DivIcon {
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:72px;pointer-events:auto;cursor:pointer;">
         <div style="
           width:20px;height:20px;border-radius:5px;flex-shrink:0;
-          background:${style.color};color:#07050f;
+          background:${style.color};color:#061428;
           font:700 10px/20px ui-monospace,Menlo,monospace;
           text-align:center;border:1px solid ${active ? '#fff' : 'rgba(0,0,0,0.45)'};
           box-shadow:0 0 ${active ? '8px' : '4px'} ${style.color};
         ">${style.glyph}</div>
         <div style="
           margin-top:2px;max-width:72px;padding:1px 4px;border-radius:3px;
-          background:${style.color}dd;color:#07050f;
+          background:${style.color}dd;color:#061428;
           font:700 8px/1.15 'IBM Plex Sans',system-ui,sans-serif;
           text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
           border:1px solid rgba(0,0,0,0.35);
@@ -173,15 +173,15 @@ function buildTagIcon(tag: MapTag, active = false): L.DivIcon {
         <div style="
           width:22px;height:22px;border-radius:999px;flex-shrink:0;
           background:${style.color};
-          color:#07050f;
+          color:#061428;
           font:800 10px/22px ui-monospace,Menlo,monospace;
           text-align:center;
-          border:2px solid ${active ? '#ffffff' : 'rgba(7,5,15,0.85)'};
+          border:2px solid ${active ? '#ffffff' : 'rgba(6,20,40,0.85)'};
           box-shadow:0 0 0 1px ${style.color}, 0 0 ${active ? '10px' : '6px'} ${style.color}aa;
         ">${style.glyph}</div>
         <div style="
           margin-top:3px;max-width:56px;padding:1px 4px;border-radius:3px;
-          background:${style.color}e6;color:#07050f;
+          background:${style.color}e6;color:#061428;
           font:700 8px/1.15 'IBM Plex Sans',system-ui,sans-serif;
           text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
           border:1px solid rgba(0,0,0,0.35);
@@ -301,7 +301,7 @@ const perpVehicleSvg = (
   pursued: boolean,
   lockOn: boolean,
   size: number,
-  tint = '#ff2bd6'
+  tint = '#ff4d6d'
 ) => {
   const outer = lockOn ? size + 10 : size;
   return `
@@ -328,8 +328,8 @@ const perpVehicleSvg = (
 
 const caughtOverlay = (size: number) => `
   <div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;
-    background:rgba(0,0,0,0.55);border-radius:50%;border:2px solid #39ff14;pointer-events:auto;">
-    <span style="color:#39ff14;font-size:${Math.round(size * 0.4)}px;font-weight:bold;">✓</span>
+    background:rgba(0,0,0,0.55);border-radius:50%;border:2px solid #3dff9a;pointer-events:auto;">
+    <span style="color:#3dff9a;font-size:${Math.round(size * 0.4)}px;font-weight:bold;">✓</span>
   </div>`;
 
 const escapedOverlay = (size: number) => `
@@ -516,7 +516,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         lines.push({
           id: selectedVehicle.id,
           positions,
-          color: '#00f5ff',
+          color: '#3ec6ff',
         });
       }
     }
@@ -531,7 +531,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         lines.push({
           id: `${v.id}-route`,
           positions,
-          color: isPursuit ? '#00f5ff' : v.beingPursued ? '#ff6b6b' : v.color ?? '#ff2bd6',
+          color: isPursuit ? '#3ec6ff' : v.beingPursued ? '#ff4d6d' : v.color ?? '#ff4d6d',
           dashed: isPerp && !v.beingPursued,
         });
       });
@@ -586,8 +586,8 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
             center={[v.destination!.lat, v.destination!.lng]}
             radius={5}
             pathOptions={{
-              color: '#ff2bd6',
-              fillColor: '#ff2bd6',
+              color: '#ff4d6d',
+              fillColor: '#ff4d6d',
               fillOpacity: 0.5,
               weight: 1,
               interactive: false,

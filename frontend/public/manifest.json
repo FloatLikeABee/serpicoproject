@@ -1,6 +1,6 @@
 {
   "short_name": "Serpico",
-  "name": "Serpico — Neon Ops Terminal",
+  "name": "Serpico — Operations",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,6 +10,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#07050f",
-  "background_color": "#07050f"
+  "theme_color": "#061428",
+  "background_color": "#061428"
 }

@@ -167,7 +167,7 @@ function CompactNoteMarkdown({
       >
         <ChatMarkdown content={text} size="xs" />
         {long && !expanded ? (
-          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#07050f] to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#061428] to-transparent pointer-events-none" />
         ) : null}
       </div>
       {long ? (

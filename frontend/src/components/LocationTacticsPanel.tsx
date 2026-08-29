@@ -295,7 +295,7 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
             {/* Map region — dedicated space so the full floor plan stays visible */}
             <div className="flex-1 min-h-0 overflow-auto px-2 py-2">
               <div
-                className="relative mx-auto rounded-md border border-white/10 bg-[#07050f] p-1.5"
+                className="relative mx-auto rounded-md border border-white/10 bg-[#061428] p-1.5"
                 style={{ width: gridW + 12, minHeight: gridH + 12 }}
               >
                 {game.roundPhase === 'perp' && (
@@ -322,7 +322,7 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                     const canArrest = arrestSet.has(`${cell.x},${cell.y}`);
                     const inDanger = dangerSet.has(`${cell.x},${cell.y}`);
                     const hitPct = targetHitPct.get(`${cell.x},${cell.y}`);
-                    let bg = '#1a1430';
+                    let bg = '#0a1f3d';
                     if (cell.kind === 'wall') bg = '#3f3f46';
                     else if (cell.kind === 'cover') bg = '#78716c';
                     else if (cell.kind === 'exit') bg = '#7f1d1d';
@@ -386,7 +386,7 @@ const LocationTacticsPanel: React.FC<LocationTacticsPanelProps> = ({
                           : '#22d3ee'
                         : u.status === 'caught'
                         ? '#4ade80'
-                        : '#f472b6';
+                        : '#ff4d6d';
                     return (
                       <div
                         key={u.id}

@@ -244,7 +244,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 <select
                   value={draft.kind}
                   onChange={(e) => setDraft((p) => ({ ...p, kind: e.target.value as MapTagKind }))}
-                  className="w-full px-3 py-2 rounded-lg border border-white/10 bg-[#0b0818] text-sm text-white"
+                  className="w-full px-3 py-2 rounded-lg border border-white/10 bg-[#0a1f3d] text-sm text-white"
                   style={{ colorScheme: 'dark' }}
                 >
                   {kinds.map((k) => (
@@ -338,7 +338,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
         </div>
 
         {/* Footer — fixed */}
-        <div className="flex-shrink-0 px-4 py-3 border-t border-white/10 bg-[#07050f]/95">
+        <div className="flex-shrink-0 px-4 py-3 border-t border-white/10 bg-[#061428]/95">
           {editing ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <button

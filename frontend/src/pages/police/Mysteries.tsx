@@ -14,23 +14,23 @@ type MainTab = 'cases' | 'briefings' | 'insights';
 type CaseFilter = 'all' | 'missing_person' | 'cold_case' | 'unsolved_crime' | 'fugitive';
 
 const CASE_FILTERS: Array<{ id: CaseFilter; label: string; accent: string }> = [
-  { id: 'all', label: 'All', accent: '#00f5ff' },
-  { id: 'missing_person', label: 'Missing', accent: '#ff6b9d' },
-  { id: 'cold_case', label: 'Cold Cases', accent: '#a78bfa' },
-  { id: 'unsolved_crime', label: 'Unsolved', accent: '#fbbf24' },
-  { id: 'fugitive', label: 'On the Run', accent: '#fb7185' },
+  { id: 'all', label: 'All', accent: '#3ec6ff' },
+  { id: 'missing_person', label: 'Missing', accent: '#ff4d6d' },
+  { id: 'cold_case', label: 'Cold Cases', accent: '#5aa8ff' },
+  { id: 'unsolved_crime', label: 'Unsolved', accent: '#ffc107' },
+  { id: 'fugitive', label: 'On the Run', accent: '#3dff9a' },
 ];
 
 function categoryMeta(category: string) {
   switch (category) {
     case 'missing_person':
-      return { label: 'Missing Person', color: '#ff6b9d', bg: 'rgba(255,107,157,0.15)' };
+      return { label: 'Missing Person', color: '#ff4d6d', bg: 'rgba(255,77,109,0.15)' };
     case 'cold_case':
-      return { label: 'Cold Case', color: '#a78bfa', bg: 'rgba(167,139,250,0.15)' };
+      return { label: 'Cold Case', color: '#5aa8ff', bg: 'rgba(90,168,255,0.15)' };
     case 'fugitive':
-      return { label: 'Fugitive', color: '#fb7185', bg: 'rgba(251,113,133,0.15)' };
+      return { label: 'Fugitive', color: '#3dff9a', bg: 'rgba(61,255,154,0.15)' };
     default:
-      return { label: 'Unsolved', color: '#fbbf24', bg: 'rgba(251,191,36,0.15)' };
+      return { label: 'Unsolved', color: '#ffc107', bg: 'rgba(255,193,7,0.15)' };
   }
 }
 
@@ -226,7 +226,7 @@ const Mysteries: React.FC = () => {
       />
 
       {showOverlay && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#07050f]/85 backdrop-blur-sm">
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#061428]/85 backdrop-blur-sm">
           <div className="mx-4 w-full max-w-sm rounded-2xl border border-serpico-blue/30 bg-black/60 px-6 py-8 text-center shadow-[0_0_40px_rgba(0,245,255,0.15)]">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-serpico-blue/30 border-t-serpico-blue" />
             <p className="font-display text-sm font-semibold tracking-wide text-white">Loading Board</p>

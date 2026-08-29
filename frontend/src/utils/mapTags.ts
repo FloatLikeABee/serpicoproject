@@ -47,7 +47,7 @@ export const MAP_TAG_KINDS: Array<{
   { kind: 'perp_vehicle', label: 'Perp vehicle', short: 'Suspect car', color: '#f97316', glyph: 'C' },
   { kind: 'murder_case', label: 'Murder case', short: 'Homicide', color: '#9f1239', glyph: 'M' },
   { kind: 'suspect', label: 'Suspect', short: 'Suspect', color: '#f43f5e', glyph: 'X' },
-  { kind: 'investigation', label: 'Investigation', short: 'Case', color: '#c026d3', glyph: 'I' },
+  { kind: 'investigation', label: 'Investigation', short: 'Case', color: '#5aa8ff', glyph: 'I' },
   { kind: 'witness', label: 'Witness', short: 'Witness', color: '#14b8a6', glyph: 'W' },
   { kind: 'evidence', label: 'Evidence', short: 'Evidence', color: '#eab308', glyph: 'E' },
   { kind: 'other', label: 'Other', short: 'Pin', color: '#64748b', glyph: '+' },

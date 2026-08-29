@@ -28,15 +28,15 @@ function buildFleetIcon(marker: FleetMarker, active = false): L.DivIcon {
         <div style="
           width:22px;height:22px;border-radius:999px;flex-shrink:0;
           background:${style.color};
-          color:#07050f;
+          color:#061428;
           font:800 10px/22px ui-monospace,Menlo,monospace;
           text-align:center;
-          border:2px solid ${active ? '#ffffff' : 'rgba(7,5,15,0.85)'};
+          border:2px solid ${active ? '#ffffff' : 'rgba(6,20,40,0.85)'};
           box-shadow:0 0 0 1px ${style.color}, 0 0 ${active ? '10px' : '6px'} ${style.color}aa;
         ">${style.glyph}</div>
         <div style="
           margin-top:3px;max-width:56px;padding:1px 4px;border-radius:3px;
-          background:${style.color}e6;color:#07050f;
+          background:${style.color}e6;color:#061428;
           font:700 8px/1.15 'IBM Plex Sans',system-ui,sans-serif;
           text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
           border:1px solid rgba(0,0,0,0.35);

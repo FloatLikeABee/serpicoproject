@@ -49,9 +49,9 @@ const Login: React.FC = () => {
         <div className="game-panel p-4 sm:p-8">
           <div className="flex flex-col items-center mb-4 sm:mb-8">
             <ShieldLogo size={56} className="sm:w-20 sm:h-20 mb-2" />
-            <h1 className="font-display text-2xl sm:text-4xl font-bold neon-text-magenta tracking-widest">SERPICO</h1>
-            <p className="text-xs sm:text-base text-synth-muted mt-1 sm:mt-2 font-mono tracking-wider uppercase text-center">
-              Neon Ops Terminal v0.1
+            <h1 className="font-display text-2xl sm:text-4xl font-bold neon-text-cyan tracking-wide">SERPICO</h1>
+            <p className="text-xs sm:text-base text-synth-muted mt-1 sm:mt-2 font-mono tracking-wide uppercase text-center">
+              Field operations
             </p>
             <div className="mt-2 sm:mt-3 flex flex-wrap justify-center gap-1.5 text-[10px] sm:text-xs font-mono text-neon-green/80">
               <span className="px-2 py-0.5 border border-neon-green/30 rounded">SYS ONLINE</span>
@@ -67,7 +67,7 @@ const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             <div>
-              <label className="block text-xs font-display font-semibold mb-2 text-neon-cyan/90 tracking-widest uppercase">
+              <label className="block text-xs font-display font-semibold mb-2 text-neon-cyan/90 tracking-wide uppercase">
                 Username
               </label>
               <input
@@ -81,7 +81,7 @@ const Login: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-display font-semibold mb-2 text-neon-cyan/90 tracking-widest uppercase">
+              <label className="block text-xs font-display font-semibold mb-2 text-neon-cyan/90 tracking-wide uppercase">
                 Access Code
               </label>
               <input
@@ -149,7 +149,7 @@ const Login: React.FC = () => {
         </div>
 
         <p className="text-center text-[10px] sm:text-xs font-mono text-synth-muted/60 mt-3 sm:mt-4 tracking-wider px-2">
-          © SERPICO SYNTH DIVISION
+          © SERPICO
         </p>
       </div>
       </div>

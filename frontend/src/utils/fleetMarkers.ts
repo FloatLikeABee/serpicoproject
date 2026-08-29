@@ -14,7 +14,7 @@ export const FLEET_MARKER_KINDS: Array<{
   { kind: 'police_station', label: 'Station / facility', short: 'Station', color: '#1e3a8a', glyph: 'S' },
   { kind: 'personnel', label: 'Personnel', short: 'Staff', color: '#0ea5e9', glyph: 'N' },
   { kind: 'police_vehicle', label: 'Police vehicle', short: 'Vehicle', color: '#2563eb', glyph: 'V' },
-  { kind: 'investigation', label: 'Crime scene / event', short: 'Scene', color: '#c026d3', glyph: 'C' },
+  { kind: 'investigation', label: 'Crime scene / event', short: 'Scene', color: '#5aa8ff', glyph: 'C' },
 ];
 
 export const FLEET_KIND_SET = new Set<MapTagKind>(FLEET_MARKER_KINDS.map((k) => k.kind));
