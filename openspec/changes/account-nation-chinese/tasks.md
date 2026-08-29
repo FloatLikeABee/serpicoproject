@@ -23,4 +23,4 @@
 ## 5. Verification
 
 - [x] 5.1 Run frontend and backend tests (`CI=true npm test` in `frontend`, `go test ./...` in `backend`) and confirm they pass
-- [ ] 5.2 In the browser: set China on Cases → Account; confirm Chinese chrome, Fleet Shanghai, Board China-oriented cards; set United States and confirm English + Olathe; confirm a second user id does not inherit China
+- [x] 5.2 In the browser: set China on Cases → Account; confirm Chinese chrome, Fleet Shanghai, Board China-oriented cards; set United States and confirm English + Olathe; confirm a second user id does not inherit China
