@@ -3,7 +3,6 @@ package ai
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	"database/sql"
 )
@@ -115,45 +114,21 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 		}
 	}
 
-	// Step 5: Generate response using Gemini, fallback to Mistral if unavailable
+	// Step 5: Always use the configured Gemini model (same model for every
+	// nation, interview helper, and map-tag brief). Retry lives in the client.
+	// Do not switch to Mistral — that is a different model and often has no key,
+	// which doubled latency and produced "field model unavailable" copy.
 	response, err := s.gemini.GenerateResponse(userMessage, context, history, ragResults, webResult, newsDigests)
 	if err != nil {
-		log.Printf("Gemini API error: %v", err)
-
-		// Check if it's a service unavailable error (503, 429, etc.) and try Mistral
-		if s.isServiceUnavailable(err) {
-			log.Printf("Gemini unavailable, trying Mistral as fallback")
-			mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, history, ragResults, webResult, newsDigests)
-			if mistralErr != nil {
-				log.Printf("Mistral API error: %v", mistralErr)
-				// Fallback response
-				return s.generateFallbackResponse(userMessage, ragResults, context, webResult), nil
-			}
-			return mistralResponse, nil
+		model := ""
+		if s.config != nil {
+			model = s.config.GeminiModel
 		}
-
-		// For other errors, try Mistral anyway
-		log.Printf("Trying Mistral as fallback")
-		mistralResponse, mistralErr := s.mistral.GenerateResponse(userMessage, context, history, ragResults, webResult, newsDigests)
-		if mistralErr != nil {
-			log.Printf("Mistral API error: %v", mistralErr)
-			// Fallback response
-			return s.generateFallbackResponse(userMessage, ragResults, context, webResult), nil
-		}
-		return mistralResponse, nil
+		log.Printf("Gemini API error (%s): %v", model, err)
+		return s.generateFallbackResponse(userMessage, ragResults, context, webResult), nil
 	}
 
 	return response, nil
-}
-
-// isServiceUnavailable checks if the error indicates service unavailability
-func (s *AIService) isServiceUnavailable(err error) bool {
-	errStr := strings.ToLower(err.Error())
-	// Check for common service unavailable status codes
-	return strings.Contains(errStr, "503") ||
-		strings.Contains(errStr, "429") ||
-		strings.Contains(errStr, "unavailable") ||
-		strings.Contains(errStr, "overloaded")
 }
 
 func (s *AIService) generateFallbackResponse(query string, ragDocs []RAGDocument, context string, webResult string) string {

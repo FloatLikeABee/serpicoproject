@@ -177,6 +177,24 @@ export interface ChatHistoryEntry {
   content: string;
 }
 
+async function postWithRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastErr = err;
+      const status = err?.response?.status as number | undefined;
+      const retryable =
+        !status || status >= 500 || err?.code === 'ECONNABORTED' || err?.code === 'ERR_NETWORK';
+      if (!retryable || i === attempts - 1) {
+        throw err;
+      }
+    }
+  }
+  throw lastErr;
+}
+
 export const chatAPI = {
   sendMessage: async (
     message: string,
@@ -185,17 +203,19 @@ export const chatAPI = {
     opts?: { nation?: string; userId?: string }
   ): Promise<ChatResponse> => {
     const nation = opts?.nation || 'us';
-    const response = await api.post<ChatResponse>(
-      '/chat',
-      {
-        message,
-        context: context || '',
-        history: history || [],
-        nation,
-      },
-      { params: { nation, userId: opts?.userId } }
-    );
-    return response.data;
+    return postWithRetry(async () => {
+      const response = await api.post<ChatResponse>(
+        '/chat',
+        {
+          message,
+          context: context || '',
+          history: history || [],
+          nation,
+        },
+        { params: { nation, userId: opts?.userId }, timeout: 90000 }
+      );
+      return response.data;
+    });
   },
 };
 
@@ -341,12 +361,14 @@ export const investigationHelperAPI = {
     message: string,
     nation?: string
   ): Promise<InvestigationHelperPayload> => {
-    const response = await api.post<InvestigationHelperPayload>(
-      `/investigation-helper/sessions/${sessionId}/chat`,
-      { message },
-      { params: helperParams(userId, nation), timeout: 90000 }
-    );
-    return response.data;
+    return postWithRetry(async () => {
+      const response = await api.post<InvestigationHelperPayload>(
+        `/investigation-helper/sessions/${sessionId}/chat`,
+        { message },
+        { params: helperParams(userId, nation), timeout: 90000 }
+      );
+      return response.data;
+    });
   },
   fileUrl: (relativeUrl: string, userId?: string) => {
     if (!relativeUrl) return '';
