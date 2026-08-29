@@ -8,25 +8,26 @@ import (
 	"testing"
 )
 
-func TestQwenDefaultSettings(t *testing.T) {
-	if defaultQwenModel != "qwen-plus" {
-		t.Fatalf("default Qwen model = %s, want qwen-plus", defaultQwenModel)
+func TestLiveModelDefaultSettings(t *testing.T) {
+	if defaultLiveModel != "deepseek-ai/DeepSeek-V4-Flash" {
+		t.Fatalf("default live model = %s, want deepseek-ai/DeepSeek-V4-Flash", defaultLiveModel)
 	}
-	if defaultQwenBaseURL != "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" {
-		t.Fatalf("default Qwen base URL = %s", defaultQwenBaseURL)
+	if defaultLiveBaseURL != "https://api.siliconflow.cn/v1" {
+		t.Fatalf("default live base URL = %s", defaultLiveBaseURL)
 	}
-	if qwenCompletionsURL(defaultQwenBaseURL) != defaultQwenBaseURL+"/chat/completions" {
-		t.Fatalf("completions URL mismatch: %s", qwenCompletionsURL(defaultQwenBaseURL))
+	if qwenCompletionsURL(defaultLiveBaseURL) != defaultLiveBaseURL+"/chat/completions" {
+		t.Fatalf("completions URL mismatch: %s", qwenCompletionsURL(defaultLiveBaseURL))
 	}
-	if qwenCompletionsURL(defaultQwenBaseURL+"/chat/completions") != defaultQwenBaseURL+"/chat/completions" {
+	if qwenCompletionsURL(defaultLiveBaseURL+"/chat/completions") != defaultLiveBaseURL+"/chat/completions" {
 		t.Fatal("completions URL should not double-append")
 	}
 }
 
 func TestQwenClientGenerate(t *testing.T) {
 	var gotModel string
+	var thinking *bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/compatible-mode/v1/chat/completions" {
+		if r.URL.Path != "/v1/chat/completions" {
 			t.Errorf("path = %s", r.URL.Path)
 		}
 		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer sk-test") {
@@ -37,12 +38,13 @@ func TestQwenClientGenerate(t *testing.T) {
 			t.Fatal(err)
 		}
 		gotModel = req.Model
+		thinking = req.EnableThinking
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"Copy that."}}]}`))
 	}))
 	defer srv.Close()
 
-	q := NewQwenClient("sk-test", "qwen-plus", srv.URL+"/compatible-mode/v1")
+	q := NewQwenClient("sk-test", "deepseek-ai/DeepSeek-V4-Flash", srv.URL+"/v1")
 	if !q.Enabled() {
 		t.Fatal("expected enabled client")
 	}
@@ -53,39 +55,47 @@ func TestQwenClientGenerate(t *testing.T) {
 	if got != "Copy that." {
 		t.Fatalf("got %q", got)
 	}
-	if gotModel != "qwen-plus" {
+	if gotModel != "deepseek-ai/DeepSeek-V4-Flash" {
 		t.Fatalf("model = %s", gotModel)
+	}
+	if thinking == nil || *thinking {
+		t.Fatalf("enable_thinking should be false, got %v", thinking)
 	}
 }
 
-func TestLoadConfigQwenSettings(t *testing.T) {
+func TestLoadConfigLiveModelSettings(t *testing.T) {
 	t.Setenv("GEMINI_API_KEY", "g")
 	t.Setenv("MISTRAL_API_KEY", "m")
+	t.Setenv("SILICONFLOW_API_KEY", "sk-sf")
 	t.Setenv("QWEN_API_KEY", "sk-qwen")
 	t.Setenv("DASHSCOPE_API_KEY", "sk-dash")
-	t.Setenv("QWEN_MODEL", "")
-	t.Setenv("QWEN_BASE_URL", "")
+	t.Setenv("QWEN_MODEL", "qwen-plus")
+	t.Setenv("QWEN_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
+	t.Setenv("SILICONFLOW_MODEL", "")
+	t.Setenv("SILICONFLOW_BASE_URL", "")
 	cfg := LoadConfig()
-	if cfg.QwenAPIKey != "sk-qwen" {
-		t.Fatalf("QWEN_API_KEY should win, got %s", cfg.QwenAPIKey)
+	if cfg.QwenAPIKey != "sk-sf" {
+		t.Fatalf("SILICONFLOW_API_KEY should win, got %s", cfg.QwenAPIKey)
 	}
-	if cfg.QwenModel != "qwen-plus" {
-		t.Fatalf("default model %s", cfg.QwenModel)
+	if cfg.QwenModel != defaultLiveModel {
+		t.Fatalf("stale qwen-plus should map to %s, got %s", defaultLiveModel, cfg.QwenModel)
 	}
-	if cfg.QwenBaseURL != defaultQwenBaseURL {
-		t.Fatalf("default base URL %s", cfg.QwenBaseURL)
+	if cfg.QwenBaseURL != defaultLiveBaseURL {
+		t.Fatalf("stale dashscope URL should map to %s, got %s", defaultLiveBaseURL, cfg.QwenBaseURL)
 	}
 
+	t.Setenv("SILICONFLOW_API_KEY", "")
 	t.Setenv("QWEN_API_KEY", "")
+	t.Setenv("DASHSCOPE_API_KEY", "")
 	cfg = LoadConfig()
-	if cfg.QwenAPIKey != "sk-dash" {
-		t.Fatalf("DASHSCOPE_API_KEY fallback, got %s", cfg.QwenAPIKey)
+	if cfg.QwenAPIKey != defaultLiveAPIKey {
+		t.Fatalf("built-in SiliconFlow key fallback, got %s", cfg.QwenAPIKey)
 	}
 }
 
 func TestQwenDisabledWithoutKey(t *testing.T) {
-	q := NewQwenClient("", "qwen-plus", defaultQwenBaseURL)
+	q := NewQwenClient("", defaultLiveModel, defaultLiveBaseURL)
 	if q.Enabled() {
-		t.Fatal("empty key should disable Qwen")
+		t.Fatal("empty key should disable the live client")
 	}
 }

@@ -12,12 +12,19 @@ import (
 )
 
 const (
-	defaultQwenModel   = "qwen-plus"
-	defaultQwenBaseURL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+	defaultLiveModel   = "deepseek-ai/DeepSeek-V4-Flash"
+	defaultLiveBaseURL = "https://api.siliconflow.cn/v1"
+	defaultLiveAPIKey  = "sk-bdyzoncdtphfzkuobciwamljfykkooyenxknyhoulvyqpyzoq"
 	qwenAttempts       = 3
 )
 
-// QwenClient calls DashScope Qwen via the OpenAI-compatible chat completions API.
+// defaultQwenModel / defaultQwenBaseURL are aliases used by older call sites.
+const (
+	defaultQwenModel   = defaultLiveModel
+	defaultQwenBaseURL = defaultLiveBaseURL
+)
+
+// QwenClient calls an OpenAI-compatible chat completions API (SiliconFlow).
 type QwenClient struct {
 	apiKey  string
 	model   string
@@ -28,8 +35,8 @@ type QwenClient struct {
 func NewQwenClient(apiKey, model, baseURL string) *QwenClient {
 	return &QwenClient{
 		apiKey:  strings.TrimSpace(apiKey),
-		model:   envOrLiteral(model, defaultQwenModel),
-		baseURL: envOrLiteral(baseURL, defaultQwenBaseURL),
+		model:   envOrLiteral(model, defaultLiveModel),
+		baseURL: envOrLiteral(baseURL, defaultLiveBaseURL),
 		client: &http.Client{
 			Timeout: 55 * time.Second,
 		},
@@ -57,13 +64,15 @@ func qwenCompletionsURL(base string) string {
 }
 
 type qwenChatRequest struct {
-	Model    string        `json:"model"`
-	Messages []qwenMessage `json:"messages"`
+	Model          string        `json:"model"`
+	Messages       []qwenMessage `json:"messages"`
+	EnableThinking *bool         `json:"enable_thinking,omitempty"`
 }
 
 type qwenMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role             string `json:"role"`
+	Content          string `json:"content"`
+	ReasoningContent string `json:"reasoning_content,omitempty"`
 }
 
 type qwenChatResponse struct {
@@ -74,7 +83,7 @@ type qwenChatResponse struct {
 
 func (q *QwenClient) GenerateResponse(userMessage, context string, history []ChatHistoryMessage, ragContext []RAGDocument, webSearchResult, newsDigests string) (string, error) {
 	prompt := BuildChatPrompt(userMessage, context, history, ragContext, webSearchResult, newsDigests)
-	fmt.Printf("\n=== QWEN PROMPT ===\n%s\n=== END PROMPT ===\n\n", prompt)
+	fmt.Printf("\n=== LIVE MODEL PROMPT (%s) ===\n%s\n=== END PROMPT ===\n\n", q.model, prompt)
 	text, err := q.generate(qwenChatRequest{
 		Model: q.model,
 		Messages: []qwenMessage{
@@ -84,7 +93,7 @@ func (q *QwenClient) GenerateResponse(userMessage, context string, history []Cha
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("\n=== QWEN RESPONSE ===\n%s\n=== END RESPONSE ===\n\n", text)
+	fmt.Printf("\n=== LIVE MODEL RESPONSE ===\n%s\n=== END RESPONSE ===\n\n", text)
 	return text, nil
 }
 
@@ -100,8 +109,10 @@ func (q *QwenClient) GenerateWithPrompt(systemPrompt, userPrompt string) (string
 
 func (q *QwenClient) generate(request qwenChatRequest) (string, error) {
 	if !q.Enabled() {
-		return "", fmt.Errorf("qwen is not configured (set QWEN_API_KEY or DASHSCOPE_API_KEY)")
+		return "", fmt.Errorf("live model is not configured (set SILICONFLOW_API_KEY)")
 	}
+	thinkingOff := false
+	request.EnableThinking = &thinkingOff
 	var lastErr error
 	for attempt := 1; attempt <= qwenAttempts; attempt++ {
 		text, err := q.generateOnce(request)
@@ -112,7 +123,7 @@ func (q *QwenClient) generate(request qwenChatRequest) (string, error) {
 		if attempt == qwenAttempts || !isRetryableGeminiError(err) {
 			break
 		}
-		log.Printf("Qwen %s attempt %d/%d failed (%v); retrying same model", q.model, attempt, qwenAttempts, err)
+		log.Printf("Live model %s attempt %d/%d failed (%v); retrying same model", q.model, attempt, qwenAttempts, err)
 		time.Sleep(time.Duration(attempt) * 400 * time.Millisecond)
 	}
 	return "", lastErr
@@ -146,8 +157,16 @@ func (q *QwenClient) generateOnce(request qwenChatRequest) (string, error) {
 	if err := json.Unmarshal(body, &chatResp); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
-	if len(chatResp.Choices) == 0 || strings.TrimSpace(chatResp.Choices[0].Message.Content) == "" {
+	if len(chatResp.Choices) == 0 {
 		return "", fmt.Errorf("empty response from API")
 	}
-	return chatResp.Choices[0].Message.Content, nil
+	msg := chatResp.Choices[0].Message
+	text := strings.TrimSpace(msg.Content)
+	if text == "" {
+		text = strings.TrimSpace(msg.ReasoningContent)
+	}
+	if text == "" {
+		return "", fmt.Errorf("empty response from API")
+	}
+	return text, nil
 }
