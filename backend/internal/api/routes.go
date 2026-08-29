@@ -21,7 +21,7 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 	users := r.Group("/users")
 	{
 		users.GET("/me", func(c *gin.Context) { handleGetUser(c, db) })
-		users.PUT("/me", handleUpdateUser)
+		users.PUT("/me", func(c *gin.Context) { handleUpdateUser(c, db) })
 	}
 
 	// Cases + investigation timeline nodes

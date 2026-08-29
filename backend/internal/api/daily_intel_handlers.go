@@ -27,7 +27,8 @@ func handleDailyIntelNews(c *gin.Context, aiService *ai.AIService) {
 			limit = n
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"news": aiService.DailyIntel.ListNews(limit)})
+	nation := c.Query("nation")
+	c.JSON(http.StatusOK, gin.H{"news": aiService.DailyIntel.ListNewsNation(nation, limit)})
 }
 
 func handleDailyIntelRun(c *gin.Context, aiService *ai.AIService) {
@@ -38,7 +39,8 @@ func handleDailyIntelRun(c *gin.Context, aiService *ai.AIService) {
 
 	force := true
 	var req struct {
-		Force *bool `json:"force"`
+		Force  *bool  `json:"force"`
+		Nation string `json:"nation"`
 	}
 	_ = c.ShouldBindJSON(&req)
 	if req.Force != nil {
@@ -47,7 +49,6 @@ func handleDailyIntelRun(c *gin.Context, aiService *ai.AIService) {
 
 	go func() {
 		if err := aiService.DailyIntel.Run(force); err != nil {
-			// Logged inside service status; avoid crashing the request goroutine.
 			_ = err
 		}
 	}()

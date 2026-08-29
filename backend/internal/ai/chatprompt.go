@@ -78,7 +78,7 @@ func NeedsCrimeDataWebSearch(message, context string) bool {
 		}
 	}
 
-	if !crimeDataContexts[context] {
+	if !crimeDataContexts[contextSlug(context)] {
 		return false
 	}
 
@@ -107,11 +107,12 @@ func contextLabel(context string) string {
 		"suspect-interview":    "Suspect interview coaching (PEACE / SUE)",
 		"investigation-helper": "Crime-scene investigation brainstorm + interview questions",
 	}
-	if label, ok := labels[context]; ok {
+	slug := contextSlug(context)
+	if label, ok := labels[slug]; ok {
 		return label
 	}
-	if context != "" {
-		return context
+	if slug != "" {
+		return slug
 	}
 	return "General department advisory"
 }
@@ -169,12 +170,17 @@ func buildHistoryContextString(history []ChatHistoryMessage) string {
 // Source order is intentional: admin RAG + admin MD digests first, web search last.
 func BuildChatPrompt(userMessage, context string, history []ChatHistoryMessage, ragDocs []RAGDocument, webSearchResult, newsDigests string) string {
 	if isPlaceTagContext(context) {
-		return buildPlaceTagChatPrompt(userMessage, history, ragDocs, webSearchResult)
+		return buildPlaceTagChatPrompt(userMessage, history, ragDocs, webSearchResult, context)
 	}
 
 	var b strings.Builder
 	b.WriteString(officerChatSystemPrompt)
 	b.WriteString("\n\n")
+
+	if nation := nationFromContext(context); nation == "cn" {
+		b.WriteString(replyLanguageInstruction("cn"))
+		b.WriteString("\n\n")
+	}
 
 	if isSuspectInterviewContext(context) {
 		b.WriteString(suspectInterviewPrompt)

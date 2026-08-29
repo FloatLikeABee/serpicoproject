@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ChatMarkdown from '../../components/ChatMarkdown';
 import { useAuth } from '../../contexts/AuthContext';
+import { useT, useNation } from '../../i18n/useT';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
   mysteriesAPI,
@@ -13,12 +14,12 @@ import {
 type MainTab = 'cases' | 'briefings' | 'insights';
 type CaseFilter = 'all' | 'missing_person' | 'cold_case' | 'unsolved_crime' | 'fugitive';
 
-const CASE_FILTERS: Array<{ id: CaseFilter; label: string; accent: string }> = [
-  { id: 'all', label: 'All', accent: '#3ec6ff' },
-  { id: 'missing_person', label: 'Missing', accent: '#ff4d6d' },
-  { id: 'cold_case', label: 'Cold Cases', accent: '#5aa8ff' },
-  { id: 'unsolved_crime', label: 'Unsolved', accent: '#ffc107' },
-  { id: 'fugitive', label: 'On the Run', accent: '#3dff9a' },
+const CASE_FILTERS: Array<{ id: CaseFilter; labelKey: string; accent: string }> = [
+  { id: 'all', labelKey: 'board.all', accent: '#3ec6ff' },
+  { id: 'missing_person', labelKey: 'board.missing', accent: '#ff4d6d' },
+  { id: 'cold_case', labelKey: 'board.cold', accent: '#5aa8ff' },
+  { id: 'unsolved_crime', labelKey: 'board.unsolved', accent: '#ffc107' },
+  { id: 'fugitive', labelKey: 'board.fugitive', accent: '#3dff9a' },
 ];
 
 function categoryMeta(category: string) {
@@ -61,6 +62,8 @@ function relativeRefresh(iso?: string) {
 const Mysteries: React.FC = () => {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const nation = useNation();
+  const t = useT();
   const isDark = theme === 'dark';
 
   const [mainTab, setMainTab] = useState<MainTab>('cases');
@@ -101,9 +104,9 @@ const Mysteries: React.FC = () => {
     try {
       // Always fetch the full case list once — category tabs filter client-side.
       const [casesRes, briefRes, insightRes] = await Promise.all([
-        mysteriesAPI.listCases('all'),
-        mysteriesAPI.listBriefings(),
-        mysteriesAPI.listInsights(),
+        mysteriesAPI.listCases('all', nation),
+        mysteriesAPI.listBriefings(nation),
+        mysteriesAPI.listInsights(nation),
       ]);
       applyPayload(casesRes, briefRes, insightRes);
       // Drop the blocking overlay as soon as the first payload lands.
@@ -121,8 +124,8 @@ const Mysteries: React.FC = () => {
       // Kick AI refresh in the background — never block the UI for the scan.
       setBootstrapping(true);
       try {
-        if (needCases || casesRes.status?.casesRefreshing) await mysteriesAPI.refreshCases();
-        if (needBriefs || briefRes.status?.briefingRefreshing) await mysteriesAPI.refreshBriefing();
+        if (needCases || casesRes.status?.casesRefreshing) await mysteriesAPI.refreshCases(nation);
+        if (needBriefs || briefRes.status?.briefingRefreshing) await mysteriesAPI.refreshBriefing(nation);
       } catch {
         /* ignore — status poll will surface progress */
       }
@@ -131,9 +134,9 @@ const Mysteries: React.FC = () => {
         await new Promise((r) => setTimeout(r, 1500));
         try {
           const [c2, b2, i2] = await Promise.all([
-            mysteriesAPI.listCases('all'),
-            mysteriesAPI.listBriefings(),
-            mysteriesAPI.listInsights(),
+            mysteriesAPI.listCases('all', nation),
+            mysteriesAPI.listBriefings(nation),
+            mysteriesAPI.listInsights(nation),
           ]);
           applyPayload(c2, b2, i2);
           const casesReady = (c2.cases || []).length > 0;
@@ -152,7 +155,7 @@ const Mysteries: React.FC = () => {
       setBootstrapping(false);
       if (!opts?.silent) setLoading(false);
     }
-  }, [applyPayload]);
+  }, [applyPayload, nation]);
 
   useEffect(() => {
     loadAll();
@@ -210,9 +213,9 @@ const Mysteries: React.FC = () => {
   };
 
   const tabs: Array<{ id: MainTab; label: string; hint: string }> = [
-    { id: 'cases', label: 'Case Feed', hint: 'Missing · Cold · Unsolved' },
-    { id: 'briefings', label: 'AI Briefings', hint: 'Updates hourly' },
-    { id: 'insights', label: 'Insights', hint: 'Fact-checked tips' },
+    { id: 'cases', label: t('board.cases'), hint: `${t('board.missing')} · ${t('board.cold')}` },
+    { id: 'briefings', label: t('board.briefings'), hint: t('board.refresh') },
+    { id: 'insights', label: t('board.insights'), hint: t('board.insights') },
   ];
 
   return (
@@ -229,8 +232,8 @@ const Mysteries: React.FC = () => {
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#061428]/85 backdrop-blur-sm">
           <div className="mx-4 w-full max-w-sm rounded-2xl border border-serpico-blue/30 bg-black/60 px-6 py-8 text-center shadow-[0_0_40px_rgba(0,245,255,0.15)]">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-serpico-blue/30 border-t-serpico-blue" />
-            <p className="font-display text-sm font-semibold tracking-wide text-white">Loading Board</p>
-            <p className="mt-2 text-xs text-gray-400">Opening the desk…</p>
+            <p className="font-display text-sm font-semibold tracking-wide text-white">{t('board.loading')}</p>
+            <p className="mt-2 text-xs text-gray-400">{t('board.opening')}</p>
           </div>
         </div>
       )}
@@ -243,11 +246,10 @@ const Mysteries: React.FC = () => {
                 Serpico Desk
               </p>
               <h1 className="font-display text-2xl font-bold tracking-wide text-serpico-red sm:text-3xl">
-                Board
+                {t('board.title')}
               </h1>
               <p className={`mt-1 max-w-xl text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Live US missing persons, cold cases, unsolved crimes, and suspects on the run —
-                AI-sourced from recent news.
+                {nation === 'cn' ? t('board.subtitleCn') : t('board.subtitle')}
               </p>
             </div>
             <button
@@ -255,7 +257,7 @@ const Mysteries: React.FC = () => {
               onClick={() => loadAll()}
               className="rounded-xl border border-serpico-blue/40 bg-serpico-blue/10 px-3 py-2 text-xs font-semibold text-serpico-blue transition hover:bg-serpico-blue/20"
             >
-              Refresh
+              {t('board.refresh')}
             </button>
           </div>
 
@@ -321,7 +323,7 @@ const Mysteries: React.FC = () => {
                       }`}
                       style={active ? { backgroundColor: f.accent } : undefined}
                     >
-                      {f.label}
+                      {t(f.labelKey)}
                     </button>
                   );
                 })}

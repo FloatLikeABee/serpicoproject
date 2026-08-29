@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import PursuitMapCanvas from '../../components/PursuitMapCanvas';
 import PlaceTagModal from '../../components/PlaceTagModal';
 import { useAuth } from '../../contexts/AuthContext';
-import { OLATHE_CENTER } from '../../utils/pursuitSim';
+import { useT, useNation } from '../../i18n/useT';
+import { pursueMapRegion } from '../../utils/mapRegions';
 import {
   autoMapTagLocation,
   createMapTag,
@@ -18,6 +19,9 @@ import {
 const InPursue: React.FC = () => {
   const { user } = useAuth();
   const userId = user?.id || 'guest';
+  const nation = useNation();
+  const t = useT();
+  const region = pursueMapRegion(nation);
 
   const [mapTags, setMapTags] = useState<MapTag[]>(() => loadMapTags(userId));
   const [placeKind, setPlaceKind] = useState<MapTagKind>('investigation');
@@ -114,17 +118,17 @@ const InPursue: React.FC = () => {
       <div className="game-header p-2 sm:p-3 flex-shrink-0 space-y-1.5">
         <div className="min-w-0">
           <h1 className="text-lg sm:text-xl font-display font-bold text-serpico-red tracking-wide">
-            Pursue
+            {t('pursue.title')}
           </h1>
           <p className="text-[10px] sm:text-xs text-synth-muted mt-0.5 font-mono uppercase tracking-wider truncate">
-            {mapTags.length} map tags · zoom & pin intel
+            {t('pursue.subtitle', { count: mapTags.length })}
           </p>
         </div>
 
         <div className="space-y-1.5">
           <div className="flex items-center gap-1 flex-wrap">
             <span className="text-[8px] font-display uppercase tracking-wider text-neon-cyan/90 mr-0.5">
-              Tag type
+              {t('pursue.tagType')}
             </span>
             {MAP_TAG_KINDS.map((k) => {
               const active = placeKind === k.kind;
@@ -147,24 +151,26 @@ const InPursue: React.FC = () => {
             })}
           </div>
           <p className="text-[9px] text-neon-cyan px-0.5">
-            Tap anywhere on the map to drop a{' '}
-            <span className="font-semibold">{tagMeta(placeKind).label.toLowerCase()}</span> pin
-            {placingBusy ? '…' : '.'}
+            {t('pursue.tap', { kind: tagMeta(placeKind).label })}
           </p>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 relative">
         <PursuitMapCanvas
-          center={OLATHE_CENTER}
-          zoom={14}
+          key={nation}
+          center={region.center}
+          zoom={nation === 'cn' ? 12 : 14}
           vehicles={[]}
           landmarks={[]}
           mapTags={mapTags}
-          fitKey={`intel-${userId}`}
+          fitKey={`intel-${userId}-${nation}`}
           deployMode
           activeTagId={activeTag?.id}
           hideVehicles
+          mapBounds={region.bounds}
+          minZoom={region.minZoom}
+          maxZoom={region.maxZoom}
           onMapClick={handleMapClick}
           onTagClick={handleTagClick}
         />
@@ -172,7 +178,7 @@ const InPursue: React.FC = () => {
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1200] w-[min(340px,90vw)] pointer-events-none">
           <div className="px-2.5 py-1.5 rounded-lg border border-neon-cyan/50 bg-black/70 backdrop-blur-sm shadow-lg text-center">
             <p className="text-[10px] text-neon-cyan font-display uppercase tracking-wide">
-              Tap map to pin · {tagMeta(placeKind).label}
+              {t('pursue.banner', { kind: tagMeta(placeKind).label })}
             </p>
           </div>
         </div>
@@ -180,7 +186,7 @@ const InPursue: React.FC = () => {
         {mapTags.length === 0 ? (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1100] w-[min(360px,92vw)] pointer-events-none">
             <div className="rounded-lg border border-neon-cyan/30 bg-black/70 px-3 py-2 text-[11px] text-gray-200 text-center">
-              Tap the map to drop a pin. Change tag type in the header anytime.
+              {t('pursue.empty')}
             </div>
           </div>
         ) : null}

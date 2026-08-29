@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { chatAPI } from '../services/api';
+import { useT, useNation } from '../i18n/useT';
+import { applyNationToOfficerFields } from '../utils/officerContent';
 import ChatMarkdown from './ChatMarkdown';
 import {
   forwardGeocode,
@@ -44,6 +46,8 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   startInEditMode = false,
   kindOptions,
 }) => {
+  const t = useT();
+  const nation = useNation();
   const kinds = kindOptions && kindOptions.length > 0 ? kindOptions : MAP_TAG_KINDS;
   const [draft, setDraft] = useState(tag);
   const [editing, setEditing] = useState(startInEditMode);
@@ -160,7 +164,9 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
         .filter(Boolean)
         .join('\n');
 
-      const { response } = await chatAPI.sendMessage(prompt, 'in-pursue-place');
+      const { response } = await chatAPI.sendMessage(prompt, 'in-pursue-place', undefined, {
+        nation,
+      });
       const summary = (response?.content || '').trim();
       if (!summary) {
         setError('AI returned an empty summary.');
@@ -180,12 +186,16 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   const openedInViewMode = !startInEditMode;
 
   const save = () => {
-    onChange({
-      ...draft,
-      name: draft.name.trim() || meta.short,
-      notes: draft.notes.trim(),
-      updatedAt: new Date().toISOString(),
-    });
+    const next = applyNationToOfficerFields(
+      {
+        ...draft,
+        name: draft.name.trim() || meta.short,
+        notes: draft.notes.trim(),
+        updatedAt: new Date().toISOString(),
+      },
+      nation
+    );
+    onChange(next as typeof draft);
   };
 
   const aiSummary = draft.enrichment?.summary;
@@ -212,7 +222,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 {meta.label}
               </p>
               <h2 id="place-tag-title" className="text-lg font-display font-bold text-white truncate">
-                {editing ? 'Map tag' : draft.name || meta.short}
+                {editing ? t('pin.modalTitle') : draft.name || meta.short}
               </h2>
               <p className="text-[11px] text-synth-muted mt-0.5 truncate">
                 {mappingLocation ? 'Mapping location…' : draft.address || `${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}`}
@@ -352,7 +362,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 }
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-magenta/40 text-neon-magenta hover:bg-neon-magenta/15 disabled:opacity-50"
               >
-                {enriching ? 'Creating…' : 'Create AI info'}
+                {enriching ? t('pin.creating') : t('pin.createAi')}
               </button>
               <div className="flex gap-2">
                 <button
@@ -362,7 +372,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                   }}
                   className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-serpico-red/40 text-serpico-red"
                 >
-                  Delete
+                  {t('pin.delete')}
                 </button>
                 {!openedInViewMode ? (
                   <button
@@ -370,7 +380,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                     onClick={onClose}
                     className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-white/15 text-gray-300"
                   >
-                    Cancel
+                    {t('pin.cancel')}
                   </button>
                 ) : (
                   <button
@@ -378,7 +388,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                     onClick={() => setEditing(false)}
                     className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-white/15 text-gray-300"
                   >
-                    Back
+                    {t('pin.back')}
                   </button>
                 )}
                 <button
@@ -386,7 +396,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                   onClick={save}
                   className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase bg-serpico-blue/80 text-white hover:bg-serpico-blue"
                 >
-                  Save
+                  {t('pin.save')}
                 </button>
               </div>
             </div>
@@ -403,7 +413,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 }
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-magenta/40 text-neon-magenta hover:bg-neon-magenta/15 disabled:opacity-50"
               >
-                {enriching ? 'Creating…' : 'Create AI info'}
+                {enriching ? t('pin.creating') : t('pin.createAi')}
               </button>
               <button
                 type="button"
@@ -412,21 +422,21 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 }}
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-serpico-red/40 text-serpico-red"
               >
-                Delete
+                {t('pin.delete')}
               </button>
               <button
                 type="button"
                 onClick={() => setEditing(true)}
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-neon-cyan/40 text-neon-cyan"
               >
-                Edit
+                {t('pin.edit')}
               </button>
               <button
                 type="button"
                 onClick={onClose}
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase bg-serpico-blue/80 text-white hover:bg-serpico-blue"
               >
-                Close
+                {t('pin.close')}
               </button>
             </div>
           )}

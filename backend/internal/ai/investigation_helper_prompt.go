@@ -23,5 +23,5 @@ Stay practical for a working investigation desk.
 `
 
 func isInvestigationHelperContext(context string) bool {
-	return context == "investigation-helper"
+	return contextSlug(context) == "investigation-helper"
 }

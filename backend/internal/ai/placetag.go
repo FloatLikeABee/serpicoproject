@@ -33,7 +33,7 @@ CONTENT:
 - If live search is about a different city, ignore it.`
 
 func isPlaceTagContext(context string) bool {
-	return context == "in-pursue-place"
+	return contextSlug(context) == "in-pursue-place"
 }
 
 func extractLabeledField(message, label string) string {
@@ -213,7 +213,7 @@ func normalizePlaceText(s string) string {
 	return strings.Join(strings.Fields(b.String()), " ")
 }
 
-func buildPlaceTagChatPrompt(userMessage string, history []ChatHistoryMessage, ragDocs []RAGDocument, webSearchResult string) string {
+func buildPlaceTagChatPrompt(userMessage string, history []ChatHistoryMessage, ragDocs []RAGDocument, webSearchResult, context string) string {
 	var b strings.Builder
 	b.WriteString(placeTagChatSystemPrompt)
 	b.WriteString("\n\n")
@@ -240,6 +240,10 @@ func buildPlaceTagChatPrompt(userMessage string, history []ChatHistoryMessage, r
 	b.WriteString("**Officer query:** ")
 	b.WriteString(userMessage)
 	b.WriteString("\n\nRespond in Markdown as Officer Serpico. Write only about this pin's address, name, and notes. Do not paste department pursuit protocols, chase-game codex, or crime stats unless they are specifically about this pin's city. Do not mention Olathe or Kansas unless that is the pin address.")
+	if nationFromContext(context) == "cn" {
+		b.WriteString("\n")
+		b.WriteString(PlaceTagLanguageSuffix("cn"))
+	}
 	return b.String()
 }
 

@@ -85,9 +85,11 @@ type webHit struct {
 }
 
 func (w *WebSearchTool) searchNewsRSS(query string, limit int) ([]webHit, error) {
+	locale := googleNewsLocale(nationFromContext(query))
 	u := fmt.Sprintf(
-		"https://news.google.com/rss/search?q=%s&hl=en-US&gl=US&ceid=US:en",
+		"https://news.google.com/rss/search?q=%s&%s",
 		url.QueryEscape(query),
+		locale,
 	)
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {

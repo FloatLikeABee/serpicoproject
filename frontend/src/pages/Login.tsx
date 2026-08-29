@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DEMO_PASSWORD, DEMO_USERNAME, useAuth } from '../contexts/AuthContext';
 import ShieldLogo from '../components/ShieldLogo';
+import { t } from '../i18n/catalog';
+import { loadLastNation } from '../utils/nation';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -10,6 +12,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle, loginWithApple } = useAuth();
   const navigate = useNavigate();
+  const nation = loadLastNation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +22,7 @@ const Login: React.FC = () => {
       await login(username, password);
       navigate('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : t(nation, 'login.failed'));
     } finally {
       setLoading(false);
     }
@@ -32,7 +35,7 @@ const Login: React.FC = () => {
       await login(DEMO_USERNAME, DEMO_PASSWORD);
       navigate('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : t(nation, 'login.failed'));
     } finally {
       setLoading(false);
     }
@@ -51,7 +54,7 @@ const Login: React.FC = () => {
             <ShieldLogo size={56} className="sm:w-20 sm:h-20 mb-2" />
             <h1 className="font-display text-2xl sm:text-4xl font-bold neon-text-cyan tracking-wide">SERPICO</h1>
             <p className="text-xs sm:text-base text-synth-muted mt-1 sm:mt-2 font-mono tracking-wide uppercase text-center">
-              Field operations
+              {t(nation, 'login.subtitle')}
             </p>
             <div className="mt-2 sm:mt-3 flex flex-wrap justify-center gap-1.5 text-[10px] sm:text-xs font-mono text-neon-green/80">
               <span className="px-2 py-0.5 border border-neon-green/30 rounded">SYS ONLINE</span>
@@ -68,7 +71,7 @@ const Login: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             <div>
               <label className="block text-xs font-display font-semibold mb-2 text-neon-cyan/90 tracking-wide uppercase">
-                Username
+                {t(nation, 'login.username')}
               </label>
               <input
                 type="text"
@@ -82,7 +85,7 @@ const Login: React.FC = () => {
 
             <div>
               <label className="block text-xs font-display font-semibold mb-2 text-neon-cyan/90 tracking-wide uppercase">
-                Access Code
+                {t(nation, 'login.password')}
               </label>
               <input
                 type="password"
@@ -99,7 +102,7 @@ const Login: React.FC = () => {
               disabled={loading}
               className="w-full btn-neon-primary py-3.5 rounded-lg disabled:opacity-50"
             >
-              {loading ? 'Signing in…' : 'Enter Game World'}
+              {loading ? t(nation, 'login.signingIn') : t(nation, 'login.enter')}
             </button>
           </form>
 
@@ -109,7 +112,7 @@ const Login: React.FC = () => {
               disabled={loading}
               className="w-full btn-neon-danger py-3.5 rounded-lg disabled:opacity-50"
             >
-              Quick Deploy (Demo)
+              {t(nation, 'login.quick')}
             </button>
             <p className="mt-2 text-center text-[10px] font-mono text-synth-muted/70">
               Demo: {DEMO_USERNAME} / {DEMO_PASSWORD}
@@ -130,7 +133,7 @@ const Login: React.FC = () => {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Google Uplink
+              {t(nation, 'login.google')}
             </button>
 
             <button
@@ -143,7 +146,7 @@ const Login: React.FC = () => {
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.18 1.8-2.8 1.57-2.2 4.78.48 5.94-.6 1.5-1.29 2.99-2.2 4.2l-.01-.01zm-2.03-12.23c.58-.68.97-1.63.85-2.57-.82.04-1.82.56-2.41 1.24-.53.61-.99 1.6-.85 2.53.92.07 1.87-.49 2.41-1.2z"/>
               </svg>
-              Apple Uplink
+              {t(nation, 'login.apple')}
             </button>
           </div>
         </div>

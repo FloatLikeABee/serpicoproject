@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { chatAPI } from '../services/api';
+import { parseNation } from '../utils/nation';
+import { useT } from '../i18n/useT';
 import ChatMarkdown from './ChatMarkdown';
 import {
   ChatMessage,
@@ -27,6 +29,7 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
 }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const t = useT();
   const userId = user?.id || 'guest';
   const chatContext = context || 'general';
 
@@ -77,7 +80,10 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
 
     try {
       // Call backend AI API
-      const response = await chatAPI.sendMessage(messageText, context, priorHistory);
+      const response = await chatAPI.sendMessage(messageText, context, priorHistory, {
+        nation: parseNation(user?.nation),
+        userId,
+      });
       
       const aiMessage: Message = {
         id: response.response.id || (Date.now() + 1).toString(),
@@ -223,7 +229,7 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ask Officer Serpico…"
+            placeholder={t('chat.placeholder')}
             className={`flex-1 px-2 py-1.5 text-xs rounded border ${
               theme === 'dark'
                 ? 'bg-gray-700 border-gray-600 text-white'
@@ -235,7 +241,7 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
             disabled={isLoading || !input.trim()}
             className="bg-serpico-blue text-white px-3 py-1.5 text-xs rounded hover:bg-serpico-blue-dark disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Send
+            {t('chat.send')}
           </button>
         </div>
       </div>

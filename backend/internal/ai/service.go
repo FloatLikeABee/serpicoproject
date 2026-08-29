@@ -72,6 +72,8 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 
 	placeTag := isPlaceTagContext(context)
 
+	slug := contextSlug(context)
+
 	// Step 2: Admin knowledge base (RAG) — includes backstage auto_intel docs.
 	// Map pins skip RAG entirely: Search(userMessage+" in-pursue-place") ranks
 	// chase-game SOPs (foot pursuit protocol) because the context slug matches
@@ -96,7 +98,7 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 
 	// Step 4: Web search. Map pins search the pin address; other chat stays supplemental.
 	var webResult string
-	needsLive := NeedsCrimeDataWebSearch(userMessage, context)
+	needsLive := NeedsCrimeDataWebSearch(userMessage, slug)
 	adminCovered := len(ragResults) > 0 || (!placeTag && s.DailyIntel != nil && s.DailyIntel.HasDigestCoverage(userMessage+" "+context))
 	if s.config.EnableWebSearch && needsLive {
 		query := userMessage + " " + context

@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { parseNation } from '../../utils/nation';
+import { useT } from '../../i18n/useT';
 import { useTheme } from '../../contexts/ThemeContext';
 import ChatMarkdown from '../../components/ChatMarkdown';
 import {
@@ -12,6 +14,7 @@ import {
 const InvestigationHelper: React.FC = () => {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const t = useT();
   const userId = user?.id || 'guest';
   const isDark = theme === 'dark';
 
@@ -207,7 +210,7 @@ const InvestigationHelper: React.FC = () => {
     };
     setMessages((prev) => [...prev, optimistic]);
     try {
-      const payload = await investigationHelperAPI.chat(userId, activeId, text);
+      const payload = await investigationHelperAPI.chat(userId, activeId, text, parseNation(user?.nation));
       applyPayload(payload);
       await refreshList();
     } catch (err) {
@@ -232,7 +235,7 @@ const InvestigationHelper: React.FC = () => {
             isDark ? 'bg-gray-900 border-white/10 text-synth-text' : 'bg-white border-gray-200 text-gray-900'
           }`}
         >
-          <div className="text-[9px] uppercase tracking-wider text-synth-muted">Session</div>
+          <div className="text-[9px] uppercase tracking-wider text-synth-muted">{t('helper.session')}</div>
           <div className="font-semibold truncate">{title || 'Investigation'}</div>
         </button>
         <button
@@ -242,14 +245,14 @@ const InvestigationHelper: React.FC = () => {
             isDark ? 'border-white/15 text-gray-200' : 'border-gray-200 text-gray-700'
           }`}
         >
-          Revise
+          {t('helper.revise')}
         </button>
         <button
           type="button"
           onClick={() => void startNewSession()}
           className="px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-serpico-blue text-white touch-manipulation"
         >
-          New
+          {t('helper.new')}
         </button>
       </div>
 
@@ -263,7 +266,7 @@ const InvestigationHelper: React.FC = () => {
       <div className="flex-shrink-0 px-2.5 py-2 border-b border-white/10">
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <p className={`text-[10px] uppercase tracking-wide font-semibold ${muted}`}>
-            Crime scene / files
+            {t('helper.files')}
           </p>
           <button
             type="button"
@@ -271,7 +274,7 @@ const InvestigationHelper: React.FC = () => {
             disabled={!activeId || uploading}
             className="text-[11px] font-semibold text-serpico-blue touch-manipulation disabled:opacity-50"
           >
-            {uploading ? 'Uploading…' : '+ Upload'}
+            {uploading ? t('helper.uploading') : t('helper.upload')}
           </button>
           <input
             ref={fileInputRef}
@@ -284,7 +287,7 @@ const InvestigationHelper: React.FC = () => {
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {files.length === 0 && (
-            <p className={`text-xs ${muted}`}>Upload photos or case files, then brainstorm below.</p>
+            <p className={`text-xs ${muted}`}>{t('helper.emptyFiles')}</p>
           )}
           {files.map((f) => {
             const isImage = (f.mimeType || '').startsWith('image/');

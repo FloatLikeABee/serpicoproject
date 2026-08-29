@@ -88,6 +88,7 @@ func createTables(db *sql.DB) error {
 			name TEXT NOT NULL,
 			role TEXT NOT NULL,
 			rank TEXT,
+			nation TEXT DEFAULT 'us',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS cases (
@@ -150,6 +151,7 @@ func createTables(db *sql.DB) error {
 			source_url TEXT,
 			source_name TEXT,
 			last_update TEXT,
+			nation TEXT DEFAULT 'us',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
@@ -158,6 +160,7 @@ func createTables(db *sql.DB) error {
 			title TEXT NOT NULL,
 			body_md TEXT NOT NULL,
 			sources_json TEXT,
+			nation TEXT DEFAULT 'us',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS mystery_insights (
@@ -248,7 +251,22 @@ func createTables(db *sql.DB) error {
 		}
 	}
 
+	migrateNationColumns(db)
 	return nil
+}
+
+func migrateNationColumns(db *sql.DB) {
+	alters := []string{
+		`ALTER TABLE users ADD COLUMN nation TEXT DEFAULT 'us'`,
+		`ALTER TABLE mystery_cases ADD COLUMN nation TEXT DEFAULT 'us'`,
+		`ALTER TABLE mystery_briefings ADD COLUMN nation TEXT DEFAULT 'us'`,
+	}
+	for _, q := range alters {
+		if _, err := db.Exec(q); err != nil {
+			// Column already exists on upgraded DBs.
+			_ = err
+		}
+	}
 }
 
 // clearExampleCases removes seeded demo cases (case-001 … case-010) so the

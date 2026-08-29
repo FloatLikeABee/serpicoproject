@@ -4,6 +4,8 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { chatAPI } from '../services/api';
+import { parseNation } from '../utils/nation';
+import { useT } from '../i18n/useT';
 import ChatMarkdown from '../components/ChatMarkdown';
 import {
   ChatMessage,
@@ -77,6 +79,7 @@ const AIChat: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const t = useT();
   const [sessions, setSessions] = useState<ChatSession[]>(() =>
     ensureInterviewSession([defaultGeneralSession()])
   );
@@ -235,7 +238,10 @@ const AIChat: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await chatAPI.sendMessage(text, context, priorHistory);
+      const response = await chatAPI.sendMessage(text, context, priorHistory, {
+        nation: parseNation(user?.nation),
+        userId: user?.id,
+      });
 
       const aiMessage: Message = {
         id: response.response.id || (Date.now() + 1).toString(),
@@ -275,7 +281,7 @@ const AIChat: React.FC = () => {
 
   const placeholder = isInterview
     ? 'Paste case brief first… then Suspect said: … / My thoughts: …'
-    : 'Ask Officer Serpico…';
+    : t('chat.placeholder');
 
   const sessionSheet =
     pickerOpen &&
