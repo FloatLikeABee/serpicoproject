@@ -85,19 +85,14 @@ func LoadConfig() *Config {
 		mistralKey = "2IGzr4XnznEjh3O3vs0wFf0lwh7r7yhU"
 	}
 
-	qwenKey := strings.TrimSpace(os.Getenv("QWEN_API_KEY"))
-	if qwenKey == "" {
-		qwenKey = strings.TrimSpace(os.Getenv("DASHSCOPE_API_KEY"))
-	}
-
 	return &Config{
 		GeminiAPIKey:        geminiKey,
 		GeminiModel:         envOrDefault("GEMINI_MODEL", envOrDefault("GEMINI_DEFAULT_MODEL", "gemini-2.5-flash")),
 		MistralAPIKey:       mistralKey,
 		MistralModel:        envOrDefault("MISTRAL_MODEL", "mistral-large-latest"),
-		QwenAPIKey:          qwenKey,
-		QwenModel:           envOrDefault("QWEN_MODEL", defaultQwenModel),
-		QwenBaseURL:         envOrDefault("QWEN_BASE_URL", defaultQwenBaseURL),
+		QwenAPIKey:          liveModelAPIKey(),
+		QwenModel:           liveModelName(),
+		QwenBaseURL:         liveModelBaseURL(),
 		RAGDataPath:         envOrDefault("RAG_DATA_PATH", "data/rag"),
 		IntelDataPath:       envOrDefault("INTEL_DATA_PATH", "data/intel"),
 		EnableWebSearch:     envBool("ENABLE_WEB_SEARCH", true),
@@ -114,4 +109,36 @@ func LoadConfig() *Config {
 		ReplicateAPIToken:   os.Getenv("REPLICATE_API_TOKEN"),
 		ReplicateImageModel: envOrDefault("REPLICATE_IMAGE_MODEL", "black-forest-labs/flux-schnell"),
 	}
+}
+
+func firstEnv(keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func liveModelAPIKey() string {
+	if key := firstEnv("SILICONFLOW_API_KEY", "QWEN_API_KEY", "DASHSCOPE_API_KEY"); key != "" {
+		return key
+	}
+	return defaultLiveAPIKey
+}
+
+func liveModelName() string {
+	model := firstEnv("SILICONFLOW_MODEL", "QWEN_MODEL")
+	if model == "" || model == "qwen-plus" || strings.Contains(strings.ToLower(model), "qwen") {
+		return defaultLiveModel
+	}
+	return model
+}
+
+func liveModelBaseURL() string {
+	base := firstEnv("SILICONFLOW_BASE_URL", "QWEN_BASE_URL")
+	if base == "" || strings.Contains(strings.ToLower(base), "dashscope") {
+		return defaultLiveBaseURL
+	}
+	return base
 }
