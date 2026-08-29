@@ -13,7 +13,7 @@ type Config struct {
 	MistralModel        string
 	QwenAPIKey          string // SiliconFlow (or QWEN_*) live-model key
 	QwenModel           string // deepseek-ai/DeepSeek-V4-Flash
-	QwenBaseURL         string // https://api.siliconflow.cn/v1
+	QwenBaseURL         string // https://api.siliconflow.com/v1
 	RAGDataPath         string
 	IntelDataPath       string
 	EnableWebSearch     bool
@@ -121,10 +121,7 @@ func firstEnv(keys ...string) string {
 }
 
 func liveModelAPIKey() string {
-	if key := firstEnv("SILICONFLOW_API_KEY", "QWEN_API_KEY", "DASHSCOPE_API_KEY"); key != "" {
-		return key
-	}
-	return defaultLiveAPIKey
+	return firstEnv("SILICONFLOW_API_KEY", "QWEN_API_KEY", "DASHSCOPE_API_KEY")
 }
 
 func liveModelName() string {
@@ -136,9 +133,17 @@ func liveModelName() string {
 }
 
 func liveModelBaseURL() string {
-	base := firstEnv("SILICONFLOW_BASE_URL", "QWEN_BASE_URL")
-	if base == "" || strings.Contains(strings.ToLower(base), "dashscope") {
+	if explicit := strings.TrimSpace(os.Getenv("SILICONFLOW_BASE_URL")); explicit != "" {
+		return explicit
+	}
+	base := strings.TrimSpace(os.Getenv("QWEN_BASE_URL"))
+	if base == "" || isStaleLiveBaseURL(base) {
 		return defaultLiveBaseURL
 	}
 	return base
+}
+
+func isStaleLiveBaseURL(base string) bool {
+	l := strings.ToLower(base)
+	return strings.Contains(l, "dashscope") || strings.Contains(l, "siliconflow.cn")
 }

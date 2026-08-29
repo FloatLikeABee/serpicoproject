@@ -1,10 +1,10 @@
 package ai
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
-
-	"database/sql"
 )
 
 // AIService coordinates all AI functionality
@@ -131,7 +131,12 @@ func (s *AIService) ProcessChat(userMessage string, context string, history []Ch
 		if s.config != nil && s.config.QwenModel != "" {
 			model = s.config.QwenModel
 		}
-		log.Printf("Live model API error (%s): %v", model, err)
+		var le *liveModelCallError
+		if errors.As(err, &le) {
+			log.Printf("Live model API error class=%s status=%d host=%s model=%s: %s", le.Class, le.Status, le.Host, le.Model, le.Msg)
+		} else {
+			log.Printf("Live model API error (%s): %v", model, err)
+		}
 		return s.generateFallbackResponse(userMessage, ragResults, context, webResult), nil
 	}
 
