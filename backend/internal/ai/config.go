@@ -11,9 +11,9 @@ type Config struct {
 	GeminiModel         string
 	MistralAPIKey       string
 	MistralModel        string
-	QwenAPIKey          string
-	QwenModel           string
-	QwenBaseURL         string
+	QwenAPIKey          string // SiliconFlow (or QWEN_*) live-model key
+	QwenModel           string // deepseek-ai/DeepSeek-V4-Flash
+	QwenBaseURL         string // https://api.siliconflow.cn/v1
 	RAGDataPath         string
 	IntelDataPath       string
 	EnableWebSearch     bool
