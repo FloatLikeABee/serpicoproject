@@ -13,5 +13,5 @@
 
 ## 4. Visual + functional verification
 
-- [ ] 4.1 Exercise login, Fleet map pin + notes, Pursue notes, chat, Investigation Helper, and bottom nav in the browser; verify colors are dark deep blue with bright highlights and that save/create/navigate/chat still work
-- [ ] 4.2 Check desktop and a mobile viewport on at least login, Fleet, and nav; verify controls remain tappable and text remains readable
+- [x] 4.1 Exercise login, Fleet map pin + notes, Pursue notes, chat, Investigation Helper, and bottom nav in the browser; verify colors are dark deep blue with bright highlights and that save/create/navigate/chat still work
+- [x] 4.2 Check desktop and a mobile viewport on at least login, Fleet, and nav; verify controls remain tappable and text remains readable
