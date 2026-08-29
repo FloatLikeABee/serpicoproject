@@ -1,4 +1,5 @@
 import { getChatInitialMessage } from './chatMessages';
+import type { Nation } from './nation';
 
 export interface StoredChatMessage {
   id: string;
@@ -35,25 +36,25 @@ export function fromStoredMessage(stored: StoredChatMessage): ChatMessage {
   };
 }
 
-export function createInitialMessages(context?: string): ChatMessage[] {
+export function createInitialMessages(context?: string, nation: Nation = 'us'): ChatMessage[] {
   return [{
     id: 'welcome',
     role: 'assistant',
-    content: getChatInitialMessage(context),
+    content: getChatInitialMessage(context, nation),
     timestamp: new Date(),
     context,
   }];
 }
 
-export function loadChatHistory(userId: string, context: string, sessionId?: string): ChatMessage[] {
+export function loadChatHistory(userId: string, context: string, sessionId?: string, nation: Nation = 'us'): ChatMessage[] {
   try {
     const raw = localStorage.getItem(storageKey(userId, context, sessionId));
-    if (!raw) return createInitialMessages(context);
+    if (!raw) return createInitialMessages(context, nation);
     const parsed = JSON.parse(raw) as StoredChatMessage[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return createInitialMessages(context);
+    if (!Array.isArray(parsed) || parsed.length === 0) return createInitialMessages(context, nation);
     return parsed.map(fromStoredMessage);
   } catch {
-    return createInitialMessages(context);
+    return createInitialMessages(context, nation);
   }
 }
 

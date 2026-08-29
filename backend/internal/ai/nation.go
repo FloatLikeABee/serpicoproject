@@ -50,6 +50,10 @@ func replyLanguageInstruction(nation string) string {
 	return "Reply in English."
 }
 
+const cnInterviewFallback = `**收到。** 当前无法连接现场模型。请继续用简体中文提供或补充案情（罪名、已知事实与证据、讯问目标、权利告知情况）。收到案情后，下一条请贴「嫌疑人说：」和你的判断，我会按讯问辅导给出下一步问什么。请勿改问追缉战术或辖区警情。权利、律师与同步录音录像按本辖区规定执行。`
+
+const cnChatFallback = `**收到。** 现场模型暂时不可用。请用完整句子再问一次案情、证据或该地点相关情报。不要改问美国追缉战术。情报可能不完整，行动前请通过官方渠道核实。`
+
 func googleNewsLocale(nation string) string {
 	if ParseNation(nation) == "cn" {
 		return "hl=zh-CN&gl=CN&ceid=CN:zh-Hans"

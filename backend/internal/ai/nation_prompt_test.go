@@ -23,9 +23,13 @@ func TestBuildChatPromptEnglishWhenUS(t *testing.T) {
 	}
 }
 
-func TestPlaceTagPromptChineseWhenNationCN(t *testing.T) {
-	p := PlaceTagLanguageSuffix("cn")
-	if !strings.Contains(p, "简体中文") {
-		t.Fatal("place tag CN suffix")
+func TestBuildChatPromptChineseWhenInterviewNationCN(t *testing.T) {
+	prompt := BuildChatPrompt(
+		"案情简介：上海分尸案",
+		"suspect-interview\n[nation:cn]",
+		nil, nil, "", "",
+	)
+	if !strings.Contains(prompt, "简体中文") {
+		t.Fatal("interview CN prompt must require Simplified Chinese")
 	}
 }

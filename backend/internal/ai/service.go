@@ -157,8 +157,15 @@ func (s *AIService) isServiceUnavailable(err error) bool {
 }
 
 func (s *AIService) generateFallbackResponse(query string, ragDocs []RAGDocument, context string, webResult string) string {
+	nation := nationFromContext(context)
 	if isPlaceTagContext(context) {
-		return generatePlaceTagFallback(query, webResult)
+		return generatePlaceTagFallback(query, webResult, nation)
+	}
+	if nation == "cn" {
+		if isSuspectInterviewContext(context) || contextSlug(context) == "investigation-helper" {
+			return cnInterviewFallback
+		}
+		return cnChatFallback
 	}
 	if len(ragDocs) > 0 {
 		return fmt.Sprintf("**Copy that.** Here's what I pulled from department records:\n\n%s\n\n*Intel may be incomplete — confirm through official channels before action.*", ragDocs[0].Content)

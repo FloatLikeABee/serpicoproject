@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { chatAPI } from '../services/api';
 import { parseNation } from '../utils/nation';
+import { useT } from '../i18n/useT';
 import ChatMarkdown from './ChatMarkdown';
 import {
   ChatMessage,
@@ -24,6 +25,7 @@ interface AIChatDrawerProps {
 const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose, context }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const t = useT();
   const userId = user?.id || 'guest';
   const chatContext = context || 'general';
 
@@ -94,8 +96,8 @@ const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose, context })
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: error.response?.data?.error
-          ? `**Heads up** — ${error.response.data.error}`
-          : '**Copy that** — I hit a comms issue. Try again.',
+          ? `${t('chat.headsUpPrefix')} ${error.response.data.error}`
+          : t('chat.commsIssueShort'),
         timestamp: new Date(),
       };
       

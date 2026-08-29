@@ -255,7 +255,7 @@ func fallbackPlain(value, empty string) string {
 	return value
 }
 
-func generatePlaceTagFallback(query, webResult string) string {
+func generatePlaceTagFallback(query, webResult, nation string) string {
 	kind := firstLabeledField(query, []string{"PIN TYPE:", "Tag type:"})
 	name := firstLabeledField(query, []string{"NAME:", "Name:"})
 	address := firstLabeledField(query, []string{"ADDRESS:", "Address / place:", "PIN ADDRESS:"})
@@ -270,6 +270,31 @@ func generatePlaceTagFallback(query, webResult string) string {
 	if loc == "" {
 		loc = coords
 	}
+
+	if ParseNation(nation) == "cn" {
+		if loc == "" {
+			loc = "该标记"
+		}
+		var b strings.Builder
+		b.WriteString("**收到。** 现场模型暂时不可用，以下仅根据你填写的标记整理，不是官方档案。\n\n")
+		b.WriteString(fmt.Sprintf("- **%s：** %s\n", fallbackPlain(kind, "地图标记"), fallbackPlain(name, "未命名")))
+		b.WriteString(fmt.Sprintf("- **位置：** %s\n", loc))
+		if notes != "" {
+			b.WriteString(fmt.Sprintf("- **警员备注：** %s\n", notes))
+		}
+		if strings.TrimSpace(webResult) != "" && !strings.Contains(strings.ToLower(webResult), "rely on admin rag") {
+			b.WriteString("\n### 该地址相关标题\n")
+			b.WriteString(strings.TrimSpace(webResult))
+			b.WriteString("\n")
+		}
+		b.WriteString("\n**建议下一步**\n")
+		b.WriteString("- 向本辖区指挥中心核对地址。\n")
+		b.WriteString("- 结合备注时间窗走访周边监控与商户。\n")
+		b.WriteString("- 稍后再次点击「生成 AI 情报」获取街区简报。\n")
+		b.WriteString("\n*情报可能不完整，行动前请通过官方渠道核实。*")
+		return b.String()
+	}
+
 	if loc == "" {
 		loc = "this pin"
 	}

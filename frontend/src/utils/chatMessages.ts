@@ -81,7 +81,27 @@ Example:
 Once I have that, I'll give the **first question**. Then you ask the suspect and reply with **Suspect said:** … **My thoughts:** …`,
 };
 
-export function getChatInitialMessage(context?: string): string {
+const cnInterviewWelcome = `### Serpico 警官 — 嫌疑人讯问助手
+
+**收到。** 我将按合法、非强迫的讯问方法（PEACE · 自由陈述 · SUE）辅导提问。
+
+#### 先发案情简介
+在给出第一个问题前，请发送简要**案情**：
+
+- **罪名 / 案情**
+- **已知事实与证据**
+- **讯问目标**
+- **权利告知情况**（告知、律师、同步录音录像）
+
+示例：
+> 案情简介：凌晨入室盗窃，后窗有指纹，嫌疑人否认在场。目标：时间线与不在场证明。已告知权利并同步录音。
+
+收到后我会给出**第一个问题**。之后请回复 **嫌疑人说：** … **我的判断：** …`;
+
+export function getChatInitialMessage(context?: string, nation: 'us' | 'cn' = 'us'): string {
+  if (nation === 'cn' && context === 'suspect-interview') {
+    return cnInterviewWelcome;
+  }
   return (
     contextMessages[context || ''] ||
     `### Officer Serpico — Olathe PD Advisory

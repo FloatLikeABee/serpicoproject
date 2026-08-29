@@ -287,7 +287,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                   className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white"
                 />
                 <p className="text-[10px] text-synth-muted/80">
-                  Tap the map to place · edit address to re-map pin
+                  {t('pin.tapPlace')}
                 </p>
               </label>
 
@@ -301,7 +301,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                   className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white resize-none"
                 />
                 <p className="text-[10px] text-synth-muted/80">
-                  Fill name and notes or address, then tap Create AI info.
+                  {t('pin.fillHint')}
                 </p>
               </label>
             </>
@@ -357,7 +357,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 disabled={enriching || !hasFilledInfo}
                 title={
                   hasFilledInfo
-                    ? 'Create AI info from the filled name, notes, and address'
+                    ? t('pin.createFromFilled')
                     : 'Add a name plus notes or a street address first'
                 }
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-magenta/40 text-neon-magenta hover:bg-neon-magenta/15 disabled:opacity-50"
@@ -408,7 +408,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 disabled={enriching || !hasFilledInfo}
                 title={
                   hasFilledInfo
-                    ? 'Create AI info from the filled name, notes, and address'
+                    ? t('pin.createFromFilled')
                     : 'Add a name plus notes or a street address first'
                 }
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-magenta/40 text-neon-magenta hover:bg-neon-magenta/15 disabled:opacity-50"

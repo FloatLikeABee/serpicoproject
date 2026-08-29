@@ -22,4 +22,18 @@ describe('i18n catalog', () => {
       expect(t('cn', key)).not.toBe(key);
     });
   });
+
+  it('returns Simplified Chinese interview helper chrome', () => {
+    expect(t('cn', 'interview.tab')).toBe('讯问');
+    expect(t('cn', 'interview.general')).toBe('综合');
+    expect(t('cn', 'interview.send')).toBe('发送');
+    expect(t('cn', 'interview.placeholder')).toMatch(/案情/);
+  });
+
+  it('returns Simplified Chinese pin helper and chat error wrappers', () => {
+    expect(t('cn', 'pin.fillHint')).toMatch(/生成 AI 情报/);
+    expect(t('cn', 'pin.tapPlace')).toMatch(/地图/);
+    expect(t('cn', 'chat.commsIssue')).not.toMatch(/Copy that/);
+    expect(t('cn', 'chat.headsUpPrefix')).not.toMatch(/Heads up/);
+  });
 });

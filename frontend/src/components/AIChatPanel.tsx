@@ -101,8 +101,8 @@ const AIChatPanel: React.FC<AIChatPanelProps> = ({
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: error.response?.data?.error
-          ? `**Heads up** — ${error.response.data.error}`
-          : '**Copy that** — I hit a comms issue. Try again.',
+          ? `${t('chat.headsUpPrefix')} ${error.response.data.error}`
+          : t('chat.commsIssueShort'),
         timestamp: new Date(),
       };
       

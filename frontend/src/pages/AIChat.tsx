@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { chatAPI } from '../services/api';
 import { parseNation } from '../utils/nation';
-import { useT } from '../i18n/useT';
+import { useT, useNation } from '../i18n/useT';
 import ChatMarkdown from '../components/ChatMarkdown';
 import {
   ChatMessage,
@@ -29,12 +29,11 @@ interface ChatSession {
 
 const INTERVIEW_SESSION_ID = 'suspect-interview';
 const INTERVIEW_CONTEXT = 'suspect-interview';
-const interviewWelcomeLastMessage = 'Send a case brief to start…';
 
 const interviewSession = (): ChatSession => ({
   id: INTERVIEW_SESSION_ID,
   title: 'Suspect Interview Helper',
-  lastMessage: interviewWelcomeLastMessage,
+  lastMessage: 'Send a case brief to start…',
   timestamp: new Date(),
   context: INTERVIEW_CONTEXT,
   pinned: true,
@@ -67,19 +66,12 @@ const GENERAL_SUGGESTIONS = [
   'Search for perp information',
 ];
 
-const INTERVIEW_SUGGESTIONS = [
-  'Case brief: burglary at 3am, prints on window, suspect denies being there. Goal: timeline. Rights given.',
-  'Suspect said: I was home all night. My thoughts: no alibi detail, avoid confrontation yet.',
-  'Suspect said: I might have walked past that street. My thoughts: opening — probe route without showing evidence.',
-  'Give me the next SUE probe — we have CCTV but have not disclosed it.',
-  'Close the interview — summarize account and next steps.',
-];
-
 const AIChat: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { theme } = useTheme();
   const t = useT();
+  const nation = useNation();
   const [sessions, setSessions] = useState<ChatSession[]>(() =>
     ensureInterviewSession([defaultGeneralSession()])
   );
@@ -114,7 +106,9 @@ const AIChat: React.FC = () => {
       : routeContext();
 
   const userId = user?.id || 'guest';
-  const suggestions = isInterview ? INTERVIEW_SUGGESTIONS : GENERAL_SUGGESTIONS;
+  const suggestions = isInterview
+    ? [t('interview.chipBrief'), t('interview.chipSuspect')]
+    : GENERAL_SUGGESTIONS;
   const isDark = theme === 'dark';
 
   const primaryTabs = useMemo(() => {
@@ -126,14 +120,19 @@ const AIChat: React.FC = () => {
       sessions.find((s) => s.id !== interview.id) ||
       defaultGeneralSession();
     return [
-      { id: interview.id, label: 'Interview', full: interview.title },
-      { id: general.id, label: 'General', full: general.title },
+      { id: interview.id, label: t('interview.tab'), full: t('interview.title') },
+      { id: general.id, label: t('interview.general'), full: general.title },
     ];
-  }, [sessions]);
+  }, [sessions, t]);
 
   useEffect(() => {
-    setMessages(loadChatHistory(userId, context, currentSessionId));
-  }, [currentSessionId, userId, context]);
+    const loaded = loadChatHistory(userId, context, currentSessionId, nation);
+    if (loaded.length === 1 && loaded[0].id === 'welcome') {
+      setMessages(createInitialMessages(context, nation));
+      return;
+    }
+    setMessages(loaded);
+  }, [currentSessionId, userId, context, nation]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -161,12 +160,12 @@ const AIChat: React.FC = () => {
 
   const handleClearChat = () => {
     clearChatHistory(userId, context, currentSessionId);
-    setMessages(createInitialMessages(context));
+    setMessages(createInitialMessages(context, nation));
     if (isInterview) {
       setSessions((prev) =>
         prev.map((s) =>
           s.id === currentSessionId
-            ? { ...s, lastMessage: interviewWelcomeLastMessage, timestamp: new Date() }
+            ? { ...s, lastMessage: t('interview.welcomeLast'), timestamp: new Date() }
             : s
         )
       );
@@ -182,8 +181,8 @@ const AIChat: React.FC = () => {
           ? {
               ...s,
               id: INTERVIEW_SESSION_ID,
-              title: 'Suspect Interview Helper',
-              lastMessage: interviewWelcomeLastMessage,
+              title: t('interview.title'),
+              lastMessage: t('interview.welcomeLast'),
               timestamp: new Date(),
               context: INTERVIEW_CONTEXT,
               pinned: true,
@@ -192,7 +191,7 @@ const AIChat: React.FC = () => {
       )
     );
     setCurrentSessionId(INTERVIEW_SESSION_ID);
-    setMessages(createInitialMessages(INTERVIEW_CONTEXT));
+    setMessages(createInitialMessages(INTERVIEW_CONTEXT, nation));
     setInput('');
     setPickerOpen(false);
   };
@@ -267,8 +266,8 @@ const AIChat: React.FC = () => {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: error.response?.data?.error
-          ? `**Heads up** — ${error.response.data.error}`
-          : '**Copy that** — I hit a comms issue processing your request. Try again in a moment.',
+          ? `${t('chat.headsUpPrefix')} ${error.response.data.error}`
+          : t('chat.commsIssue'),
         timestamp: new Date(),
         context,
       };
@@ -279,9 +278,7 @@ const AIChat: React.FC = () => {
     }
   };
 
-  const placeholder = isInterview
-    ? 'Paste case brief first… then Suspect said: … / My thoughts: …'
-    : t('chat.placeholder');
+  const placeholder = isInterview ? t('interview.placeholder') : t('chat.placeholder');
 
   const sessionSheet =
     pickerOpen &&
@@ -333,7 +330,9 @@ const AIChat: React.FC = () => {
                         : 'border-gray-200 bg-gray-50 text-gray-900 active:bg-gray-100'
                   }`}
                 >
-                  <div className="font-semibold text-sm">{session.title}</div>
+                  <div className="font-semibold text-sm">
+                    {session.context === INTERVIEW_CONTEXT ? t('interview.title') : session.title}
+                  </div>
                   <div
                     className={`text-xs mt-1 line-clamp-2 ${
                       isDark ? 'text-gray-400' : 'text-gray-500'
@@ -355,14 +354,14 @@ const AIChat: React.FC = () => {
                   : 'border-gray-200 bg-gray-50 text-gray-800'
               }`}
             >
-              Clear interview (new case brief)
+              {t('interview.clearNew')}
             </button>
             <button
               type="button"
               onClick={handleNewSession}
               className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold bg-serpico-blue text-white touch-manipulation"
             >
-              {isInterview ? 'New interview' : '+ New Session'}
+              {isInterview ? t('interview.new') : '+ New Session'}
             </button>
           </div>
         </div>
@@ -413,9 +412,9 @@ const AIChat: React.FC = () => {
                 ? 'bg-gray-800 border-white/15 text-gray-200'
                 : 'bg-white border-gray-300 text-gray-800'
             }`}
-            aria-label="All sessions"
+            aria-label={t('interview.all')}
           >
-            All
+            {t('interview.all')}
           </button>
 
           {isInterview ? (
@@ -427,9 +426,9 @@ const AIChat: React.FC = () => {
                   ? 'bg-gray-800 border-white/15 text-gray-200'
                   : 'bg-gray-100 border-gray-200 text-gray-700'
               }`}
-              title="Clear interview and start a new case brief"
+              title={t('interview.clearNew')}
             >
-              Clear
+              {t('chat.clear')}
             </button>
           ) : (
             <button
@@ -440,9 +439,9 @@ const AIChat: React.FC = () => {
                   ? 'bg-gray-800 border-white/15 text-gray-200'
                   : 'bg-gray-100 border-gray-200 text-gray-700'
               }`}
-              title="Clear chat history"
+              title={t('chat.clear')}
             >
-              Clear
+              {t('chat.clear')}
             </button>
           )}
         </div>
@@ -528,7 +527,7 @@ const AIChat: React.FC = () => {
             disabled={isLoading || !input.trim()}
             className="bg-serpico-blue text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg active:bg-serpico-blue-dark disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base touch-manipulation"
           >
-            Send
+            {t('chat.send')}
           </button>
         </div>
       </div>
