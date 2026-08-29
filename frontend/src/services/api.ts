@@ -178,6 +178,7 @@ export interface ChatHistoryEntry {
 }
 
 async function postWithRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
+  // Chat and helper share Gemini; retry once on network/5xx so a cold backend does not look like "comms down".
   let lastErr: unknown;
   for (let i = 0; i < attempts; i += 1) {
     try {

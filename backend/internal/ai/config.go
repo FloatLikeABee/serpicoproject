@@ -7,7 +7,8 @@ import (
 )
 
 type Config struct {
-	GeminiAPIKey        string
+	GeminiAPIKey string
+	// GeminiModel is the sole interactive chat model (interview, map tags, helper).
 	GeminiModel         string
 	MistralAPIKey       string
 	MistralModel        string
@@ -104,4 +105,3 @@ func LoadConfig() *Config {
 		ReplicateImageModel: envOrDefault("REPLICATE_IMAGE_MODEL", "black-forest-labs/flux-schnell"),
 	}
 }
-
