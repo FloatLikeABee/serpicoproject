@@ -14,10 +14,11 @@ import (
 )
 
 const (
-	defaultLiveModel   = "deepseek-ai/DeepSeek-V4-Flash"
-	defaultLiveBaseURL = "https://api.siliconflow.com/v1"
-	chinaLiveBaseURL   = "https://api.siliconflow.cn/v1"
-	qwenAttempts       = 3
+	defaultLiveModel    = "deepseek-ai/DeepSeek-V4-Flash"
+	defaultLiveBaseURL  = "https://api.siliconflow.com/v1"
+	chinaLiveBaseURL    = "https://api.siliconflow.cn/v1"
+	qwenAttempts        = 3
+	knownInvalidLiveKey = "sk-bdyzoncdtphfzkuobciwamljfykkooyenxknyhoulvyqpyzoq"
 )
 
 const (
@@ -35,15 +36,16 @@ const (
 
 // QwenClient calls an OpenAI-compatible chat completions API (SiliconFlow).
 type QwenClient struct {
-	apiKey  string
-	model   string
-	baseURL string
-	client  *http.Client
+	apiKey      string
+	model       string
+	baseURL     string
+	peerBaseURL string // tests only; production uses siliconFlowPeerHost
+	client      *http.Client
 }
 
 func NewQwenClient(apiKey, model, baseURL string) *QwenClient {
 	return &QwenClient{
-		apiKey:  strings.TrimSpace(apiKey),
+		apiKey:  sanitizeAPIKey(apiKey),
 		model:   envOrLiteral(model, defaultLiveModel),
 		baseURL: envOrLiteral(baseURL, defaultLiveBaseURL),
 		client: &http.Client{
@@ -58,6 +60,44 @@ func envOrLiteral(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func sanitizeAPIKey(raw string) string {
+	s := strings.TrimSpace(raw)
+	s = strings.TrimPrefix(s, "\ufeff")
+	s = strings.TrimSpace(s)
+	s = strings.Trim(s, `"'`)
+	s = strings.TrimSpace(s)
+	if len(s) >= 7 && strings.EqualFold(s[:7], "bearer ") {
+		s = strings.TrimSpace(s[7:])
+	}
+	return strings.TrimSpace(s)
+}
+
+func isKnownInvalidLiveKey(key string) bool {
+	return sanitizeAPIKey(key) == knownInvalidLiveKey
+}
+
+func siliconFlowPeerHost(base string) string {
+	l := strings.ToLower(base)
+	switch {
+	case strings.Contains(l, "siliconflow.cn"):
+		return defaultLiveBaseURL
+	case strings.Contains(l, "siliconflow.com"):
+		return chinaLiveBaseURL
+	default:
+		return ""
+	}
+}
+
+func (q *QwenClient) peerHost() string {
+	if q != nil && strings.TrimSpace(q.peerBaseURL) != "" {
+		return strings.TrimSpace(q.peerBaseURL)
+	}
+	if q == nil {
+		return ""
+	}
+	return siliconFlowPeerHost(q.baseURL)
 }
 
 func (q *QwenClient) Enabled() bool {
@@ -186,33 +226,49 @@ func (q *QwenClient) generate(request qwenChatRequest) (string, error) {
 	thinkingOff := false
 	request.EnableThinking = &thinkingOff
 	var lastErr error
-	for attempt := 1; attempt <= qwenAttempts; attempt++ {
-		text, err := q.generateOnce(request)
-		if err == nil {
-			return text, nil
+	bases := []string{q.baseURL}
+	if peer := q.peerHost(); peer != "" && peer != q.baseURL {
+		bases = append(bases, peer)
+	}
+	for _, base := range bases {
+		for attempt := 1; attempt <= qwenAttempts; attempt++ {
+			text, err := q.generateOnce(request, base)
+			if err == nil {
+				if base != q.baseURL {
+					log.Printf("Live model succeeded on peer host %s (configured %s)", base, q.baseURL)
+					q.baseURL = base
+				}
+				return text, nil
+			}
+			lastErr = err
+			var le *liveModelCallError
+			if errors.As(err, &le) {
+				log.Printf("Live model class=%s status=%d host=%s model=%s attempt %d/%d: %s", le.Class, le.Status, le.Host, le.Model, attempt, qwenAttempts, le.Msg)
+				if le.Class == liveErrAuth {
+					break
+				}
+			} else {
+				log.Printf("Live model %s @ %s attempt %d/%d failed (%v)", q.model, base, attempt, qwenAttempts, err)
+			}
+			if attempt == qwenAttempts || !isRetryableLiveError(err) {
+				break
+			}
+			time.Sleep(time.Duration(attempt) * 400 * time.Millisecond)
 		}
-		lastErr = err
-		var le *liveModelCallError
-		if errors.As(err, &le) {
-			log.Printf("Live model class=%s status=%d host=%s model=%s attempt %d/%d: %s", le.Class, le.Status, le.Host, le.Model, attempt, qwenAttempts, le.Msg)
-		} else {
-			log.Printf("Live model %s @ %s attempt %d/%d failed (%v)", q.model, q.baseURL, attempt, qwenAttempts, err)
-		}
-		if attempt == qwenAttempts || !isRetryableLiveError(err) {
-			break
-		}
-		time.Sleep(time.Duration(attempt) * 400 * time.Millisecond)
 	}
 	return "", lastErr
 }
 
-func (q *QwenClient) generateOnce(request qwenChatRequest) (string, error) {
+func (q *QwenClient) generateOnce(request qwenChatRequest, baseURL string) (string, error) {
+	if strings.TrimSpace(baseURL) == "" {
+		baseURL = q.baseURL
+	}
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", qwenCompletionsURL(q.baseURL), bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", qwenCompletionsURL(baseURL), bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -223,7 +279,7 @@ func (q *QwenClient) generateOnce(request qwenChatRequest) (string, error) {
 	if err != nil {
 		return "", &liveModelCallError{
 			Class: classifyTransportError(err),
-			Host:  q.baseURL,
+			Host:  baseURL,
 			Model: q.model,
 			Msg:   err.Error(),
 			Err:   err,
@@ -237,7 +293,7 @@ func (q *QwenClient) generateOnce(request qwenChatRequest) (string, error) {
 		return "", &liveModelCallError{
 			Class:  classifyHTTPStatus(resp.StatusCode, msg),
 			Status: resp.StatusCode,
-			Host:   q.baseURL,
+			Host:   baseURL,
 			Model:  q.model,
 			Msg:    msg,
 		}

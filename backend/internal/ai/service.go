@@ -38,7 +38,7 @@ func NewAIService(config *Config) (*AIService, error) {
 	imageGen := NewImageGenerator(config)
 
 	if qwen.Enabled() {
-		log.Printf("Live AI model: %s @ %s", qwen.model, qwen.baseURL)
+		log.Printf("Live AI model: %s @ %s (peer %s, key_len=%d)", qwen.model, qwen.baseURL, qwen.peerHost(), len(qwen.apiKey))
 	} else {
 		log.Printf("Live AI model is not configured — set SILICONFLOW_API_KEY (model=%s)", config.QwenModel)
 	}

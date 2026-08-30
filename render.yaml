@@ -83,6 +83,8 @@ services:
         value: https://api.siliconflow.com/v1
       - key: SILICONFLOW_BASE_URL
         value: https://api.siliconflow.com/v1
+        # China-console keys (siliconflow.cn) are a different account system.
+        # On 401 the backend retries api.siliconflow.cn automatically.
       - key: RAG_DATA_PATH
         value: /var/data/rag
       - key: ENABLE_WEB_SEARCH
