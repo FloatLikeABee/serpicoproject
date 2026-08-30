@@ -89,8 +89,8 @@ func TestLoadConfigLiveModelSettings(t *testing.T) {
 
 	t.Setenv("QWEN_BASE_URL", chinaLiveBaseURL)
 	cfg = LoadConfig()
-	if cfg.QwenBaseURL != defaultLiveBaseURL {
-		t.Fatalf("stale .cn on QWEN_BASE_URL should map to %s, got %s", defaultLiveBaseURL, cfg.QwenBaseURL)
+	if cfg.QwenBaseURL != chinaLiveBaseURL {
+		t.Fatalf("QWEN_BASE_URL .cn should stay when SILICONFLOW_BASE_URL unset, got %s", cfg.QwenBaseURL)
 	}
 
 	t.Setenv("SILICONFLOW_BASE_URL", chinaLiveBaseURL)
@@ -192,5 +192,75 @@ func TestProcessChatLiveSuccessNotFallback(t *testing.T) {
 	}
 	if !strings.Contains(promptGot, "Live brief") {
 		t.Fatalf("GenerateWithPrompt = %q", promptGot)
+	}
+}
+
+func TestSanitizeAPIKey(t *testing.T) {
+	cases := map[string]string{
+		`  "sk-abc"  `:      "sk-abc",
+		"Bearer sk-abc":     "sk-abc",
+		"bearer sk-abc":     "sk-abc",
+		"'sk-abc'":          "sk-abc",
+		"sk-abc\n":          "sk-abc",
+		knownInvalidLiveKey: knownInvalidLiveKey,
+	}
+	for in, want := range cases {
+		if got := sanitizeAPIKey(in); got != want {
+			t.Fatalf("sanitizeAPIKey(%q)=%q want %q", in, got, want)
+		}
+	}
+}
+
+func TestSkipKnownInvalidLiveKey(t *testing.T) {
+	t.Setenv("SILICONFLOW_API_KEY", knownInvalidLiveKey)
+	t.Setenv("QWEN_API_KEY", "sk-real-from-console")
+	t.Setenv("DASHSCOPE_API_KEY", "")
+	cfg := LoadConfig()
+	if cfg.QwenAPIKey != "sk-real-from-console" {
+		t.Fatalf("should skip screenshot key, got %s", cfg.QwenAPIKey)
+	}
+}
+
+func TestSiliconFlowPeerHost(t *testing.T) {
+	if siliconFlowPeerHost(defaultLiveBaseURL) != chinaLiveBaseURL {
+		t.Fatalf("com peer = %s", siliconFlowPeerHost(defaultLiveBaseURL))
+	}
+	if siliconFlowPeerHost(chinaLiveBaseURL) != defaultLiveBaseURL {
+		t.Fatalf("cn peer = %s", siliconFlowPeerHost(chinaLiveBaseURL))
+	}
+	if siliconFlowPeerHost("https://example.com/v1") != "" {
+		t.Fatal("non-siliconflow host should have no peer")
+	}
+}
+
+func TestAuthFailoverToPeerHost(t *testing.T) {
+	var comHits, cnHits int
+	comSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		comHits++
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"code":30014,"message":"Token is invalid."}`))
+	}))
+	defer comSrv.Close()
+	cnSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cnHits++
+		if got := r.Header.Get("Authorization"); got != "Bearer sk-cn-key" {
+			t.Errorf("auth = %s", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"China host ok."}}]}`))
+	}))
+	defer cnSrv.Close()
+
+	q := NewQwenClient("sk-cn-key", defaultLiveModel, comSrv.URL+"/v1")
+	q.peerBaseURL = cnSrv.URL + "/v1"
+	got, err := q.GenerateWithPrompt("sys", "hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "China host ok." {
+		t.Fatalf("got %q", got)
+	}
+	if comHits < 1 || cnHits < 1 {
+		t.Fatalf("comHits=%d cnHits=%d", comHits, cnHits)
 	}
 }

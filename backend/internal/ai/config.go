@@ -113,7 +113,7 @@ func LoadConfig() *Config {
 
 func firstEnv(keys ...string) string {
 	for _, key := range keys {
-		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+		if value := sanitizeAPIKey(os.Getenv(key)); value != "" {
 			return value
 		}
 	}
@@ -121,7 +121,14 @@ func firstEnv(keys ...string) string {
 }
 
 func liveModelAPIKey() string {
-	return firstEnv("SILICONFLOW_API_KEY", "QWEN_API_KEY", "DASHSCOPE_API_KEY")
+	for _, name := range []string{"SILICONFLOW_API_KEY", "QWEN_API_KEY", "DASHSCOPE_API_KEY"} {
+		key := sanitizeAPIKey(os.Getenv(name))
+		if key == "" || isKnownInvalidLiveKey(key) {
+			continue
+		}
+		return key
+	}
+	return ""
 }
 
 func liveModelName() string {
@@ -144,6 +151,5 @@ func liveModelBaseURL() string {
 }
 
 func isStaleLiveBaseURL(base string) bool {
-	l := strings.ToLower(base)
-	return strings.Contains(l, "dashscope") || strings.Contains(l, "siliconflow.cn")
+	return strings.Contains(strings.ToLower(base), "dashscope")
 }
