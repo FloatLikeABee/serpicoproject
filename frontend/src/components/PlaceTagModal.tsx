@@ -57,6 +57,8 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   const [aiExpanded, setAiExpanded] = useState(false);
   const mappedPinKeyRef = React.useRef('');
   const meta = kinds.find((k) => k.kind === draft.kind) ?? tagMeta(draft.kind);
+  const typeLabel = (kind: MapTagKind) =>
+    t(kindOptions ? `fleet.kind.${kind}` : `tag.kind.${kind}`);
 
   const applyLocation = (next: MapTag) => {
     setDraft(next);
@@ -219,13 +221,13 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-[10px] font-display uppercase tracking-wider" style={{ color: meta.color }}>
-                {meta.label}
+                {typeLabel(draft.kind)}
               </p>
               <h2 id="place-tag-title" className="text-lg font-display font-bold text-white truncate">
                 {editing ? t('pin.modalTitle') : draft.name || meta.short}
               </h2>
               <p className="text-[11px] text-synth-muted mt-0.5 truncate">
-                {mappingLocation ? 'Mapping location…' : draft.address || `${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}`}
+                {mappingLocation ? t('pin.mapping') : draft.address || `${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}`}
               </p>
             </div>
             <button
@@ -250,7 +252,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
           {editing ? (
             <>
               <label className="block space-y-1">
-                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Type</span>
+                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">{t('pin.type')}</span>
                 <select
                   value={draft.kind}
                   onChange={(e) => setDraft((p) => ({ ...p, kind: e.target.value as MapTagKind }))}
@@ -259,14 +261,14 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 >
                   {kinds.map((k) => (
                     <option key={k.kind} value={k.kind}>
-                      {k.label}
+                      {typeLabel(k.kind)}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label className="block space-y-1">
-                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Name</span>
+                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">{t('pin.name')}</span>
                 <input
                   value={draft.name}
                   onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
@@ -277,7 +279,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
 
               <label className="block space-y-1">
                 <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">
-                  Location {mappingLocation ? '· mapping…' : ''}
+                  {t('pin.location')} {mappingLocation ? `· ${t('pin.mapping')}` : ''}
                 </span>
                 <input
                   value={draft.address || ''}
@@ -292,7 +294,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
               </label>
 
               <label className="block space-y-1">
-                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">Notes</span>
+                <span className="text-[9px] font-display uppercase tracking-wider text-synth-muted">{t('pin.notes')}</span>
                 <textarea
                   value={draft.notes}
                   onChange={(e) => setDraft((p) => ({ ...p, notes: e.target.value }))}
@@ -309,7 +311,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
             <>
               {draft.notes.trim() ? (
                 <div className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
-                  <p className="text-[9px] font-display uppercase tracking-wider text-synth-muted mb-1">Notes</p>
+                  <p className="text-[9px] font-display uppercase tracking-wider text-synth-muted mb-1">{t('pin.notes')}</p>
                   <ChatMarkdown content={draft.notes} size="xs" />
                 </div>
               ) : null}

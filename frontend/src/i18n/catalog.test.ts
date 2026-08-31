@@ -36,4 +36,22 @@ describe('i18n catalog', () => {
     expect(t('cn', 'chat.commsIssue')).not.toMatch(/Copy that/);
     expect(t('cn', 'chat.headsUpPrefix')).not.toMatch(/Heads up/);
   });
+
+  it('returns Simplified Chinese Pursue tag shorts (not Officer / Investigation)', () => {
+    expect(t('cn', 'tag.short.police_officer')).not.toBe('Officer');
+    expect(t('cn', 'tag.short.investigation')).not.toBe('Investigation');
+    expect(t('cn', 'tag.short.police_officer')).toMatch(/[\u4e00-\u9fff]/);
+    expect(t('cn', 'tag.kind.investigation')).toMatch(/[\u4e00-\u9fff]/);
+    expect(t('us', 'tag.short.police_officer')).toBe('Officer');
+    expect(t('us', 'tag.kind.investigation')).toBe('Investigation');
+  });
+
+  it('returns Simplified Chinese Fleet kind labels used by chips and the pin modal', () => {
+    expect(t('cn', 'fleet.short.station')).toMatch(/[\u4e00-\u9fff]/);
+    expect(t('cn', 'fleet.kind.police_station')).toMatch(/[\u4e00-\u9fff]/);
+    expect(t('cn', 'fleet.kind.personnel')).toMatch(/[\u4e00-\u9fff]/);
+    expect(t('cn', 'fleet.kind.police_vehicle')).toMatch(/[\u4e00-\u9fff]/);
+    expect(t('cn', 'fleet.kind.investigation')).toMatch(/[\u4e00-\u9fff]/);
+    expect(t('us', 'fleet.kind.police_station')).toBe('Station / facility');
+  });
 });

@@ -136,7 +136,7 @@ const InPursue: React.FC = () => {
                 <button
                   key={k.kind}
                   type="button"
-                  title={k.label}
+                  title={t(`tag.kind.${k.kind}`)}
                   onClick={() => setPlaceKind(k.kind)}
                   className={`px-1.5 py-0.5 rounded border text-[8px] font-display font-bold uppercase tracking-wide touch-manipulation min-h-0 min-w-0 ${
                     active
@@ -145,13 +145,13 @@ const InPursue: React.FC = () => {
                   }`}
                   style={active ? { backgroundColor: `${k.color}55`, borderColor: k.color } : undefined}
                 >
-                  {k.glyph} {k.short}
+                  {k.glyph} {t(`tag.short.${k.kind}`)}
                 </button>
               );
             })}
           </div>
           <p className="text-[9px] text-neon-cyan px-0.5">
-            {t('pursue.tap', { kind: tagMeta(placeKind).label })}
+            {t('pursue.tap', { kind: t(`tag.kind.${placeKind}`) })}
           </p>
         </div>
       </div>
@@ -178,7 +178,7 @@ const InPursue: React.FC = () => {
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1200] w-[min(340px,90vw)] pointer-events-none">
           <div className="px-2.5 py-1.5 rounded-lg border border-neon-cyan/50 bg-black/70 backdrop-blur-sm shadow-lg text-center">
             <p className="text-[10px] text-neon-cyan font-display uppercase tracking-wide">
-              {t('pursue.banner', { kind: tagMeta(placeKind).label })}
+              {t('pursue.banner', { kind: t(`tag.kind.${placeKind}`) })}
             </p>
           </div>
         </div>
