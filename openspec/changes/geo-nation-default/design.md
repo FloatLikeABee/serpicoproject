@@ -62,14 +62,17 @@ Resolution after login:
 - **Alternative considered:** Treat any existing key as frozen. Rejected; demo `serpico` would stay United States forever on devices that already logged in.
 - **Alternative considered:** Re-detect even after Account. Rejected; would fight the Account United States / China control.
 
-### 4. Do not let `GET /users/me` clobber a geo default on a new device
+### 4. Do not let `GET /users/me` clobber a geo default
 
-`users.nation` defaults to `us` in SQLite, and `getMe` today overwrites local when remote is non-empty. On a China-area first visit that would snap geo `cn` back to `us`.
+`users.nation` defaults to `us` in SQLite. Geo login used to `PUT` that column too, so a China-area demo visit wrote `cn` on the shared `demo-serpico` row and the next US-area browser inherited it.
 
-Rule: apply remote nation only when **this userId already has the explicit flag**, or when remote is `cn` (cannot be a column default). Ignore remote `us` when the explicit flag is absent.
+Rules:
 
-- **Why:** Shared demo id `demo-serpico` already has `nation=us` on disk from prior upserts.
-- **Alternative considered:** Add `nation_source` on SQLite. Deferred; local explicit flag is enough for the mock-auth world.
+- `upsertNation` only when the **explicit Account flag** is set (Cases → Account). Geo stays on the device.
+- Apply remote nation only when that same flag is set. Do **not** treat remote `cn` as always-authoritative; leftover geo upserts and the column default are indistinguishable from Account without the flag.
+
+- **Why:** Spec: first login from outside China with no stored nation is United States. Shared demo id plus geo-upsert made remote `cn` a false Account signal.
+- **Alternative considered:** Apply remote `cn` always because it cannot be a column default. Rejected after implement; geo `PUT` made that false.
 
 ### 5. Tests stay in `nation.ts` (pure functions)
 

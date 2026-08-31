@@ -41,6 +41,21 @@ describe('detectAccessNation', () => {
     expect(detectAccessNation('')).toBe('us');
     expect(detectAccessNation('Not/AZone')).toBe('us');
   });
+
+  it('does not treat an explicit empty zone as the host time zone', () => {
+    const orig = Intl.DateTimeFormat;
+    const Fake = function DateTimeFormat(this: unknown) {
+      return { resolvedOptions: () => ({ timeZone: 'Asia/Shanghai' }) };
+    } as unknown as typeof Intl.DateTimeFormat;
+    Fake.supportedLocalesOf = orig.supportedLocalesOf;
+    // @ts-expect-error test stub
+    Intl.DateTimeFormat = Fake;
+    try {
+      expect(detectAccessNation('')).toBe('us');
+    } finally {
+      Intl.DateTimeFormat = orig;
+    }
+  });
 });
 
 describe('resolveSessionNation', () => {
@@ -86,13 +101,18 @@ describe('shouldApplyRemoteNation', () => {
     expect(shouldApplyRemoteNation(userId, 'us')).toBe(false);
   });
 
-  it('applies remote cn even without explicit flag', () => {
-    expect(shouldApplyRemoteNation(userId, 'cn')).toBe(true);
+  it('does not let remote cn override geo us without explicit flag', () => {
+    expect(shouldApplyRemoteNation(userId, 'cn')).toBe(false);
   });
 
   it('applies remote us when Account nation is explicit', () => {
     saveExplicitNation(userId, 'us');
     expect(shouldApplyRemoteNation(userId, 'us')).toBe(true);
+  });
+
+  it('applies remote cn when Account nation is explicit', () => {
+    saveExplicitNation(userId, 'cn');
+    expect(shouldApplyRemoteNation(userId, 'cn')).toBe(true);
   });
 });
 

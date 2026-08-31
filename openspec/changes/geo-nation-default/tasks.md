@@ -12,10 +12,10 @@
 
 - [x] 3.1 Change `Login.tsx` to use `detectAccessNation()` (not `loadLastNation`) for chrome and set `document.documentElement.lang` from that value, and verify `grep -n loadLastNation frontend/src/pages/Login.tsx` is empty
 - [x] 3.2 Change demo / Google / Apple login in `AuthContext.tsx` to apply `resolveSessionNation(userId)` (and `setNation` to set the explicit flag), and verify `grep -n loadNation(DEMO_USER_ID) frontend/src/contexts/AuthContext.tsx` is empty
-- [x] 3.3 Guard `usersAPI.getMe` nation merge: apply remote only when the explicit flag is set or remote is `cn`; ignore remote `us` when unset, and verify a unit test or comment-level assertion in `nation.test.ts` covers “remote us does not override geo cn without explicit flag”
+- [x] 3.3 Guard `usersAPI.getMe` nation merge: apply remote only when the explicit Account flag is set; do not upsert geo to SQLite; verify `nation.test.ts` that remote `us` and remote `cn` both stay ignored without that flag
 
 ## 4. Verification
 
-- [ ] 4.1 Run `CI=true npm test` in `frontend` and confirm it passes
-- [ ] 4.2 In the browser, with a mocked or OS China time zone (or by temporarily calling detect with Shanghai in a debug build if TZ cannot be changed): Login shows Simplified Chinese; after demo login without touching Account, Fleet/Cases chrome stay Chinese; choosing United States on Account switches to English and stays English after reload even if TZ is still China
-- [ ] 4.3 In the browser with a United States time zone: Login is English; Account China still switches the shell to Simplified Chinese after login
+- [x] 4.1 Run `CI=true npm test` in `frontend` and confirm it passes
+- [x] 4.2 In the browser, with a mocked or OS China time zone (or by temporarily calling detect with Shanghai in a debug build if TZ cannot be changed): Login shows Simplified Chinese; after demo login without touching Account, Fleet/Cases chrome stay Chinese; choosing United States on Account switches to English and stays English after reload even if TZ is still China
+- [x] 4.3 In the browser with a United States time zone: Login is English; Account China still switches the shell to Simplified Chinese after login

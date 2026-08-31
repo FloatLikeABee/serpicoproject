@@ -18,16 +18,18 @@ const MAINLAND_CHINA_TIME_ZONES = new Set([
  */
 export function detectAccessNation(timeZone?: string): Nation {
   try {
-    let tz = (timeZone ?? '').trim();
-    if (!tz) {
+    let tz = '';
+    if (timeZone !== undefined) {
+      tz = timeZone.trim();
+    } else {
       try {
         tz = (sessionStorage.getItem('serpico.geo.tz.v1') || '').trim();
       } catch {
         /* ignore */
       }
-    }
-    if (!tz) {
-      tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '').trim();
+      if (!tz) {
+        tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '').trim();
+      }
     }
     if (MAINLAND_CHINA_TIME_ZONES.has(tz)) return 'cn';
     return DEFAULT_NATION;
@@ -113,7 +115,7 @@ export function resolveSessionNation(userId: string, opts?: { timeZone?: string 
   return detectAccessNation(opts?.timeZone);
 }
 
-function hasExplicitNationFlag(userId: string): boolean {
+export function hasExplicitNationFlag(userId: string): boolean {
   try {
     return localStorage.getItem(explicitKey(userId)) === '1';
   } catch {
@@ -122,12 +124,12 @@ function hasExplicitNationFlag(userId: string): boolean {
 }
 
 /**
- * Remote `users.nation` defaults to us in SQLite. Ignore that default unless
- * this account chose nation on Account. Remote cn is never a column default.
+ * Remote users.nation is only Account state. Ignore it until this device
+ * chose United States or China on Cases → Account (geo must not write SQLite,
+ * and leftover remote cn must not clobber a US-area first visit).
  */
 export function shouldApplyRemoteNation(userId: string, remote: Nation | string | null | undefined): boolean {
   if (remote == null || String(remote).trim() === '') return false;
-  if (parseNation(remote) === 'cn') return true;
   return hasExplicitNationFlag(userId);
 }
 
