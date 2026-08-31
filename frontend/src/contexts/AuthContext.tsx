@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { usersAPI } from '../services/api';
-import { DEFAULT_NATION, loadNation, parseNation, resolveAccountNation, saveLastNation, saveNation, type Nation } from '../utils/nation';
+import { DEFAULT_NATION, parseNation, resolveAccountNation, resolveSessionNation, saveExplicitNation, saveLastNation, saveNation, shouldApplyRemoteNation, type Nation } from '../utils/nation';
 
 export type UserRole = 'police' | 'civilian';
 
@@ -73,6 +73,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const raw = res?.user?.nation;
         if (raw == null || String(raw).trim() === '') return;
         const remote = parseNation(raw);
+        if (!shouldApplyRemoteNation(user.id, remote)) return;
         if (remote !== user.nation) {
           const merged = persistUser({ ...user, nation: remote });
           setUser(merged);
@@ -93,27 +94,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       name: 'Officer Serpico',
       role: 'police',
       rank: 'Officer',
-      nation: loadNation(DEMO_USER_ID),
+      nation: resolveSessionNation(DEMO_USER_ID),
     });
   };
 
   const loginWithGoogle = async () => {
+    const id = createUserId();
     applyUser({
-      id: createUserId(),
+      id,
       email: 'user@gmail.com',
       name: 'Google User',
       role: 'police',
       rank: 'Officer',
+      nation: resolveSessionNation(id),
     });
   };
 
   const loginWithApple = async () => {
+    const id = createUserId();
     applyUser({
-      id: createUserId(),
+      id,
       email: 'user@icloud.com',
       name: 'Apple User',
       role: 'police',
       rank: 'Officer',
+      nation: resolveSessionNation(id),
     });
   };
 
@@ -125,7 +130,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const setNation = (nation: Nation) => {
     if (!user) return;
-    applyUser({ ...user, nation: parseNation(nation) });
+    const next = parseNation(nation);
+    saveExplicitNation(user.id, next);
+    applyUser({ ...user, nation: next });
   };
 
   return (
