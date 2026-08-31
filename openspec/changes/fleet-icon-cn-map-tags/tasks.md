@@ -1,7 +1,7 @@
 ## 1. Fleet nav icon
 
 - [x] 1.1 Redraw `ChaseGameIcon` in `Navigation.tsx` so the vehicle fills most of the 24×24 viewBox (same 20×20 `iconProps` as siblings) and verify the path is no longer confined to y≥12
-- [ ] 1.2 In the browser, confirm the Fleet nav icon is visually comparable in size to Pursue and Board
+- [x] 1.2 In the browser, confirm the Fleet nav icon is visually comparable in size to Pursue and Board
 
 ## 2. Catalog tag labels
 
@@ -17,4 +17,4 @@
 ## 4. Verification
 
 - [x] 4.1 Run `CI=true npm test` in `frontend` and confirm it passes
-- [ ] 4.2 In the browser on China: Pursue and Fleet tag chips and pin-modal type are 简体中文; Fleet icon size matches neighbors; switch to United States and confirm English tag labels remain
+- [x] 4.2 In the browser on China: Pursue and Fleet tag chips and pin-modal type are 简体中文; Fleet icon size matches neighbors; switch to United States and confirm English tag labels remain
