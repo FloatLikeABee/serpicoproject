@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useT } from '../i18n/useT';
+import { FLEET_NAV_BODY_D, FLEET_NAV_WHEELS } from './navIcons';
 
 const iconProps = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 
@@ -56,9 +57,10 @@ const Navigation: React.FC = () => {
 
   const ChaseGameIcon = () => (
     <svg {...iconProps}>
-      <path d="M5 17h14l-1.5-4.5H6.5L5 17z" />
-      <circle cx="7.5" cy="17.5" r="1.5" fill="currentColor" />
-      <circle cx="16.5" cy="17.5" r="1.5" fill="currentColor" />
+      <path d={FLEET_NAV_BODY_D} />
+      {FLEET_NAV_WHEELS.map((w) => (
+        <circle key={`${w.cx}-${w.cy}`} cx={w.cx} cy={w.cy} r={w.r} fill="currentColor" />
+      ))}
     </svg>
   );
 
