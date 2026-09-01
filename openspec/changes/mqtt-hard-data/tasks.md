@@ -22,5 +22,5 @@
 
 ## 5. Integration verification
 
-- [ ] 5.1 Run `go test ./internal/database/ ./internal/api/ -count=1` (or equivalent package paths) and confirm pass
-- [ ] 5.2 Exercise POST then GET against local backend and the demo form; verify the listed record matches the posted payload and MQTT docs show `wss://<backend-host>/mqtt` + `serpico/hard-data/#`
+- [x] 5.1 Run `go test ./internal/database/ ./internal/api/ -count=1` (or equivalent package paths) and confirm pass
+- [x] 5.2 Exercise POST then GET against local backend and the demo form; verify the listed record matches the posted payload and MQTT docs show `wss://<backend-host>/mqtt` + `serpico/hard-data/#`
