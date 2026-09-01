@@ -150,14 +150,13 @@ client.on('connect', () => {
       <div className="scroll-area px-3 py-6 sm:px-6">
         <div className="mx-auto w-full max-w-3xl space-y-4 pb-8">
           <header className="game-panel p-4 sm:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-neon-cyan/80">{tx('hardData.badge')}</p>
+            <div className="flex justify-end">
               <div className="flex gap-2" role="group" aria-label={tx('account.nation')}>
                 {langBtn('us', tx('hardData.langEn'))}
                 {langBtn('cn', tx('hardData.langZh'))}
               </div>
             </div>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold neon-text-cyan mt-1">{tx('hardData.title')}</h1>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold neon-text-cyan">{tx('hardData.title')}</h1>
             <p className="mt-2 text-sm text-synth-muted">{tx('hardData.intro')}</p>
             <p className="mt-3 text-sm text-synth-text">
               {tx('hardData.pageUrl')} <code className="text-neon-green">{PROD_PAGE}</code>
