@@ -145,7 +145,6 @@ const en: Catalog = {
   'tag.short.witness': 'Witness',
   'tag.short.evidence': 'Evidence',
   'tag.short.other': 'Pin',
-  'hardData.badge': 'Unlisted · not in officer nav',
   'hardData.title': 'Hard data ingest',
   'hardData.intro':
     'Push field facts into Serpico as received (not AI-rewritten). Use HTTP or MQTT over WebSocket on the same backend host. This page is public so partners can test without the officer login.',
@@ -327,7 +326,6 @@ const zh: Catalog = {
   'tag.short.witness': '证人',
   'tag.short.evidence': '物证',
   'tag.short.other': '标记',
-  'hardData.badge': '未列入导航 · 不在警官菜单中',
   'hardData.title': '硬数据接入',
   'hardData.intro':
     '将现场事实原样写入 Serpico（不做 AI 改写）。可通过 HTTP 或同一后端主机上的 MQTT WebSocket 上报。本页公开，合作方无需警官登录即可测试。',
