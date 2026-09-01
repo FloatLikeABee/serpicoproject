@@ -10,10 +10,10 @@
 
 ## 3. SPA HTTP 200 rewrite
 
-- [ ] 3.1 Apply a Render rewrite `/*` → `/index.html` on the static service that serves `serpico.onrender.com` (Dashboard and/or the blueprint that actually updates that service); do not rely on `_redirects` alone; verify `curl -sS -o /dev/null -w '%{http_code}' https://serpico.onrender.com/x-hard-data` is `200` and `/login` is `200`
-- [ ] 3.2 After the 200 rewrite is confirmed, stop using `404.html` as the only SPA fallback if it still forces HTTP 404; verify GET `/x-hard-data` is HTML 200, not plain-text `Not Found`
+- [x] 3.1 Apply a Render rewrite `/*` → `/index.html` on the static service that serves `serpico.onrender.com` (Dashboard and/or the blueprint that actually updates that service); do not rely on `_redirects` alone; verify `curl -sS -o /dev/null -w '%{http_code}' https://serpico.onrender.com/x-hard-data` is `200` and `/login` is `200`
+- [x] 3.2 After the 200 rewrite is confirmed, stop using `404.html` as the only SPA fallback if it still forces HTTP 404; verify GET `/x-hard-data` is HTML 200, not plain-text `Not Found`
 
 ## 4. Verification
 
-- [ ] 4.1 Open `https://serpico.onrender.com/x-hard-data` without login; verify docs + demo, MQTT URL, and HTTP examples match `serpicoproject.onrender.com`
+- [x] 4.1 Open `https://serpico.onrender.com/x-hard-data` without login; verify docs + demo, MQTT URL, and HTTP examples match `serpicoproject.onrender.com`
 - [x] 4.2 Confirm `Navigation.tsx` / Login still have no `/x-hard-data` link (grep zero hits)
