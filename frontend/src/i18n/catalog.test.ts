@@ -46,6 +46,13 @@ describe('i18n catalog', () => {
     expect(t('us', 'tag.kind.investigation')).toBe('Investigation');
   });
 
+  it('returns Simplified Chinese hard-data ingest chrome', () => {
+    expect(t('cn', 'hardData.title')).toBe('硬数据接入');
+    expect(t('cn', 'hardData.send')).toBe('提交样例');
+    expect(t('cn', 'hardData.mqttTitle')).toMatch(/MQTT/);
+    expect(t('us', 'hardData.title')).toBe('Hard data ingest');
+  });
+
   it('returns Simplified Chinese Fleet kind labels used by chips and the pin modal', () => {
     expect(t('cn', 'fleet.short.station')).toMatch(/[\u4e00-\u9fff]/);
     expect(t('cn', 'fleet.kind.police_station')).toMatch(/[\u4e00-\u9fff]/);

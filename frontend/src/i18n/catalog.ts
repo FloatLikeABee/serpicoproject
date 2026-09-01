@@ -145,6 +145,35 @@ const en: Catalog = {
   'tag.short.witness': 'Witness',
   'tag.short.evidence': 'Evidence',
   'tag.short.other': 'Pin',
+  'hardData.badge': 'Unlisted · not in officer nav',
+  'hardData.title': 'Hard data ingest',
+  'hardData.intro':
+    'Push field facts into Serpico as received (not AI-rewritten). Use HTTP or MQTT over WebSocket on the same backend host. This page is public so partners can test without the officer login.',
+  'hardData.httpTitle': 'HTTP API',
+  'hardData.httpJson': ' — JSON ',
+  'hardData.httpDefault':
+    'Default topic if omitted: {topic}. Max payload 32 KiB. List recent rows: GET {url} (newest first, up to 50).',
+  'hardData.mqttTitle': 'MQTT (direct)',
+  'hardData.mqttWs': 'WebSocket endpoint:',
+  'hardData.mqttHow':
+    'Publish to {topic} (or any topic under {filter}). Use MQTT.js, Paho, or another MQTT 3.1.1/5 client with WebSocket. TCP port 1883 is not exposed.',
+  'hardData.demoTitle': 'Test demo',
+  'hardData.topic': 'Topic',
+  'hardData.payload': 'Payload',
+  'hardData.send': 'POST sample',
+  'hardData.sending': 'Sending…',
+  'hardData.refresh': 'Refresh list',
+  'hardData.stored': 'Stored id {id}',
+  'hardData.loadFail': 'Could not load records',
+  'hardData.getFail': 'GET failed ({status})',
+  'hardData.postFail': 'POST failed ({status})',
+  'hardData.sendFail': 'Send failed',
+  'hardData.refreshFail': 'Refresh failed',
+  'hardData.empty': 'No hard data yet. Send a sample above.',
+  'hardData.when': 'When',
+  'hardData.source': 'Source',
+  'hardData.langEn': 'English',
+  'hardData.langZh': '中文',
 };
 
 const zh: Catalog = {
@@ -290,6 +319,35 @@ const zh: Catalog = {
   'tag.short.witness': '证人',
   'tag.short.evidence': '物证',
   'tag.short.other': '标记',
+  'hardData.badge': '未列入导航 · 不在警官菜单中',
+  'hardData.title': '硬数据接入',
+  'hardData.intro':
+    '将现场事实原样写入 Serpico（不做 AI 改写）。可通过 HTTP 或同一后端主机上的 MQTT WebSocket 上报。本页公开，合作方无需警官登录即可测试。',
+  'hardData.httpTitle': 'HTTP 接口',
+  'hardData.httpJson': ' — JSON ',
+  'hardData.httpDefault':
+    '未填写主题时默认：{topic}。载荷上限 32 KiB。查看最近记录：GET {url}（最新在前，最多 50 条）。',
+  'hardData.mqttTitle': 'MQTT（直连）',
+  'hardData.mqttWs': 'WebSocket 地址：',
+  'hardData.mqttHow':
+    '向 {topic} 发布（或 {filter} 下任意主题）。使用 MQTT.js、Paho 或其他支持 WebSocket 的 MQTT 3.1.1/5 客户端。不开放 TCP 1883 端口。',
+  'hardData.demoTitle': '测试演示',
+  'hardData.topic': '主题',
+  'hardData.payload': '载荷',
+  'hardData.send': '提交样例',
+  'hardData.sending': '发送中…',
+  'hardData.refresh': '刷新列表',
+  'hardData.stored': '已存储 id {id}',
+  'hardData.loadFail': '无法加载记录',
+  'hardData.getFail': 'GET 失败（{status}）',
+  'hardData.postFail': 'POST 失败（{status}）',
+  'hardData.sendFail': '发送失败',
+  'hardData.refreshFail': '刷新失败',
+  'hardData.empty': '暂无硬数据。请先在上方发送一条样例。',
+  'hardData.when': '时间',
+  'hardData.source': '来源',
+  'hardData.langEn': 'English',
+  'hardData.langZh': '中文',
 };
 
 const catalogs: Record<Nation, Catalog> = { us: en, cn: zh };

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { t } from '../i18n/catalog';
+import { loadLastNation, parseNation, saveLastNation, type Nation } from '../utils/nation';
 
 const API_V1 = (process.env.REACT_APP_API_URL || 'https://serpicoproject.onrender.com/api/v1').replace(
   /\/$/,
@@ -16,6 +18,27 @@ function mqttWsUrl(apiV1: string): string {
   return `${origin}/mqtt`;
 }
 
+function detectNation(): Nation {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('lang') || params.get('nation');
+    if (q) {
+      return parseNation(q);
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const langs = [navigator.language, ...((navigator.languages as string[]) || [])];
+    if (langs.some((l) => /^zh\b/i.test(l || ''))) {
+      return 'cn';
+    }
+  } catch {
+    /* ignore */
+  }
+  return loadLastNation();
+}
+
 const DEFAULT_TOPIC = 'serpico/hard-data/demo';
 const HTTP_DEFAULT_TOPIC = 'serpico/hard-data/http';
 const MQTT_FILTER = 'serpico/hard-data/#';
@@ -31,6 +54,7 @@ type HardDataRecord = {
 const HardDataDocs: React.FC = () => {
   const httpUrl = `${API_V1}/hard-data`;
   const wsUrl = useMemo(() => mqttWsUrl(API_V1), []);
+  const [nation, setNation] = useState<Nation>(() => detectNation());
   const [payload, setPayload] = useState('unit 12 on scene');
   const [topic, setTopic] = useState(DEFAULT_TOPIC);
   const [records, setRecords] = useState<HardDataRecord[]>([]);
@@ -38,20 +62,27 @@ const HardDataDocs: React.FC = () => {
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
 
+  const tx = useCallback((key: string, vars?: Record<string, string | number>) => t(nation, key, vars), [nation]);
+
+  useEffect(() => {
+    document.documentElement.lang = nation === 'cn' ? 'zh-CN' : 'en';
+    saveLastNation(nation);
+  }, [nation]);
+
   const loadRecords = useCallback(async () => {
     const res = await fetch(httpUrl);
     if (!res.ok) {
-      throw new Error(`GET failed (${res.status})`);
+      throw new Error(t(nation, 'hardData.getFail', { status: res.status }));
     }
     const data = (await res.json()) as { records?: HardDataRecord[] };
     setRecords(data.records || []);
-  }, [httpUrl]);
+  }, [httpUrl, nation]);
 
   useEffect(() => {
     loadRecords().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : 'Could not load records');
+      setError(err instanceof Error ? err.message : tx('hardData.loadFail'));
     });
-  }, [loadRecords]);
+  }, [loadRecords, tx]);
 
   const sendDemo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,12 +97,12 @@ const HardDataDocs: React.FC = () => {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || `POST failed (${res.status})`);
+        throw new Error(data.error || tx('hardData.postFail', { status: res.status }));
       }
-      setStatus(`Stored id ${data.id}`);
+      setStatus(tx('hardData.stored', { id: data.id }));
       await loadRecords();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Send failed');
+      setError(err instanceof Error ? err.message : tx('hardData.sendFail'));
     } finally {
       setSending(false);
     }
@@ -89,53 +120,71 @@ client.on('connect', () => {
   client.publish('${DEFAULT_TOPIC}', 'unit 12 on scene')
 })`;
 
+  const langBtn = (id: Nation, label: string) => (
+    <button
+      type="button"
+      onClick={() => {
+        setError('');
+        setStatus('');
+        setNation(id);
+      }}
+      className={`px-3 py-1.5 rounded-md text-[10px] font-display uppercase border ${
+        nation === id
+          ? 'border-neon-cyan bg-neon-cyan/15 text-neon-cyan'
+          : 'border-white/15 text-gray-300'
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="app-shell synth-grid-bg overflow-y-auto">
       <div className="scroll-area px-3 py-6 sm:px-6">
         <div className="mx-auto w-full max-w-3xl space-y-4 pb-8">
           <header className="game-panel p-4 sm:p-6">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-neon-cyan/80">Unlisted · not in officer nav</p>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold neon-text-cyan mt-1">Hard data ingest</h1>
-            <p className="mt-2 text-sm text-synth-muted">
-              Push field facts into Serpico as received (not AI-rewritten). Use HTTP or MQTT over WebSocket on the
-              same backend host. This page is public so partners can test without the officer login.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-neon-cyan/80">{tx('hardData.badge')}</p>
+              <div className="flex gap-2" role="group" aria-label={tx('account.nation')}>
+                {langBtn('us', tx('hardData.langEn'))}
+                {langBtn('cn', tx('hardData.langZh'))}
+              </div>
+            </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold neon-text-cyan mt-1">{tx('hardData.title')}</h1>
+            <p className="mt-2 text-sm text-synth-muted">{tx('hardData.intro')}</p>
           </header>
 
           <section className="game-panel p-4 sm:p-6 space-y-3">
-            <h2 className="font-display text-lg neon-text-cyan">HTTP API</h2>
+            <h2 className="font-display text-lg neon-text-cyan">{tx('hardData.httpTitle')}</h2>
             <p className="text-sm text-synth-text">
               <code className="text-neon-green">POST {httpUrl}</code>
-              <span className="text-synth-muted"> — JSON </span>
+              <span className="text-synth-muted">{tx('hardData.httpJson')}</span>
               <code className="text-neon-green">{`{ "payload": "...", "topic": "optional" }`}</code>
             </p>
             <p className="text-sm text-synth-muted">
-              Default topic if omitted: <code className="text-neon-green">{HTTP_DEFAULT_TOPIC}</code>. Max payload 32 KiB.
-              List recent rows: <code className="text-neon-green">GET {httpUrl}</code> (newest first, up to 50).
+              {tx('hardData.httpDefault', { topic: HTTP_DEFAULT_TOPIC, url: httpUrl })}
             </p>
             <pre className="overflow-x-auto rounded-lg border border-neon-cyan/20 bg-synth-deep/80 p-3 text-xs text-synth-text whitespace-pre-wrap">{curlPost}</pre>
             <pre className="overflow-x-auto rounded-lg border border-neon-cyan/20 bg-synth-deep/80 p-3 text-xs text-synth-text whitespace-pre-wrap">{curlGet}</pre>
           </section>
 
           <section className="game-panel p-4 sm:p-6 space-y-3">
-            <h2 className="font-display text-lg neon-text-cyan">MQTT (direct)</h2>
+            <h2 className="font-display text-lg neon-text-cyan">{tx('hardData.mqttTitle')}</h2>
             <p className="text-sm text-synth-text">
-              WebSocket endpoint: <code className="text-neon-green">{wsUrl}</code>
+              {tx('hardData.mqttWs')} <code className="text-neon-green">{wsUrl}</code>
             </p>
             <p className="text-sm text-synth-muted">
-              Publish to <code className="text-neon-green">{DEFAULT_TOPIC}</code> (or any topic under{' '}
-              <code className="text-neon-green">{MQTT_FILTER}</code>). Use MQTT.js, Paho, or another MQTT 3.1.1/5 client
-              with WebSocket. TCP port 1883 is not exposed.
+              {tx('hardData.mqttHow', { topic: DEFAULT_TOPIC, filter: MQTT_FILTER })}
             </p>
             <pre className="overflow-x-auto rounded-lg border border-neon-cyan/20 bg-synth-deep/80 p-3 text-xs text-synth-text whitespace-pre-wrap">{mqttJs}</pre>
           </section>
 
           <section className="game-panel p-4 sm:p-6 space-y-3">
-            <h2 className="font-display text-lg neon-text-cyan">Test demo</h2>
+            <h2 className="font-display text-lg neon-text-cyan">{tx('hardData.demoTitle')}</h2>
             <form onSubmit={sendDemo} className="space-y-3">
               <div>
                 <label className="block text-xs font-display font-semibold mb-2 text-neon-cyan/90 tracking-wide uppercase">
-                  Topic
+                  {tx('hardData.topic')}
                 </label>
                 <input
                   className="synth-input"
@@ -146,7 +195,7 @@ client.on('connect', () => {
               </div>
               <div>
                 <label className="block text-xs font-display font-semibold mb-2 text-neon-cyan/90 tracking-wide uppercase">
-                  Payload
+                  {tx('hardData.payload')}
                 </label>
                 <textarea
                   className="synth-input min-h-[88px]"
@@ -156,7 +205,7 @@ client.on('connect', () => {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="submit" disabled={sending} className="btn-neon-primary py-2.5 px-4 rounded-lg disabled:opacity-50">
-                  {sending ? 'Sending…' : 'POST sample'}
+                  {sending ? tx('hardData.sending') : tx('hardData.send')}
                 </button>
                 <button
                   type="button"
@@ -164,11 +213,11 @@ client.on('connect', () => {
                   onClick={() => {
                     setError('');
                     loadRecords().catch((err: unknown) => {
-                      setError(err instanceof Error ? err.message : 'Refresh failed');
+                      setError(err instanceof Error ? err.message : tx('hardData.refreshFail'));
                     });
                   }}
                 >
-                  Refresh list
+                  {tx('hardData.refresh')}
                 </button>
               </div>
             </form>
@@ -178,17 +227,17 @@ client.on('connect', () => {
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead>
                   <tr className="text-neon-cyan/80 font-mono uppercase">
-                    <th className="py-2 pr-2">When</th>
-                    <th className="py-2 pr-2">Source</th>
-                    <th className="py-2 pr-2">Topic</th>
-                    <th className="py-2">Payload</th>
+                    <th className="py-2 pr-2">{tx('hardData.when')}</th>
+                    <th className="py-2 pr-2">{tx('hardData.source')}</th>
+                    <th className="py-2 pr-2">{tx('hardData.topic')}</th>
+                    <th className="py-2">{tx('hardData.payload')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {records.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="py-3 text-synth-muted">
-                        No hard data yet. Send a sample above.
+                        {tx('hardData.empty')}
                       </td>
                     </tr>
                   ) : (
