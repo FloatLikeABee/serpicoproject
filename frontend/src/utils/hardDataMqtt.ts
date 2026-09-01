@@ -1,4 +1,4 @@
-import { connect as mqttConnect } from 'mqtt';
+import { connect as mqttConnect } from 'mqtt/dist/mqtt.min.js';
 
 export type HardDataRecord = {
   id: string;

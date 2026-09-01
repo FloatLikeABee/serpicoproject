@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { connect as mqttConnect } from 'mqtt';
+import { connect as mqttConnect } from 'mqtt/dist/mqtt.min.js';
 import HardDataDocs from './HardDataDocs';
 import * as urls from '../utils/hardDataUrls';
 
@@ -36,7 +36,7 @@ function mockMqttClient(mode: 'connect' | 'error' = 'connect') {
   return client;
 }
 
-jest.mock('mqtt', () => ({
+jest.mock('mqtt/dist/mqtt.min.js', () => ({
   connect: jest.fn(),
 }));
 
