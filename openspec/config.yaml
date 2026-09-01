@@ -2,7 +2,9 @@ schema: spec-driven
 
 context: |
   Serpico is a police/civilian web app (React + TypeScript frontend, Go/Gin backend).
-  Production deploys from main on Render (serpico-frontend, serpico-backend).
+  Production deploys from main on Render. Live frontend: https://serpico.onrender.com
+  Live backend/MQTT: https://serpicoproject.onrender.com (MQTT over WSS at /mqtt).
+  Unlisted hard-data docs: https://serpico.onrender.com/x-hard-data (not in nav).
   Demo login: serpico / cops123. Helper APIs use ?userId= (CORS-safe), not X-User-Id.
   Frontend: React, Tailwind, Leaflet. Backend: Go, SQLite, RAG/AI chat.
   Match existing identifiers and patterns. Do not revive removed Chase Game / Pursue sim unless a spec says so.

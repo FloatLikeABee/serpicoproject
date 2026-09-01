@@ -1,22 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { loadLastNation, parseNation, saveLastNation, type Nation } from '../utils/nation';
+import {
+  apiV1Base,
+  DEFAULT_TOPIC,
+  MQTT_FILTER,
+  mqttWsUrl,
+  PROD_HARD_DATA_HTTP,
+  PROD_MQTT_WS,
+  PROD_PAGE,
+} from '../utils/hardDataUrls';
 
-const API_V1 = (process.env.REACT_APP_API_URL || 'https://serpicoproject.onrender.com/api/v1').replace(
-  /\/$/,
-  ''
-);
+const HTTP_DEFAULT_TOPIC = 'serpico/hard-data/http';
 
-function mqttWsUrl(apiV1: string): string {
-  const origin = apiV1.replace(/\/api\/v1$/i, '');
-  if (origin.startsWith('https://')) {
-    return `wss://${origin.slice('https://'.length)}/mqtt`;
-  }
-  if (origin.startsWith('http://')) {
-    return `ws://${origin.slice('http://'.length)}/mqtt`;
-  }
-  return `${origin}/mqtt`;
-}
+type HardDataRecord = {
+  id: string;
+  topic: string;
+  payload: string;
+  source: string;
+  receivedAt: string;
+};
 
 function detectNation(): Nation {
   try {
@@ -39,21 +42,10 @@ function detectNation(): Nation {
   return loadLastNation();
 }
 
-const DEFAULT_TOPIC = 'serpico/hard-data/demo';
-const HTTP_DEFAULT_TOPIC = 'serpico/hard-data/http';
-const MQTT_FILTER = 'serpico/hard-data/#';
-
-type HardDataRecord = {
-  id: string;
-  topic: string;
-  payload: string;
-  source: string;
-  receivedAt: string;
-};
-
 const HardDataDocs: React.FC = () => {
+  const API_V1 = apiV1Base();
   const httpUrl = `${API_V1}/hard-data`;
-  const wsUrl = useMemo(() => mqttWsUrl(API_V1), []);
+  const wsUrl = useMemo(() => mqttWsUrl(API_V1), [API_V1]);
   const [nation, setNation] = useState<Nation>(() => detectNation());
   const [payload, setPayload] = useState('unit 12 on scene');
   const [topic, setTopic] = useState(DEFAULT_TOPIC);
@@ -152,12 +144,18 @@ client.on('connect', () => {
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold neon-text-cyan mt-1">{tx('hardData.title')}</h1>
             <p className="mt-2 text-sm text-synth-muted">{tx('hardData.intro')}</p>
+            <p className="mt-3 text-sm text-synth-text">
+              {tx('hardData.pageUrl')} <code className="text-neon-green">{PROD_PAGE}</code>
+            </p>
           </header>
 
           <section className="game-panel p-4 sm:p-6 space-y-3">
             <h2 className="font-display text-lg neon-text-cyan">{tx('hardData.httpTitle')}</h2>
             <p className="text-sm text-synth-text">
-              <code className="text-neon-green">POST {httpUrl}</code>
+              {tx('hardData.prodHttp')} <code className="text-neon-green">{PROD_HARD_DATA_HTTP}</code>
+            </p>
+            <p className="text-sm text-synth-muted">
+              {tx('hardData.thisEnv')} <code className="text-neon-green">POST {httpUrl}</code>
               <span className="text-synth-muted">{tx('hardData.httpJson')}</span>
               <code className="text-neon-green">{`{ "payload": "...", "topic": "optional" }`}</code>
             </p>
@@ -171,7 +169,10 @@ client.on('connect', () => {
           <section className="game-panel p-4 sm:p-6 space-y-3">
             <h2 className="font-display text-lg neon-text-cyan">{tx('hardData.mqttTitle')}</h2>
             <p className="text-sm text-synth-text">
-              {tx('hardData.mqttWs')} <code className="text-neon-green">{wsUrl}</code>
+              {tx('hardData.prodMqtt')} <code className="text-neon-green">{PROD_MQTT_WS}</code>
+            </p>
+            <p className="text-sm text-synth-muted">
+              {tx('hardData.thisEnv')} <code className="text-neon-green">{wsUrl}</code>
             </p>
             <p className="text-sm text-synth-muted">
               {tx('hardData.mqttHow', { topic: DEFAULT_TOPIC, filter: MQTT_FILTER })}

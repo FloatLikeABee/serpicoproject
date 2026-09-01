@@ -174,6 +174,10 @@ const en: Catalog = {
   'hardData.source': 'Source',
   'hardData.langEn': 'English',
   'hardData.langZh': '中文',
+  'hardData.pageUrl': 'This page (production):',
+  'hardData.prodMqtt': 'Production MQTT:',
+  'hardData.prodHttp': 'Production HTTP:',
+  'hardData.thisEnv': 'This environment:',
 };
 
 const zh: Catalog = {
@@ -348,6 +352,10 @@ const zh: Catalog = {
   'hardData.source': '来源',
   'hardData.langEn': 'English',
   'hardData.langZh': '中文',
+  'hardData.pageUrl': '本页（生产）：',
+  'hardData.prodMqtt': '生产 MQTT：',
+  'hardData.prodHttp': '生产 HTTP：',
+  'hardData.thisEnv': '当前环境：',
 };
 
 const catalogs: Record<Nation, Catalog> = { us: en, cn: zh };

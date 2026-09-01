@@ -29,7 +29,7 @@ This guide explains how to deploy Serpico to Render as static sites (frontends) 
    - `GEMINI_DEFAULT_MODEL` - `gemini-2.5-flash`
    - `RAG_DATA_PATH` - `./data/rag`
    - `ENABLE_WEB_SEARCH` - `true`
-5. Deploy and note the backend URL (e.g., `https://serpico-backend.onrender.com`)
+5. Deploy and note the backend URL (production: `https://serpicoproject.onrender.com`)
 
 ### 2. Main Frontend Deployment (Static Site)
 
@@ -44,8 +44,7 @@ This guide explains how to deploy Serpico to Render as static sites (frontends) 
    - **Auto-Deploy**: On
    - **Build Filters → Included Paths**: `frontend/**`
 4. Add Environment Variable:
-   - `REACT_APP_API_URL` - `https://your-backend-url.onrender.com/api/v1`
-   - Replace `your-backend-url` with your actual backend URL from step 1
+   - `REACT_APP_API_URL` - `https://serpicoproject.onrender.com/api/v1`
 5. Deploy
 
 ### 3. Admin Frontend Deployment (Static Site)
@@ -61,8 +60,7 @@ This guide explains how to deploy Serpico to Render as static sites (frontends) 
    - **Auto-Deploy**: On
    - **Build Filters → Included Paths**: `admin-frontend/**`
 4. Add Environment Variable:
-   - `REACT_APP_API_URL` - `https://your-backend-url.onrender.com/api/v1`
-   - Replace `your-backend-url` with your actual backend URL from step 1
+   - `REACT_APP_API_URL` - `https://serpicoproject.onrender.com/api/v1`
 5. Deploy
 
 If auto-deploy never fires for admin only, Root Directory / Build Filters are usually wrong, or Auto-Deploy is off — see Troubleshooting below.
@@ -99,12 +97,18 @@ If you prefer using `render.yaml`:
 
 ## URLs After Deployment
 
-- Main Frontend: `https://serpico-frontend.onrender.com`
+Live production hosts (not the unused `serpico-frontend.onrender.com` / `serpico-backend.onrender.com` names):
+
+- Main Frontend: `https://serpico.onrender.com`
+- Unlisted hard-data ingest docs (not in nav): `https://serpico.onrender.com/x-hard-data`
 - Admin Frontend: `https://serpico-admin.onrender.com`
   - Login: username `g@transfdr`, password `eight88` (see `admin-frontend/README.md`)
+- Backend API: `https://serpicoproject.onrender.com`
+- Hard-data HTTP: `https://serpicoproject.onrender.com/api/v1/hard-data`
+- MQTT over WebSocket: `wss://serpicoproject.onrender.com/mqtt` (topic `serpico/hard-data/#`)
+- Swagger UI: `https://serpicoproject.onrender.com/swagger/index.html`
 
-- Backend API: `https://serpico-backend.onrender.com`
-- Swagger UI: `https://serpico-backend.onrender.com/swagger/index.html`
+Blueprint service names in `render.yaml` (`serpico-frontend`, Go root `serpico-backend`) may differ from these hostnames. SPA client routes need a **rewrite** `/*` → `/index.html` on the static service that serves `serpico.onrender.com` (Redirects/Rewrites in the dashboard). `_redirects` alone is not applied. The frontend build also copies `index.html` to `x-hard-data/index.html` and `login/index.html` so those paths can return HTTP 200 without a rewrite.
 
 ## Troubleshooting
 
@@ -122,5 +126,5 @@ If you prefer using `render.yaml`:
 - **Build fails**: Check Node.js version (Render uses Node 18+ by default). If Root Directory is set, paths in build/publish must be relative to that folder.
 - **CORS errors**: Verify backend CORS allows your frontend URLs
 - **API not found**: Check `REACT_APP_API_URL` is set correctly
-- **Routing issues**: Ensure `_redirects` / `404.html` SPA fallback is present in the publish output
+- **Routing issues**: Confirm GET `https://serpico.onrender.com/x-hard-data` is HTTP 200 (not plain-text Not Found). Add a Render rewrite `/*` → `/index.html` on the live `serpico` static site. `_redirects` is published but ignored.
 

@@ -21,6 +21,8 @@ test('unlisted hard data page shows HTTP, MQTT, and demo without login', async (
   expect(screen.getByText(/HTTP API/i)).toBeInTheDocument();
   expect(screen.getByText(/MQTT \(direct\)/i)).toBeInTheDocument();
   expect(screen.getByText(/serpico\/hard-data\/#/)).toBeInTheDocument();
+  expect(screen.getAllByText('wss://serpicoproject.onrender.com/mqtt').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('https://serpicoproject.onrender.com/api/v1/hard-data').length).toBeGreaterThan(0);
   expect(screen.getByRole('button', { name: /POST sample/i })).toBeInTheDocument();
 });
 
@@ -33,4 +35,5 @@ test('language toggle switches the unlisted page to Simplified Chinese', async (
   expect(screen.getByText('MQTT（直连）')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '提交样例' })).toBeInTheDocument();
   expect(screen.getByText(/暂无硬数据/)).toBeInTheDocument();
+  expect(screen.getAllByText('wss://serpicoproject.onrender.com/mqtt').length).toBeGreaterThan(0);
 });

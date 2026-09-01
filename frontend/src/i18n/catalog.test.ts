@@ -50,6 +50,7 @@ describe('i18n catalog', () => {
     expect(t('cn', 'hardData.title')).toBe('硬数据接入');
     expect(t('cn', 'hardData.send')).toBe('提交样例');
     expect(t('cn', 'hardData.mqttTitle')).toMatch(/MQTT/);
+    expect(t('cn', 'hardData.prodMqtt')).toMatch(/MQTT/);
     expect(t('us', 'hardData.title')).toBe('Hard data ingest');
   });
 

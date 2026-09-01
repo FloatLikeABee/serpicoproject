@@ -4,6 +4,8 @@
 
 services:
   # Main Frontend - Static Site
+  # Live hostname is https://serpico.onrender.com (service name may be "serpico" in the dashboard).
+  # SPA rewrite /* → /index.html must be on THAT service (Blueprint name below may not be the live one).
   - type: web
     name: serpico-frontend
     runtime: static
