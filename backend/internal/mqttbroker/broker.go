@@ -24,6 +24,8 @@ import (
 
 var ErrDisabled = errors.New("mqtt broker disabled")
 
+// Rebuild stamp 2026-09-01T04:46Z — path-filtered Render backend deploy.
+
 // Broker is the in-process MQTT-over-WebSocket receiver.
 type Broker struct {
 	server *mqtt.Server

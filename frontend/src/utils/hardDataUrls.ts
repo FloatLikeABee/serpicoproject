@@ -1,3 +1,4 @@
+// Rebuild stamp 2026-09-01T04:46Z — path-filtered Render frontend deploy.
 export const PROD_FRONTEND = 'https://serpico.onrender.com';
 export const PROD_BACKEND = 'https://serpicoproject.onrender.com';
 export const PROD_API_V1 = `${PROD_BACKEND}/api/v1`;
