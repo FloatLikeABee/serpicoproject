@@ -21,11 +21,13 @@ const Dashboard: React.FC = () => {
     { id: 'users', name: 'Users', description: 'App user accounts' },
     { id: 'data-collection', name: 'Data Collection', description: 'AI twice-daily crime intel for frontline' },
     { id: 'rag-training', name: 'RAG Training', description: 'AI training documents' },
+    { id: 'hardware', name: 'Hardware registry', description: 'Serial numbers to MQTT topics and received data' },
   ];
 
   const openModule = (module: Module) => {
     if (module.id === 'rag-training') navigate('/rag-training');
     else if (module.id === 'data-collection') navigate('/data-collection');
+    else if (module.id === 'hardware') navigate('/hardware');
     else navigate(`/data/${module.id}`);
   };
 
@@ -36,7 +38,7 @@ const Dashboard: React.FC = () => {
           <div>
             <p className="eyebrow">Serpico</p>
             <h1 className="neon-title">Admin</h1>
-            <p className="muted">Users, collection, and RAG</p>
+            <p className="muted">Users, collection, RAG, and hardware</p>
           </div>
           <button type="button" onClick={handleLogout} className="btn btn-ghost">
             Logout

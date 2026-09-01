@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL =
+export const API_BASE_URL =
   process.env.REACT_APP_API_URL || 'https://serpicoproject.onrender.com/api/v1';
 
 const api = axios.create({
@@ -62,6 +62,11 @@ export const adminAPI = {
   getDailyIntelStatus: () => api.get('/admin/collection/intel/status'),
   getDailyIntelNews: (limit = 20) => api.get('/admin/collection/intel/news', { params: { limit } }),
   runDailyIntel: (force = true) => api.post('/admin/collection/intel/run', { force }),
+
+  registerHardware: (serial: string) => api.post('/admin/hardware', { serial }),
+  listHardware: () => api.get('/admin/hardware'),
+  getHardware: (id: string) => api.get(`/admin/hardware/${id}`),
+  getHardwareMessages: (id: string) => api.get(`/admin/hardware/${id}/messages`),
 };
 
 export default api;

@@ -115,3 +115,35 @@ func ListHardData(db *sql.DB, limit int) ([]HardDataRecord, error) {
 	}
 	return out, rows.Err()
 }
+
+// ListHardDataByTopic returns newest-first records for one MQTT/HTTP topic.
+func ListHardDataByTopic(db *sql.DB, topic string, limit int) ([]HardDataRecord, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database is nil")
+	}
+	topic = strings.TrimSpace(topic)
+	if topic == "" {
+		return []HardDataRecord{}, nil
+	}
+	if limit <= 0 || limit > HardDataDefaultLimit {
+		limit = HardDataDefaultLimit
+	}
+	rows, err := db.Query(
+		`SELECT id, topic, payload, source, received_at FROM hard_data WHERE topic = ? ORDER BY received_at DESC, id DESC LIMIT ?`,
+		topic, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []HardDataRecord{}
+	for rows.Next() {
+		var rec HardDataRecord
+		if err := rows.Scan(&rec.ID, &rec.Topic, &rec.Payload, &rec.Source, &rec.ReceivedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, rec)
+	}
+	return out, rows.Err()
+}
