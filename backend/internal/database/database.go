@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/dgraph-io/badger/v3"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Database struct {
@@ -305,4 +305,3 @@ func clearExampleCases(db *sql.DB) error {
 	}
 	return nil
 }
-

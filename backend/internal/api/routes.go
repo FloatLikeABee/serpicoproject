@@ -230,4 +230,3 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		})
 	}
 }
-

@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	HardDataMaxPayload  = 32 * 1024
+	HardDataMaxPayload   = 32 * 1024
 	HardDataDefaultLimit = 50
-	HardDataSourceHTTP  = "http"
-	HardDataSourceMQTT  = "mqtt"
-	HardDataHTTPTopic   = "serpico/hard-data/http"
+	HardDataSourceHTTP   = "http"
+	HardDataSourceMQTT   = "mqtt"
+	HardDataHTTPTopic    = "serpico/hard-data/http"
 )
 
 var (
