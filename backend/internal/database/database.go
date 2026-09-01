@@ -243,6 +243,14 @@ func createTables(db *sql.DB) error {
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_fleet_markers_user_city ON fleet_markers(user_id, city_id)`,
+		`CREATE TABLE IF NOT EXISTS hard_data (
+			id TEXT PRIMARY KEY,
+			topic TEXT NOT NULL,
+			payload TEXT NOT NULL,
+			source TEXT NOT NULL,
+			received_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_hard_data_received_at ON hard_data(received_at DESC)`,
 	}
 
 	for _, query := range queries {

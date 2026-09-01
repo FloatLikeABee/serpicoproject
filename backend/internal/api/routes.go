@@ -63,6 +63,13 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		emergencies.GET("/:id", func(c *gin.Context) { handleGetEmergency(c, db) })
 	}
 
+	// Hard data ingest — MQTT twin over HTTP (no officer auth)
+	hardData := r.Group("/hard-data")
+	{
+		hardData.POST("", func(c *gin.Context) { handleIngestHardData(c, db) })
+		hardData.GET("", func(c *gin.Context) { handleListHardData(c, db) })
+	}
+
 	// Chat routes
 	chat := r.Group("/chat")
 	{
