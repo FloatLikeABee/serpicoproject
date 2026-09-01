@@ -153,6 +153,10 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		admin.GET("/mysteries", func(c *gin.Context) { handleAdminGetAllMysteries(c, db) })
 		admin.POST("/mysteries", func(c *gin.Context) { handleAdminCreateMystery(c, db) })
 		admin.GET("/users", func(c *gin.Context) { handleAdminGetAllUsers(c, db) })
+		admin.POST("/hardware", func(c *gin.Context) { handleRegisterHardware(c, db) })
+		admin.GET("/hardware", func(c *gin.Context) { handleListHardware(c, db) })
+		admin.GET("/hardware/:id", func(c *gin.Context) { handleGetHardware(c, db) })
+		admin.GET("/hardware/:id/messages", func(c *gin.Context) { handleListHardwareMessages(c, db) })
 	}
 
 	// RAG Management routes
@@ -226,4 +230,3 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		})
 	}
 }
-

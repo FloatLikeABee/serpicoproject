@@ -5,6 +5,8 @@ import Dashboard from './pages/Dashboard';
 import DataViewer from './pages/DataViewer';
 import RAGTraining from './pages/RAGTraining';
 import DataCollection from './pages/DataCollection';
+import HardwareRegistry from './pages/HardwareRegistry';
+import HardwareDevicePage from './pages/HardwareDevice';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -44,6 +46,22 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <DataCollection />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hardware"
+        element={
+          <ProtectedRoute>
+            <HardwareRegistry />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hardware/:id"
+        element={
+          <ProtectedRoute>
+            <HardwareDevicePage />
           </ProtectedRoute>
         }
       />

@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/dgraph-io/badger/v3"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Database struct {
@@ -251,6 +251,13 @@ func createTables(db *sql.DB) error {
 			received_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_hard_data_received_at ON hard_data(received_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_hard_data_topic ON hard_data(topic)`,
+		`CREATE TABLE IF NOT EXISTS hardware_registry (
+			id TEXT PRIMARY KEY,
+			serial TEXT NOT NULL UNIQUE,
+			topic TEXT NOT NULL UNIQUE,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	for _, query := range queries {
@@ -298,4 +305,3 @@ func clearExampleCases(db *sql.DB) error {
 	}
 	return nil
 }
-
