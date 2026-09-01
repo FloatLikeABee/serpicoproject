@@ -50,7 +50,7 @@ const HardwareDevicePage: React.FC = () => {
     setStatus('');
     setBusy(true);
     try {
-      await publishMqttPayload(adminMqttUrl(), device.topic, payload);
+      await publishMqttPayload(adminMqttUrl(API_BASE_URL), device.topic, payload);
       const rec = await waitForHardwareMessage(
         `${API_BASE_URL.replace(/\/$/, '')}/admin/hardware/${id}/messages`,
         { topic: device.topic, payload, source: 'mqtt' }

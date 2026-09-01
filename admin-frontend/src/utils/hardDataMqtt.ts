@@ -1,5 +1,4 @@
 import { connect as mqttConnect } from 'mqtt/dist/mqtt.min.js';
-import { API_BASE_URL } from '../services/api';
 
 export type HardDataRecord = {
   id: string;
@@ -26,8 +25,8 @@ export function mqttWsUrl(apiV1: string): string {
   return `${origin}/mqtt`;
 }
 
-export function adminMqttUrl(): string {
-  return mqttWsUrl(API_BASE_URL.replace(/\/$/, ''));
+export function adminMqttUrl(apiV1: string): string {
+  return mqttWsUrl(apiV1.replace(/\/$/, ''));
 }
 
 export function publishMqttPayload(wsUrl: string, topic: string, payload: string): Promise<void> {

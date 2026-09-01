@@ -1,4 +1,4 @@
-import { mqttWsUrl, PROD_MQTT_WS, waitForHardwareMessage } from './hardDataMqtt';
+import { adminMqttUrl, mqttWsUrl, PROD_MQTT_WS, waitForHardwareMessage } from './hardDataMqtt';
 
 describe('admin MQTT URLs', () => {
   it('derives local MQTT WebSocket from localhost API', () => {
@@ -8,6 +8,10 @@ describe('admin MQTT URLs', () => {
   it('uses production MQTT host for the live backend', () => {
     expect(mqttWsUrl('https://serpicoproject.onrender.com/api/v1')).toBe(PROD_MQTT_WS);
     expect(PROD_MQTT_WS).toBe('wss://serpicoproject.onrender.com/mqtt');
+  });
+
+  it('adminMqttUrl strips a trailing slash on the API base', () => {
+    expect(adminMqttUrl('https://serpicoproject.onrender.com/api/v1/')).toBe(PROD_MQTT_WS);
   });
 });
 

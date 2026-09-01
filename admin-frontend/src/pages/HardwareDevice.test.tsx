@@ -106,8 +106,9 @@ test('Publish MQTT uses QoS 1 on the assigned topic and lists source=mqtt only f
   (mqttConnect as jest.Mock).mockImplementation(() => client);
 
   renderPage();
-  expect(await screen.findByText(/No messages on this topic yet/i)).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'SN-1001' })).toBeInTheDocument();
   expect(screen.getByText(device.topic)).toBeInTheDocument();
+  expect(screen.getByText(/No messages on this topic yet/i)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: /Publish MQTT/i }));
 
@@ -116,8 +117,8 @@ test('Publish MQTT uses QoS 1 on the assigned topic and lists source=mqtt only f
       'wss://serpicoproject.onrender.com/mqtt',
       expect.objectContaining({ protocol: 'wss' })
     );
+    expect(client.publish).toHaveBeenCalledWith(device.topic, 'unit 12 on scene', { qos: 1 }, expect.any(Function));
   });
-  expect(client.publish).toHaveBeenCalledWith(device.topic, 'unit 12 on scene', { qos: 1 }, expect.any(Function));
 
   expect(await screen.findByText('mqtt')).toBeInTheDocument();
   expect(screen.getAllByText('unit 12 on scene').length).toBeGreaterThan(1);
