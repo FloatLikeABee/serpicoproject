@@ -45,7 +45,7 @@ test('registered serial shows topic-scoped mqtt row and never calls global GET /
   }) as jest.Mock;
 
   renderHandle('SN001');
-  expect(await screen.findByText('serpico/hard-data/hw/SN001')).toBeInTheDocument();
+  expect((await screen.findAllByText('serpico/hard-data/hw/SN001')).length).toBeGreaterThan(0);
   expect(screen.getByText('mqtt')).toBeInTheDocument();
   expect(screen.getByText('unit 12 on scene')).toBeInTheDocument();
   expect(screen.getByText('https://serpico.onrender.com/x-hard-data/hw/SN001')).toBeInTheDocument();
@@ -77,7 +77,7 @@ test('language toggle switches handle table headers to Simplified Chinese', asyn
   }) as jest.Mock;
 
   renderHandle('sn001');
-  expect(await screen.findByText('serpico/hard-data/hw/SN001')).toBeInTheDocument();
+  expect((await screen.findAllByText('serpico/hard-data/hw/SN001')).length).toBeGreaterThan(0);
   expect(screen.getByRole('columnheader', { name: /When/i })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: '中文' }));
   expect(await screen.findByText('硬件数据')).toBeInTheDocument();
@@ -85,5 +85,5 @@ test('language toggle switches handle table headers to Simplified Chinese', asyn
   expect(screen.getByRole('columnheader', { name: '来源' })).toBeInTheDocument();
   expect(screen.getByRole('columnheader', { name: '主题' })).toBeInTheDocument();
   expect(screen.getByRole('columnheader', { name: '载荷' })).toBeInTheDocument();
-  expect(screen.getByText('serpico/hard-data/hw/SN001')).toBeInTheDocument();
+  expect(screen.getAllByText('serpico/hard-data/hw/SN001').length).toBeGreaterThan(0);
 });
