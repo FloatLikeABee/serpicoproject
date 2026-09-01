@@ -55,6 +55,13 @@ describe('i18n catalog', () => {
     expect(t('cn', 'hardData.mqttTitle')).toMatch(/MQTT/);
     expect(t('cn', 'hardData.prodMqtt')).toMatch(/MQTT/);
     expect(t('us', 'hardData.title')).toBe('Hard data ingest');
+    expect(t('us', 'hardData.handleTitle')).toBe('Hardware data');
+    expect(t('cn', 'hardData.handleTitle')).toBe('硬件数据');
+    expect(t('cn', 'hardData.handleNotFound')).toMatch(/未登记/);
+    expect(t('cn', 'hardData.when')).toBe('时间');
+    expect(t('cn', 'hardData.source')).toBe('来源');
+    expect(t('cn', 'hardData.topic')).toBe('主题');
+    expect(t('cn', 'hardData.payload')).toBe('载荷');
   });
 
   it('returns Simplified Chinese Fleet kind labels used by chips and the pin modal', () => {

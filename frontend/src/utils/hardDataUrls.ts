@@ -8,6 +8,14 @@ export const PROD_PAGE = `${PROD_FRONTEND}/x-hard-data`;
 export const MQTT_FILTER = 'serpico/hard-data/#';
 export const DEFAULT_TOPIC = 'serpico/hard-data/demo';
 
+export function ownerHandlePath(serial: string): string {
+  return `/x-hard-data/hw/${serial}`;
+}
+
+export function ownerHandleUrl(serial: string, frontend = PROD_FRONTEND): string {
+  return `${frontend}${ownerHandlePath(serial)}`;
+}
+
 export function apiV1Base(): string {
   return (process.env.REACT_APP_API_URL || PROD_API_V1).replace(/\/$/, '');
 }

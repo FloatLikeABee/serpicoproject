@@ -67,6 +67,7 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 	hardData := r.Group("/hard-data")
 	{
 		hardData.POST("", func(c *gin.Context) { handleIngestHardData(c, db) })
+		hardData.GET("/hw/:serial", func(c *gin.Context) { handleListHardDataBySerial(c, db) })
 		hardData.GET("", func(c *gin.Context) { handleListHardData(c, db) })
 	}
 

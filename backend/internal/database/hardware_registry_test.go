@@ -84,6 +84,16 @@ func TestRegisterHardwareIdempotentAndInvalid(t *testing.T) {
 	if _, err := GetHardware(db.SQLite, "missing"); err != ErrHardwareNotFound {
 		t.Fatalf("missing: %v", err)
 	}
+	bySerial, err := GetHardwareBySerial(db.SQLite, " sn-1001 ")
+	if err != nil || bySerial.ID != first.ID {
+		t.Fatalf("by serial: %+v %v", bySerial, err)
+	}
+	if _, err := GetHardwareBySerial(db.SQLite, "NOTREGISTERED"); err != ErrHardwareNotFound {
+		t.Fatalf("unregistered: %v", err)
+	}
+	if _, err := GetHardwareBySerial(db.SQLite, " "); err != ErrHardwareSerialEmpty {
+		t.Fatalf("empty by serial: %v", err)
+	}
 }
 
 func TestListHardDataByTopicExcludesOthers(t *testing.T) {

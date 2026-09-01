@@ -36,6 +36,32 @@ func handleIngestHardData(c *gin.Context, db *database.Database) {
 	c.JSON(http.StatusCreated, rec)
 }
 
+func handleListHardDataBySerial(c *gin.Context, db *database.Database) {
+	if db == nil || db.SQLite == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "database unavailable"})
+		return
+	}
+	rec, err := database.GetHardwareBySerial(db.SQLite, c.Param("serial"))
+	if err != nil {
+		if errors.Is(err, database.ErrHardwareSerialEmpty) || errors.Is(err, database.ErrHardwareSerialInvalid) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, database.ErrHardwareNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	list, err := database.ListHardDataByTopic(db.SQLite, rec.Topic, database.HardDataDefaultLimit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"serial": rec.Serial, "topic": rec.Topic, "records": list})
+}
+
 func handleListHardData(c *gin.Context, db *database.Database) {
 	limit := database.HardDataDefaultLimit
 	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {

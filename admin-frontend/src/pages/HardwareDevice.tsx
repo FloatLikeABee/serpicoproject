@@ -8,6 +8,7 @@ import {
   type HardDataRecord,
 } from '../utils/hardDataMqtt';
 import type { HardwareDevice } from './HardwareRegistry';
+import { ownerHandleUrl } from '../utils/ownerHandle';
 import './Hardware.css';
 
 const HardwareDevicePage: React.FC = () => {
@@ -74,9 +75,14 @@ const HardwareDevicePage: React.FC = () => {
         </div>
         <h1 className="neon-title">{device ? device.serial : 'Hardware'}</h1>
         {device ? (
-          <p className="muted">
-            MQTT topic <code className="hardware-topic">{device.topic}</code>
-          </p>
+          <>
+            <p className="muted">
+              MQTT topic <code className="hardware-topic">{device.topic}</code>
+            </p>
+            <p className="muted">
+              Owner page <code className="hardware-topic">{ownerHandleUrl(device.serial)}</code>
+            </p>
+          </>
         ) : null}
       </header>
 

@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { useHealthCheck } from './hooks/useHealthCheck';
 import Login from './pages/Login';
 import HardDataDocs from './pages/HardDataDocs';
+import HardDataHandle from './pages/HardDataHandle';
 import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -16,6 +17,7 @@ function AppContent() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/x-hard-data/hw/:serial" element={<HardDataHandle />} />
         <Route path="/x-hard-data" element={<HardDataDocs />} />
         <Route
           path="/*"
