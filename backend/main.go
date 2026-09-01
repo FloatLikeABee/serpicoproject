@@ -8,6 +8,7 @@ import (
 	"serpico/backend/internal/api"
 	db "serpico/backend/internal/database"
 	"serpico/backend/internal/middleware"
+	"serpico/backend/internal/mqttbroker"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -64,6 +65,12 @@ func main() {
 	v1 := r.Group("/api/v1")
 	{
 		api.SetupRoutes(v1, database, aiService)
+	}
+
+	if _, err := mqttbroker.Start(r, database); err != nil {
+		log.Printf("MQTT hard-data receiver not attached: %v (HTTP POST /api/v1/hard-data still works)", err)
+	} else {
+		log.Printf("MQTT hard-data receiver at /mqtt topic %s", mqttbroker.SubscribeFilter())
 	}
 
 	// Swagger documentation
