@@ -181,6 +181,11 @@ const en: Catalog = {
   'hardData.prodMqtt': 'Production MQTT:',
   'hardData.prodHttp': 'Production HTTP:',
   'hardData.thisEnv': 'This environment:',
+  'hardData.handleTitle': 'Hardware data',
+  'hardData.handleIntro':
+    'This handle lists hard data for one registered serial only. MQTT topic matches serpico/hard-data/hw/{serial}.',
+  'hardData.handleEmpty': 'No messages on this topic yet.',
+  'hardData.handleNotFound': 'This serial is not registered.',
 };
 
 const zh: Catalog = {
@@ -362,6 +367,10 @@ const zh: Catalog = {
   'hardData.prodMqtt': '生产 MQTT：',
   'hardData.prodHttp': '生产 HTTP：',
   'hardData.thisEnv': '当前环境：',
+  'hardData.handleTitle': '硬件数据',
+  'hardData.handleIntro': '此地址只列出已登记序列号对应主题的硬数据。MQTT 主题为 serpico/hard-data/hw/{serial}。',
+  'hardData.handleEmpty': '该主题尚无消息。',
+  'hardData.handleNotFound': '此序列号未登记。',
 };
 
 const catalogs: Record<Nation, Catalog> = { us: en, cn: zh };

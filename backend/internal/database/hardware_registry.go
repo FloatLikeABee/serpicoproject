@@ -79,6 +79,25 @@ func RegisterHardware(db *sql.DB, rawSerial string) (HardwareDevice, bool, error
 	return rec, true, nil
 }
 
+// GetHardwareBySerial normalizes the serial and returns the registered device.
+func GetHardwareBySerial(db *sql.DB, rawSerial string) (HardwareDevice, error) {
+	if db == nil {
+		return HardwareDevice{}, fmt.Errorf("database is nil")
+	}
+	serial, err := NormalizeHardwareSerial(rawSerial)
+	if err != nil {
+		return HardwareDevice{}, err
+	}
+	rec, ok, err := getHardwareBySerial(db, serial)
+	if err != nil {
+		return HardwareDevice{}, err
+	}
+	if !ok {
+		return HardwareDevice{}, ErrHardwareNotFound
+	}
+	return rec, nil
+}
+
 func getHardwareBySerial(db *sql.DB, serial string) (HardwareDevice, bool, error) {
 	var rec HardwareDevice
 	err := db.QueryRow(

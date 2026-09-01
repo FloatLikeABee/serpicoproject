@@ -9,7 +9,7 @@ if (!fs.existsSync(indexSrc)) {
   process.exit(1);
 }
 const html = fs.readFileSync(indexSrc);
-const routes = ['x-hard-data', 'login'];
+const routes = ['x-hard-data', 'x-hard-data/hw', 'login'];
 for (const route of routes) {
   const dir = path.join(build, route);
   fs.mkdirSync(dir, { recursive: true });

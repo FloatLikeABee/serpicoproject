@@ -143,3 +143,64 @@ func TestHardDataHTTPWorksWithoutMQTTAttach(t *testing.T) {
 		t.Fatalf("HTTP ingest without MQTT: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestHardDataBySerialRequiresRegistryAndScopesTopic(t *testing.T) {
+	r, db := hardDataTestRouter(t)
+
+	unknown := httptest.NewRequest(http.MethodGet, "/api/v1/hard-data/hw/NOTREGISTERED", nil)
+	uw := httptest.NewRecorder()
+	r.ServeHTTP(uw, unknown)
+	if uw.Code != http.StatusNotFound {
+		t.Fatalf("unknown serial status %d: %s", uw.Code, uw.Body.String())
+	}
+
+	space := httptest.NewRequest(http.MethodGet, "/api/v1/hard-data/hw/%20", nil)
+	sw := httptest.NewRecorder()
+	r.ServeHTTP(sw, space)
+	if sw.Code != http.StatusBadRequest {
+		t.Fatalf("empty serial status %d: %s", sw.Code, sw.Body.String())
+	}
+
+	bad := httptest.NewRequest(http.MethodGet, "/api/v1/hard-data/hw/bad!", nil)
+	bw := httptest.NewRecorder()
+	r.ServeHTTP(bw, bad)
+	if bw.Code != http.StatusBadRequest {
+		t.Fatalf("invalid serial status %d: %s", bw.Code, bw.Body.String())
+	}
+
+	if _, _, err := database.RegisterHardware(db.SQLite, "sn001"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.InsertHardData(db.SQLite, "serpico/hard-data/hw/SN001", "keep-mqtt", database.HardDataSourceMQTT); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.InsertHardData(db.SQLite, "serpico/hard-data/demo", "other-topic", database.HardDataSourceMQTT); err != nil {
+		t.Fatal(err)
+	}
+
+	ok := httptest.NewRequest(http.MethodGet, "/api/v1/hard-data/hw/sn001", nil)
+	ow := httptest.NewRecorder()
+	r.ServeHTTP(ow, ok)
+	if ow.Code != http.StatusOK {
+		t.Fatalf("registered status %d: %s", ow.Code, ow.Body.String())
+	}
+	var listed struct {
+		Serial  string                    `json:"serial"`
+		Topic   string                    `json:"topic"`
+		Records []database.HardDataRecord `json:"records"`
+	}
+	if err := json.Unmarshal(ow.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if listed.Serial != "SN001" || listed.Topic != "serpico/hard-data/hw/SN001" {
+		t.Fatalf("device %+v", listed)
+	}
+	if len(listed.Records) != 1 || listed.Records[0].Payload != "keep-mqtt" || listed.Records[0].Source != "mqtt" {
+		t.Fatalf("records %+v", listed.Records)
+	}
+	for _, rec := range listed.Records {
+		if rec.Payload == "other-topic" {
+			t.Fatal("other topic leaked into serial handle")
+		}
+	}
+}

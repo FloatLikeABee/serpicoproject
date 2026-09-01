@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminAPI } from '../services/api';
+import { ownerHandleUrl } from '../utils/ownerHandle';
 import './Hardware.css';
 
 export type HardwareDevice = {
@@ -37,7 +38,7 @@ const HardwareRegistry: React.FC = () => {
     try {
       const res = await adminAPI.registerHardware(serial);
       const rec = res.data as HardwareDevice;
-      setStatus(`Topic ${rec.topic}`);
+      setStatus(`Topic ${rec.topic} · ${ownerHandleUrl(rec.serial)}`);
       setSerial('');
       await load();
     } catch (err: unknown) {
@@ -92,6 +93,9 @@ const HardwareRegistry: React.FC = () => {
               <h2>{d.serial}</h2>
               <p className="muted">
                 <code>{d.topic}</code>
+              </p>
+              <p className="muted">
+                <code>{ownerHandleUrl(d.serial)}</code>
               </p>
             </button>
           ))

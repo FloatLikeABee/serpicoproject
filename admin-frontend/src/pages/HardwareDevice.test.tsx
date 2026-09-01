@@ -108,6 +108,7 @@ test('Publish MQTT uses QoS 1 on the assigned topic and lists source=mqtt only f
   renderPage();
   expect(await screen.findByRole('heading', { name: 'SN-1001' })).toBeInTheDocument();
   expect(screen.getByText(device.topic)).toBeInTheDocument();
+  expect(screen.getByText('https://serpico.onrender.com/x-hard-data/hw/SN-1001')).toBeInTheDocument();
   expect(screen.getByText(/No messages on this topic yet/i)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: /Publish MQTT/i }));
