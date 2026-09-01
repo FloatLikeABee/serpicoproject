@@ -9,7 +9,7 @@ export type HardDataRecord = {
 };
 
 const CONNECT_MS = 8000;
-const POLL_MS = 4000;
+const POLL_MS = 8000;
 const POLL_EVERY = 250;
 
 export function publishMqttPayload(wsUrl: string, topic: string, payload: string): Promise<void> {
@@ -45,7 +45,7 @@ export function publishMqttPayload(wsUrl: string, topic: string, payload: string
       finish(err instanceof Error ? err : new Error(String(err)));
     });
     client.on('connect', () => {
-      client.publish(topic, payload, { qos: 0 }, (err) => {
+      client.publish(topic, payload, { qos: 1 }, (err) => {
         finish(err || undefined);
       });
     });
