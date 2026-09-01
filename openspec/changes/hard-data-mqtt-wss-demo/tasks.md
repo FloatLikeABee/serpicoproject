@@ -16,4 +16,4 @@
 
 ## 4. Production check (after deploy)
 
-- [ ] 4.1 On https://serpico.onrender.com/x-hard-data without login, use Publish MQTT against `wss://serpicoproject.onrender.com/mqtt` and verify a new list row with source `mqtt`
+- [x] 4.1 On https://serpico.onrender.com/x-hard-data without login, use Publish MQTT against `wss://serpicoproject.onrender.com/mqtt` and verify a new list row with source `mqtt`
