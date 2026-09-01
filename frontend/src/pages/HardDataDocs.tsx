@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { loadLastNation, parseNation, saveLastNation, type Nation } from '../utils/nation';
+import { publishMqttPayload, waitForHardDataRow, type HardDataRecord } from '../utils/hardDataMqtt';
 import {
   apiV1Base,
   DEFAULT_TOPIC,
@@ -12,14 +13,6 @@ import {
 } from '../utils/hardDataUrls';
 
 const HTTP_DEFAULT_TOPIC = 'serpico/hard-data/http';
-
-type HardDataRecord = {
-  id: string;
-  topic: string;
-  payload: string;
-  source: string;
-  receivedAt: string;
-};
 
 function detectNation(): Nation {
   try {
@@ -52,7 +45,7 @@ const HardDataDocs: React.FC = () => {
   const [records, setRecords] = useState<HardDataRecord[]>([]);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
-  const [sending, setSending] = useState(false);
+  const [busy, setBusy] = useState<'http' | 'mqtt' | null>(null);
 
   const tx = useCallback((key: string, vars?: Record<string, string | number>) => t(nation, key, vars), [nation]);
 
@@ -80,7 +73,7 @@ const HardDataDocs: React.FC = () => {
     e.preventDefault();
     setError('');
     setStatus('');
-    setSending(true);
+    setBusy('http');
     try {
       const res = await fetch(httpUrl, {
         method: 'POST',
@@ -96,7 +89,29 @@ const HardDataDocs: React.FC = () => {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : tx('hardData.sendFail'));
     } finally {
-      setSending(false);
+      setBusy(null);
+    }
+  };
+
+  const sendMqttDemo = async () => {
+    setError('');
+    setStatus('');
+    setBusy('mqtt');
+    const topicVal = topic.trim() || DEFAULT_TOPIC;
+    try {
+      await publishMqttPayload(wsUrl, topicVal, payload);
+      const rec = await waitForHardDataRow(httpUrl, { topic: topicVal, payload, source: 'mqtt' });
+      setStatus(tx('hardData.stored', { id: rec.id }));
+      await loadRecords();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg === 'timeout' || msg.startsWith('GET ')) {
+        setError(tx('hardData.mqttTimeout'));
+      } else {
+        setError(msg || tx('hardData.mqttFail'));
+      }
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -205,11 +220,22 @@ client.on('connect', () => {
                 />
               </div>
               <div className="flex flex-wrap gap-2">
-                <button type="submit" disabled={sending} className="btn-neon-primary py-2.5 px-4 rounded-lg disabled:opacity-50">
-                  {sending ? tx('hardData.sending') : tx('hardData.send')}
+                <button type="submit" disabled={busy !== null} className="btn-neon-primary py-2.5 px-4 rounded-lg disabled:opacity-50">
+                  {busy === 'http' ? tx('hardData.sending') : tx('hardData.send')}
                 </button>
                 <button
                   type="button"
+                  disabled={busy !== null}
+                  className="btn-neon-primary py-2.5 px-4 rounded-lg disabled:opacity-50"
+                  onClick={() => {
+                    void sendMqttDemo();
+                  }}
+                >
+                  {busy === 'mqtt' ? tx('hardData.publishing') : tx('hardData.sendMqtt')}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy !== null}
                   className="border border-neon-cyan/40 py-2.5 px-4 rounded-lg text-sm text-synth-text hover:border-neon-cyan/70"
                   onClick={() => {
                     setError('');

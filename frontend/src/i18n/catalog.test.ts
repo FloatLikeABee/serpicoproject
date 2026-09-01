@@ -49,6 +49,9 @@ describe('i18n catalog', () => {
   it('returns Simplified Chinese hard-data ingest chrome', () => {
     expect(t('cn', 'hardData.title')).toBe('硬数据接入');
     expect(t('cn', 'hardData.send')).toBe('提交样例');
+    expect(t('cn', 'hardData.sendMqtt')).toBe('发布 MQTT');
+    expect(t('cn', 'hardData.mqttFail')).toMatch(/MQTT/);
+    expect(t('us', 'hardData.sendMqtt')).toBe('Publish MQTT');
     expect(t('cn', 'hardData.mqttTitle')).toMatch(/MQTT/);
     expect(t('cn', 'hardData.prodMqtt')).toMatch(/MQTT/);
     expect(t('us', 'hardData.title')).toBe('Hard data ingest');
