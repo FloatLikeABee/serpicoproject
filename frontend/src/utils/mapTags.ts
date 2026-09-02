@@ -208,10 +208,24 @@ export async function forwardGeocode(query: string): Promise<GeocodeResult | nul
   return { lat, lng, label };
 }
 
+/** Apply mapped coordinates/address onto officer fields (never copy name/notes/AI). */
+export function mergePinLocation<T extends MapTag>(
+  officer: T,
+  incoming: Pick<MapTag, 'lat' | 'lng' | 'address' | 'updatedAt'>
+): T {
+  return {
+    ...officer,
+    lat: incoming.lat,
+    lng: incoming.lng,
+    address: incoming.address ?? officer.address,
+    updatedAt: incoming.updatedAt || new Date().toISOString(),
+  };
+}
+
 /** Resolve coords-only tags to a street address when possible. */
 export async function autoMapTagLocation(tag: MapTag): Promise<MapTag> {
   if (!isCoordsOnlyAddress(tag.address)) return tag;
   const address = await reverseGeocode(tag.lat, tag.lng);
   if (isCoordsOnlyAddress(address)) return tag;
-  return { ...tag, address, updatedAt: new Date().toISOString() };
+  return mergePinLocation(tag, { ...tag, address, updatedAt: new Date().toISOString() });
 }

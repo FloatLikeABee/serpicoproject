@@ -239,6 +239,7 @@ func createTables(db *sql.DB) error {
 			lng REAL NOT NULL,
 			address TEXT,
 			notes TEXT,
+			enrichment TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
@@ -267,6 +268,7 @@ func createTables(db *sql.DB) error {
 	}
 
 	migrateNationColumns(db)
+	migrateFleetMarkerColumns(db)
 	return nil
 }
 
@@ -281,6 +283,12 @@ func migrateNationColumns(db *sql.DB) {
 			// Column already exists on upgraded DBs.
 			_ = err
 		}
+	}
+}
+
+func migrateFleetMarkerColumns(db *sql.DB) {
+	if _, err := db.Exec(`ALTER TABLE fleet_markers ADD COLUMN enrichment TEXT`); err != nil {
+		_ = err
 	}
 }
 

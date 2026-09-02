@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { chatAPI } from '../services/api';
 import { useT, useNation } from '../i18n/useT';
 import { applyNationToOfficerFields } from '../utils/officerContent';
@@ -9,6 +9,7 @@ import {
   MapTag,
   MapTagKind,
   MAP_TAG_KINDS,
+  mergePinLocation,
   reverseGeocode,
   tagMeta,
 } from '../utils/mapTags';
@@ -55,14 +56,46 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   const [mappingLocation, setMappingLocation] = useState(false);
   const [error, setError] = useState('');
   const [aiExpanded, setAiExpanded] = useState(false);
-  const mappedPinKeyRef = React.useRef('');
+  const mappedPinKeyRef = useRef('');
+  const skipPersistRef = useRef(false);
+  const draftRef = useRef(tag);
+  const onChangeRef = useRef(onChange);
+  const nationRef = useRef(nation);
+  const kindsRef = useRef(kinds);
+  draftRef.current = draft;
+  onChangeRef.current = onChange;
+  nationRef.current = nation;
+  kindsRef.current = kinds;
   const meta = kinds.find((k) => k.kind === draft.kind) ?? tagMeta(draft.kind);
   const typeLabel = (kind: MapTagKind) =>
     t(kindOptions ? `fleet.kind.${kind}` : `tag.kind.${kind}`);
 
+  const persistable = (d: MapTag): MapTag => {
+    const kindMeta = kindsRef.current.find((k) => k.kind === d.kind) ?? tagMeta(d.kind);
+    return applyNationToOfficerFields(
+      {
+        ...d,
+        name: d.name.trim() || kindMeta.short,
+        notes: d.notes.trim(),
+        updatedAt: new Date().toISOString(),
+      },
+      nationRef.current
+    ) as MapTag;
+  };
+
+  const persistDraft = (d: MapTag = draftRef.current) => {
+    onChangeRef.current(persistable(d));
+  };
+
+  const persistAndClose = () => {
+    persistDraft();
+    onClose();
+  };
+
   const applyLocation = (next: MapTag) => {
-    setDraft(next);
-    onLocationUpdate?.(next);
+    const merged = mergePinLocation(draftRef.current, next);
+    setDraft(merged);
+    onLocationUpdate?.(merged);
   };
 
   useEffect(() => {
@@ -71,6 +104,15 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
     setEditing(startInEditMode);
     setAiExpanded(!!tag.enrichment);
   }, [tag.id, startInEditMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    skipPersistRef.current = false;
+    return () => {
+      if (skipPersistRef.current) return;
+      persistDraft();
+    };
+    // Flush this pin's draft if the modal unmounts or switches pins.
+  }, [tag.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pull address updates from geocode without clobbering typed notes/name.
   useEffect(() => {
@@ -98,7 +140,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
         if (cancelled || isCoordsOnlyAddress(address)) return;
         setDraft((prev) => {
           if (prev.id !== tag.id) return prev;
-          const next = { ...prev, address, updatedAt: new Date().toISOString() };
+          const next = mergePinLocation(prev, { ...prev, address, updatedAt: new Date().toISOString() });
           onLocationUpdate?.(next);
           return next;
         });
@@ -174,10 +216,14 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
         setError('AI returned an empty summary.');
         return;
       }
-      setDraft((prev) => ({
-        ...prev,
-        enrichment: { summary, fetchedAt: new Date().toISOString() },
-      }));
+      setDraft((prev) => {
+        const next = {
+          ...prev,
+          enrichment: { summary, fetchedAt: new Date().toISOString() },
+        };
+        persistDraft(next);
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'AI lookup failed');
     } finally {
@@ -188,16 +234,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   const openedInViewMode = !startInEditMode;
 
   const save = () => {
-    const next = applyNationToOfficerFields(
-      {
-        ...draft,
-        name: draft.name.trim() || meta.short,
-        notes: draft.notes.trim(),
-        updatedAt: new Date().toISOString(),
-      },
-      nation
-    );
-    onChange(next as typeof draft);
+    persistAndClose();
   };
 
   const aiSummary = draft.enrichment?.summary;
@@ -207,7 +244,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
     <div
       className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4"
       role="presentation"
-      onClick={onClose}
+      onClick={persistAndClose}
     >
       <div
         className="w-full sm:max-w-lg flex flex-col h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] sm:h-auto sm:max-h-[85vh] game-panel border border-neon-cyan/35 rounded-t-xl sm:rounded-xl shadow-2xl"
@@ -232,7 +269,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
             </div>
             <button
               type="button"
-              onClick={onClose}
+              onClick={persistAndClose}
               className="text-synth-muted hover:text-white text-sm px-2 min-h-0 min-w-0 flex-shrink-0"
               aria-label="Close"
             >
@@ -370,7 +407,10 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm('Delete this map tag?')) onDelete(draft.id);
+                    if (window.confirm('Delete this map tag?')) {
+                      skipPersistRef.current = true;
+                      onDelete(draft.id);
+                    }
                   }}
                   className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-serpico-red/40 text-serpico-red"
                 >
@@ -379,7 +419,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
                 {!openedInViewMode ? (
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={persistAndClose}
                     className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-white/15 text-gray-300"
                   >
                     {t('pin.cancel')}
@@ -420,7 +460,10 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm('Delete this map tag?')) onDelete(draft.id);
+                  if (window.confirm('Delete this map tag?')) {
+                    skipPersistRef.current = true;
+                    onDelete(draft.id);
+                  }
                 }}
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-serpico-red/40 text-serpico-red"
               >
@@ -435,7 +478,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={persistAndClose}
                 className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase bg-serpico-blue/80 text-white hover:bg-serpico-blue"
               >
                 {t('pin.close')}

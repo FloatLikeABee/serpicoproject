@@ -639,6 +639,11 @@ export const investigationAPI = {
   },
 };
 
+export interface FleetMarkerEnrichmentPayload {
+  summary: string;
+  fetchedAt: string;
+}
+
 export interface FleetMarkerPayload {
   id: string;
   cityId: string;
@@ -648,6 +653,7 @@ export interface FleetMarkerPayload {
   lng: number;
   address?: string;
   notes: string;
+  enrichment?: FleetMarkerEnrichmentPayload;
   createdAt: string;
   updatedAt: string;
 }
@@ -674,6 +680,7 @@ export const fleetAPI = {
       lng: number;
       address?: string;
       notes?: string;
+      enrichment?: FleetMarkerEnrichmentPayload;
     }
   ): Promise<{ marker: FleetMarkerPayload }> => {
     const response = await api.post<{ marker: FleetMarkerPayload }>('/fleet/markers', payload, {
@@ -693,6 +700,7 @@ export const fleetAPI = {
       lng?: number;
       address?: string;
       notes?: string;
+      enrichment?: FleetMarkerEnrichmentPayload;
     }
   ): Promise<{ marker: FleetMarkerPayload }> => {
     const response = await api.put<{ marker: FleetMarkerPayload }>(
