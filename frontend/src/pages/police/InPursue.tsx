@@ -12,6 +12,7 @@ import {
   MAP_TAG_KINDS,
   MapTag,
   MapTagKind,
+  mergePinLocation,
   saveMapTags,
   tagMeta,
 } from '../../utils/mapTags';
@@ -45,8 +46,8 @@ const InPursue: React.FC = () => {
   }, [userId]);
 
   const syncTagLocation = useCallback((updated: MapTag) => {
-    setMapTags((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-    setActiveTag((cur) => (cur?.id === updated.id ? updated : cur));
+    setMapTags((prev) => prev.map((t) => (t.id === updated.id ? mergePinLocation(t, updated) : t)));
+    setActiveTag((cur) => (cur?.id === updated.id ? mergePinLocation(cur, updated) : cur));
   }, []);
 
   useEffect(() => {
@@ -105,7 +106,6 @@ const InPursue: React.FC = () => {
         ? prev.map((t) => (t.id === tag.id ? tag : t))
         : [tag, ...prev];
     });
-    setActiveTag(null);
   }, []);
 
   const deleteTag = useCallback((id: string) => {
@@ -208,7 +208,6 @@ const InPursue: React.FC = () => {
           onLocationUpdate={syncTagLocation}
           onChange={(tag) => {
             upsertTag(tag);
-            setAutoEnrichTagId(null);
           }}
           onDelete={(id) => {
             deleteTag(id);

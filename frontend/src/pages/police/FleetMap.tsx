@@ -5,7 +5,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { fleetAPI } from '../../services/api';
 import {
   cityLabel,
-  DEFAULT_FLEET_CITY_ID,
   fleetCitiesForNation,
   fleetCityById,
   loadFleetCityId,
@@ -17,13 +16,15 @@ import {
   FLEET_MARKER_KINDS,
   fleetKindMeta,
   fleetKindsForModal,
+  fleetMarkerFromPayload,
   FleetMarker,
   FleetMarkerKind,
   isFleetKind,
   loadCachedFleetMarkers,
+  mergeFleetMarkerLists,
   saveCachedFleetMarkers,
 } from '../../utils/fleetMarkers';
-import { autoMapTagLocation, isCoordsOnlyAddress, MapTag } from '../../utils/mapTags';
+import { autoMapTagLocation, isCoordsOnlyAddress, MapTag, mergePinLocation } from '../../utils/mapTags';
 
 function toFleetMarker(tag: MapTag, cityId: string, existing?: FleetMarker): FleetMarker {
   const kind = isFleetKind(tag.kind) ? tag.kind : existing?.kind || 'police_station';
@@ -60,6 +61,8 @@ const FleetMap: React.FC = () => {
   const cityIdRef = useRef(cityId);
   const syncedIdsRef = useRef<Set<string>>(new Set());
   const locationMappedRef = useRef<Set<string>>(new Set());
+  const activeTagRef = useRef<FleetMarker | null>(null);
+  const writeChainRef = useRef<Map<string, Promise<void>>>(new Map());
 
   const city = useMemo(() => fleetCityById(cityId, nation), [cityId, nation]);
   const cities = useMemo(() => fleetCitiesForNation(nation), [nation]);
@@ -82,6 +85,10 @@ const FleetMap: React.FC = () => {
   }, [cityId]);
 
   useEffect(() => {
+    activeTagRef.current = activeTag;
+  }, [activeTag]);
+
+  useEffect(() => {
     setCityId(loadFleetCityId(userId, nation));
     setMarkers(loadCachedFleetMarkers(userId));
   }, [userId, nation]);
@@ -99,25 +106,17 @@ const FleetMap: React.FC = () => {
     setSyncError('');
     fleetAPI
       .listMarkers(userId)
-      .then(({ markers: remote }) => {
+      .then(({ markers: remoteRows }) => {
         if (cancelled) return;
-        const next: FleetMarker[] = (remote || [])
-          .filter((m) => isFleetKind(m.kind))
-          .map((m) => ({
-            id: m.id,
-            kind: m.kind as FleetMarkerKind,
-            name: m.name,
-            lat: m.lat,
-            lng: m.lng,
-            address: m.address || '',
-            notes: m.notes || '',
-            cityId: m.cityId || DEFAULT_FLEET_CITY_ID,
-            createdAt: m.createdAt,
-            updatedAt: m.updatedAt,
-          }));
-        syncedIdsRef.current = new Set(next.map((m) => m.id));
-        setMarkers(next);
-        saveCachedFleetMarkers(userId, next);
+        const remote = (remoteRows || [])
+          .map((m) => fleetMarkerFromPayload(m))
+          .filter((m): m is FleetMarker => !!m);
+        setMarkers((prev) => {
+          const merged = mergeFleetMarkerLists(prev, remote);
+          saveCachedFleetMarkers(userId, merged);
+          return merged;
+        });
+        remote.forEach((m) => syncedIdsRef.current.add(m.id));
       })
       .catch((err) => {
         if (cancelled) return;
@@ -137,54 +136,60 @@ const FleetMap: React.FC = () => {
     setActiveTag((cur) => (cur?.id === marker.id ? marker : cur));
   }, []);
 
+  const persistPayload = (marker: FleetMarker) => ({
+    id: marker.id,
+    cityId: marker.cityId,
+    kind: marker.kind,
+    name: marker.name,
+    lat: marker.lat,
+    lng: marker.lng,
+    address: marker.address,
+    notes: marker.notes,
+    enrichment: marker.enrichment,
+  });
+
+  const enqueueWrite = useCallback((id: string, fn: () => Promise<void>) => {
+    const prev = writeChainRef.current.get(id) || Promise.resolve();
+    const next = prev.then(fn, fn);
+    writeChainRef.current.set(id, next);
+    return next;
+  }, []);
+
   const persistCreate = useCallback(
     async (marker: FleetMarker) => {
-      try {
-        await fleetAPI.createMarker(userId, {
-          id: marker.id,
-          cityId: marker.cityId,
-          kind: marker.kind,
-          name: marker.name,
-          lat: marker.lat,
-          lng: marker.lng,
-          address: marker.address,
-          notes: marker.notes,
-        });
-        syncedIdsRef.current.add(marker.id);
-        setSyncError('');
-      } catch (err) {
-        console.warn('fleet create failed', err);
-        setSyncError('Pin saved on this device. Server sync failed.');
-      }
+      await enqueueWrite(marker.id, async () => {
+        try {
+          await fleetAPI.createMarker(userId, persistPayload(marker));
+          syncedIdsRef.current.add(marker.id);
+          setSyncError('');
+        } catch (err) {
+          console.warn('fleet create failed', err);
+          setSyncError('Pin saved on this device. Server sync failed.');
+        }
+      });
     },
-    [userId]
+    [enqueueWrite, userId]
   );
 
   const persistUpdate = useCallback(
     async (marker: FleetMarker) => {
-      const payload = {
-        cityId: marker.cityId,
-        kind: marker.kind,
-        name: marker.name,
-        lat: marker.lat,
-        lng: marker.lng,
-        address: marker.address,
-        notes: marker.notes,
-      };
-      try {
-        if (syncedIdsRef.current.has(marker.id)) {
-          await fleetAPI.updateMarker(userId, marker.id, payload);
-        } else {
-          await fleetAPI.createMarker(userId, { id: marker.id, ...payload });
-          syncedIdsRef.current.add(marker.id);
+      const payload = persistPayload(marker);
+      await enqueueWrite(marker.id, async () => {
+        try {
+          if (syncedIdsRef.current.has(marker.id)) {
+            await fleetAPI.updateMarker(userId, marker.id, payload);
+          } else {
+            await fleetAPI.createMarker(userId, payload);
+            syncedIdsRef.current.add(marker.id);
+          }
+          setSyncError('');
+        } catch (err) {
+          console.warn('fleet update failed', err);
+          setSyncError('Pin saved on this device. Server sync failed.');
         }
-        setSyncError('');
-      } catch (err) {
-        console.warn('fleet update failed', err);
-        setSyncError('Pin saved on this device. Server sync failed.');
-      }
+      });
     },
-    [userId]
+    [enqueueWrite, userId]
   );
 
   const syncTagLocation = useCallback(
@@ -192,13 +197,13 @@ const FleetMap: React.FC = () => {
       setMarkers((prev) => {
         const existing = prev.find((m) => m.id === updated.id);
         if (!existing) return prev;
-        const next = toFleetMarker(updated, existing.cityId, existing);
+        const next = mergePinLocation(existing, updated);
         void persistUpdate(next);
         return prev.map((m) => (m.id === updated.id ? next : m));
       });
       setActiveTag((cur) => {
         if (cur?.id !== updated.id) return cur;
-        return toFleetMarker(updated, cur.cityId, cur);
+        return mergePinLocation(cur, updated);
       });
     },
     [persistUpdate]
@@ -251,15 +256,13 @@ const FleetMap: React.FC = () => {
     setActiveTag(marker);
   }, []);
 
-  const saveMarker = useCallback(
+  const persistMarker = useCallback(
     (tag: MapTag) => {
-      const next = toFleetMarker(tag, cityIdRef.current, activeTag || undefined);
+      const next = toFleetMarker(tag, cityIdRef.current, activeTagRef.current || undefined);
       upsertLocal(next);
       void persistUpdate(next);
-      setAutoEnrichTagId(null);
-      setActiveTag(null);
     },
-    [activeTag, persistUpdate, upsertLocal]
+    [persistUpdate, upsertLocal]
   );
 
   const deleteMarker = useCallback(
@@ -376,7 +379,7 @@ const FleetMap: React.FC = () => {
           kindOptions={kindOptions}
           startInEditMode={autoEnrichTagId === activeTag.id}
           onLocationUpdate={syncTagLocation}
-          onChange={saveMarker}
+          onChange={persistMarker}
           onDelete={deleteMarker}
           onClose={() => {
             setActiveTag(null);
