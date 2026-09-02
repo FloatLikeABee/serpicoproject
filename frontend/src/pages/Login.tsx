@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DEMO_PASSWORD, DEMO_USERNAME, useAuth } from '../contexts/AuthContext';
 import ShieldLogo from '../components/ShieldLogo';
 import { t } from '../i18n/catalog';
-import { loadLastNation } from '../utils/nation';
+import { detectAccessNation } from '../utils/nation';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -12,7 +12,11 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle, loginWithApple } = useAuth();
   const navigate = useNavigate();
-  const nation = loadLastNation();
+  const nation = detectAccessNation();
+
+  useEffect(() => {
+    document.documentElement.lang = nation === 'cn' ? 'zh-CN' : 'en';
+  }, [nation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

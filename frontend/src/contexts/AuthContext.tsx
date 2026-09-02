@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { usersAPI } from '../services/api';
-import { DEFAULT_NATION, loadNation, parseNation, resolveAccountNation, saveLastNation, saveNation, type Nation } from '../utils/nation';
+import { DEFAULT_NATION, hasExplicitNationFlag, parseNation, resolveSessionNation, saveExplicitNation, saveLastNation, saveNation, shouldApplyRemoteNation, type Nation } from '../utils/nation';
 
 export type UserRole = 'police' | 'civilian';
 
@@ -36,7 +36,10 @@ const createUserId = () =>
     : `user-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 function withNation(user: User): User {
-  return { ...user, nation: resolveAccountNation(user.id, user.nation) };
+  if (hasExplicitNationFlag(user.id) && user.nation != null && String(user.nation).trim() !== '') {
+    return { ...user, nation: parseNation(user.nation) };
+  }
+  return { ...user, nation: resolveSessionNation(user.id) };
 }
 
 function persistUser(user: User) {
@@ -61,7 +64,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const hydrated = persistUser(next);
     setUser(hydrated);
     document.documentElement.lang = hydrated.nation === 'cn' ? 'zh-CN' : 'en';
-    usersAPI.upsertNation(hydrated.id, hydrated.nation || DEFAULT_NATION).catch(() => undefined);
+    if (hasExplicitNationFlag(hydrated.id)) {
+      usersAPI.upsertNation(hydrated.id, hydrated.nation || DEFAULT_NATION).catch(() => undefined);
+    }
   }, []);
 
   useEffect(() => {
@@ -73,6 +78,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const raw = res?.user?.nation;
         if (raw == null || String(raw).trim() === '') return;
         const remote = parseNation(raw);
+        if (!shouldApplyRemoteNation(user.id, remote)) return;
         if (remote !== user.nation) {
           const merged = persistUser({ ...user, nation: remote });
           setUser(merged);
@@ -93,27 +99,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       name: 'Officer Serpico',
       role: 'police',
       rank: 'Officer',
-      nation: loadNation(DEMO_USER_ID),
+      nation: resolveSessionNation(DEMO_USER_ID),
     });
   };
 
   const loginWithGoogle = async () => {
+    const id = createUserId();
     applyUser({
-      id: createUserId(),
+      id,
       email: 'user@gmail.com',
       name: 'Google User',
       role: 'police',
       rank: 'Officer',
+      nation: resolveSessionNation(id),
     });
   };
 
   const loginWithApple = async () => {
+    const id = createUserId();
     applyUser({
-      id: createUserId(),
+      id,
       email: 'user@icloud.com',
       name: 'Apple User',
       role: 'police',
       rank: 'Officer',
+      nation: resolveSessionNation(id),
     });
   };
 
@@ -125,7 +135,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const setNation = (nation: Nation) => {
     if (!user) return;
-    applyUser({ ...user, nation: parseNation(nation) });
+    const next = parseNation(nation);
+    saveExplicitNation(user.id, next);
+    applyUser({ ...user, nation: next });
   };
 
   return (
