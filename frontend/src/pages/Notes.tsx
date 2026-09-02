@@ -798,9 +798,9 @@ const Notes: React.FC = () => {
                           <textarea
                             value={noteForm.event}
                             onChange={(e) => setNoteForm((p) => ({ ...p, event: e.target.value }))}
-                            rows={3}
+                            rows={6}
                             placeholder="Event — what happened"
-                            className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white resize-y"
+                            className="w-full min-h-[8.5rem] px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-sm text-white resize-y"
                           />
                           <textarea
                             value={noteForm.analysis}
