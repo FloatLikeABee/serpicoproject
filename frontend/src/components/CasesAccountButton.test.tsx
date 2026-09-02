@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import CasesAccountButton from './CasesAccountButton';
 
-const auth = {
+const mockAuth = {
   logout: jest.fn(),
   setNation: jest.fn(),
   nation: 'us' as 'us' | 'cn',
@@ -13,9 +13,9 @@ const auth = {
 
 jest.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'demo-serpico', name: auth.name, nation: auth.nation },
-    logout: auth.logout,
-    setNation: auth.setNation,
+    user: { id: 'demo-serpico', name: mockAuth.name, nation: mockAuth.nation },
+    logout: mockAuth.logout,
+    setNation: mockAuth.setNation,
   }),
 }));
 
@@ -44,10 +44,10 @@ function renderBtn() {
 }
 
 beforeEach(() => {
-  auth.logout.mockReset();
-  auth.setNation.mockReset();
-  auth.nation = 'us';
-  auth.name = 'Demo User';
+  mockAuth.logout.mockReset();
+  mockAuth.setNation.mockReset();
+  mockAuth.nation = 'us';
+  mockAuth.name = 'Demo User';
 });
 
 test('user button is labeled Account and does not show the account card until opened', () => {
@@ -84,14 +84,14 @@ test('nation and logout use existing auth helpers', async () => {
   renderBtn();
   await userEvent.click(screen.getByRole('button', { name: 'Account' }));
   await userEvent.click(screen.getByRole('button', { name: 'China' }));
-  expect(auth.setNation).toHaveBeenCalledWith('cn');
+  expect(mockAuth.setNation).toHaveBeenCalledWith('cn');
   await userEvent.click(screen.getByRole('button', { name: 'Logout' }));
-  expect(auth.logout).toHaveBeenCalled();
+  expect(mockAuth.logout).toHaveBeenCalled();
   expect(screen.getByTestId('path')).toHaveTextContent('/login');
 });
 
 test('China account labels the user button 账户', () => {
-  auth.nation = 'cn';
+  mockAuth.nation = 'cn';
   renderBtn();
   expect(screen.getByRole('button', { name: '账户' })).toBeInTheDocument();
 });
