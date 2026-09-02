@@ -16,6 +16,7 @@ import {
   upsertCachedCase,
 } from '../utils/investigationStore';
 import { applyNationToOfficerFields } from '../utils/officerContent';
+import CasesAccountButton from '../components/CasesAccountButton';
 
 type NodeForm = {
   place: string;
@@ -187,7 +188,7 @@ function CompactNoteMarkdown({
 
 /** Cases list — expand a case to work its timed notes in-pane. */
 const Notes: React.FC = () => {
-  const { user, logout, setNation } = useAuth();
+  const { user } = useAuth();
   const t = useT();
   const navigate = useNavigate();
   const { caseId: routeCaseId } = useParams<{ caseId?: string }>();
@@ -618,13 +619,16 @@ const Notes: React.FC = () => {
               {syncing ? ' · Syncing…' : ''}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowCaseForm((v) => !v)}
-            className="flex-shrink-0 px-2.5 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-cyan/40 text-neon-cyan hover:bg-neon-cyan/15"
-          >
-            {showCaseForm ? t('cases.cancel') : t('cases.new')}
-          </button>
+          <div className="flex-shrink-0 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowCaseForm((v) => !v)}
+              className="px-2.5 py-1.5 rounded-md text-[10px] font-display uppercase tracking-wider border border-neon-cyan/40 text-neon-cyan hover:bg-neon-cyan/15"
+            >
+              {showCaseForm ? t('cases.cancel') : t('cases.new')}
+            </button>
+            <CasesAccountButton />
+          </div>
         </div>
       </div>
 
@@ -902,54 +906,6 @@ const Notes: React.FC = () => {
             })}
           </div>
         )}
-
-        <section className="game-panel p-3 space-y-2 border border-white/10">
-          <p className="text-[10px] font-display uppercase tracking-wider text-synth-muted">{t('account.title')}</p>
-          <div className="space-y-2">
-            <label className="block text-[10px] font-display uppercase tracking-wider text-neon-cyan/90">
-              {t('account.nation')}
-            </label>
-            <div className="flex gap-2" role="group" aria-label={t('account.nation')}>
-              <button
-                type="button"
-                onClick={() => setNation('us')}
-                className={`px-3 py-1.5 rounded-md text-[10px] font-display uppercase border ${
-                  (user?.nation || 'us') === 'us'
-                    ? 'border-neon-cyan bg-neon-cyan/15 text-neon-cyan'
-                    : 'border-white/15 text-gray-300'
-                }`}
-              >
-                {t('account.us')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setNation('cn')}
-                className={`px-3 py-1.5 rounded-md text-[10px] font-display uppercase border ${
-                  user?.nation === 'cn'
-                    ? 'border-neon-cyan bg-neon-cyan/15 text-neon-cyan'
-                    : 'border-white/15 text-gray-300'
-                }`}
-              >
-                {t('account.cn')}
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                logout();
-                navigate('/login');
-              }}
-              className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase border border-serpico-red/40 text-serpico-red"
-            >
-              {t('account.logout')}
-            </button>
-            {user?.name && (
-              <span className="text-[10px] text-synth-muted self-center ml-1">{user.name}</span>
-            )}
-          </div>
-        </section>
       </div>
     </div>
   );
