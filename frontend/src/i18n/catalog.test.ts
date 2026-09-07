@@ -2,7 +2,7 @@ import { I18N_KEYS, t } from '../i18n/catalog';
 
 describe('i18n catalog', () => {
   it('returns English nav labels for us', () => {
-    expect(t('us', 'nav.fleet')).toBe('Fleet');
+    expect(t('us', 'nav.fleet')).toBe('Action');
     expect(t('us', 'nav.cases')).toBe('Cases');
     expect(t('us', 'nav.pursue')).toBe('Pursue');
     expect(t('us', 'nav.board')).toBe('Board');
@@ -10,11 +10,26 @@ describe('i18n catalog', () => {
   });
 
   it('returns Simplified Chinese nav labels for cn', () => {
-    expect(t('cn', 'nav.fleet')).toBe('警力');
+    expect(t('cn', 'nav.fleet')).toBe('行动');
     expect(t('cn', 'nav.cases')).toBe('案件');
     expect(t('cn', 'nav.pursue')).toBe('追踪');
     expect(t('cn', 'nav.board')).toBe('公告板');
     expect(t('cn', 'nav.chat')).toBe('智能助手');
+  });
+
+  it('labels the city pin desk Action and provides map search copy', () => {
+    expect(t('us', 'chase.fleetTab')).toBe('Action');
+    expect(t('cn', 'chase.fleetTab')).toBe('行动');
+    expect(t('us', 'helper.fleetTab')).toBe('Action');
+    expect(t('cn', 'helper.fleetTab')).toBe('行动');
+    expect(t('us', 'chase.deskAria')).toBe('Action desk modules');
+    expect(t('cn', 'chase.deskAria')).toBe('行动工作台模块');
+    expect(t('us', 'map.search')).toBe('Search places or notes');
+    expect(t('cn', 'map.search')).toBe('搜索地点或备注');
+    expect(t('us', 'map.searchEmpty')).toBe('No places or notes matched');
+    expect(t('cn', 'map.searchEmpty')).toBe('没有匹配的地点或备注');
+    expect(t('us', 'map.searchAria')).toBe('Search places or notes');
+    expect(t('cn', 'map.searchAria')).toBe('搜索地点或备注');
   });
 
   it('has Chinese strings for every English catalog key', () => {

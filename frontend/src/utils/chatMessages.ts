@@ -55,9 +55,9 @@ What intel do you need?`,
 
 Where are you headed?`,
 
-  'chase-game': `### Officer Serpico — Fleet Desk
+  'chase-game': `### Officer Serpico — Action Desk
 
-**10-4.** Fleet is the city map for stations, police vehicles, and crime-scene / event pins — not a chase game.
+**10-4.** Action is the city map for stations, police vehicles, and crime-scene / event pins — not a chase game.
 
 Drop a marker, add notes, then switch cities to jump the map.
 
