@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PursuitMapCanvas from '../../components/PursuitMapCanvas';
 import PlaceTagModal from '../../components/PlaceTagModal';
+import MapPinSearch from '../../components/MapPinSearch';
 import { useAuth } from '../../contexts/AuthContext';
 import { useT, useNation } from '../../i18n/useT';
 import { pursueMapRegion } from '../../utils/mapRegions';
@@ -16,6 +17,7 @@ import {
   saveMapTags,
   tagMeta,
 } from '../../utils/mapTags';
+import type { SearchablePin } from '../../utils/mapPinSearch';
 
 const InPursue: React.FC = () => {
   const { user } = useAuth();
@@ -27,11 +29,31 @@ const InPursue: React.FC = () => {
   const [mapTags, setMapTags] = useState<MapTag[]>(() => loadMapTags(userId));
   const [placeKind, setPlaceKind] = useState<MapTagKind>('investigation');
   const [activeTag, setActiveTag] = useState<MapTag | null>(null);
+  const [focusPinId, setFocusPinId] = useState<string | null>(null);
   const [autoEnrichTagId, setAutoEnrichTagId] = useState<string | null>(null);
   const [placingBusy, setPlacingBusy] = useState(false);
   const placeKindRef = useRef<MapTagKind>('investigation');
   const placingBusyRef = useRef(false);
   const locationMappedRef = useRef<Set<string>>(new Set());
+
+  const searchablePins = useMemo<SearchablePin[]>(
+    () =>
+      mapTags.map((tag) => ({
+        id: tag.id,
+        name: tag.name,
+        address: tag.address,
+        notes: tag.notes,
+        enrichment: tag.enrichment,
+        kindLabel: t(`tag.kind.${tag.kind}`),
+        lat: tag.lat,
+        lng: tag.lng,
+      })),
+    [mapTags, t]
+  );
+  const focusPin = useMemo(
+    () => mapTags.find((tag) => tag.id === focusPinId) || null,
+    [mapTags, focusPinId]
+  );
 
   useEffect(() => {
     placeKindRef.current = placeKind;
@@ -97,8 +119,16 @@ const InPursue: React.FC = () => {
   );
 
   const handleTagClick = useCallback((tag: MapTag) => {
+    setFocusPinId(tag.id);
     setActiveTag(tag);
   }, []);
+
+  const handleSearchSelect = useCallback((pin: SearchablePin) => {
+    const found = mapTags.find((tag) => tag.id === pin.id);
+    if (!found) return;
+    setFocusPinId(found.id);
+    setActiveTag(found);
+  }, [mapTags]);
 
   const upsertTag = useCallback((tag: MapTag) => {
     setMapTags((prev) => {
@@ -111,6 +141,7 @@ const InPursue: React.FC = () => {
   const deleteTag = useCallback((id: string) => {
     setMapTags((prev) => prev.filter((t) => t.id !== id));
     setActiveTag(null);
+    setFocusPinId(null);
   }, []);
 
   return (
@@ -124,6 +155,7 @@ const InPursue: React.FC = () => {
             {t('pursue.subtitle', { count: mapTags.length })}
           </p>
         </div>
+        <MapPinSearch pins={searchablePins} onSelect={handleSearchSelect} />
 
         <div className="space-y-1.5">
           <div className="flex items-center gap-1 flex-wrap">
@@ -167,6 +199,9 @@ const InPursue: React.FC = () => {
           fitKey={`intel-${userId}-${nation}`}
           deployMode
           activeTagId={activeTag?.id}
+          focusPinId={focusPinId}
+          focusLat={focusPin?.lat}
+          focusLng={focusPin?.lng}
           hideVehicles
           mapBounds={region.bounds}
           minZoom={region.minZoom}

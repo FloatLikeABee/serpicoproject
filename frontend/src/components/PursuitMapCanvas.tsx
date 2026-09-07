@@ -10,6 +10,7 @@ import {
   OLATHE_MIN_ZOOM,
 } from '../utils/pursuitSim';
 import { MapTag, tagMeta } from '../utils/mapTags';
+import MapPinFlyTo from './MapPinFlyTo';
 
 export interface PursuitMapVehicle {
   id: string;
@@ -50,6 +51,9 @@ interface PursuitMapCanvasProps {
   onMapClick?: (lat: number, lng: number) => void;
   onLandmarkClick?: (landmark: MapLandmark) => void;
   onTagClick?: (tag: MapTag) => void;
+  focusPinId?: string | null;
+  focusLat?: number;
+  focusLng?: number;
   mapBounds?: { latMin: number; latMax: number; lngMin: number; lngMax: number };
   minZoom?: number;
   maxZoom?: number;
@@ -497,6 +501,9 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
   onMapClick,
   onLandmarkClick,
   onTagClick,
+  focusPinId = null,
+  focusLat,
+  focusLng,
   mapBounds,
   minZoom = OLATHE_MIN_ZOOM,
   maxZoom = OLATHE_MAX_ZOOM,
@@ -580,6 +587,7 @@ const PursuitMapCanvas: React.FC<PursuitMapCanvasProps> = ({
         fallbackCenter={center}
         fallbackZoom={zoom}
       />
+      <MapPinFlyTo pinId={focusPinId} lat={focusLat} lng={focusLng} />
       <MapClickHandler enabled={deployMode} onMapClick={onMapClick} />
 
       {routeLines.map((r) => (

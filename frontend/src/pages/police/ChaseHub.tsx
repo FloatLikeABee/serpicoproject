@@ -4,19 +4,30 @@ import { useT } from '../../i18n/useT';
 import FleetMap from './FleetMap';
 import InvestigationHelper from './InvestigationHelper';
 
-type HubTab = 'investigation' | 'fleet';
+export type HubTab = 'investigation' | 'fleet';
+
+export function hubTabFromLocation(pathname: string, search: string): HubTab {
+  if (pathname.includes('investigation')) return 'investigation';
+  if (search.includes('tab=investigation')) return 'investigation';
+  if (
+    search.includes('tab=chase') ||
+    search.includes('tab=fleet') ||
+    search.includes('tab=action')
+  ) {
+    return 'fleet';
+  }
+  return 'fleet';
+}
 
 const ChaseHub: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const t = useT();
 
-  const tabFromPath = useMemo<HubTab>(() => {
-    if (location.pathname.includes('investigation')) return 'investigation';
-    if (location.search.includes('tab=investigation')) return 'investigation';
-    if (location.search.includes('tab=chase') || location.search.includes('tab=fleet')) return 'fleet';
-    return 'fleet';
-  }, [location.pathname, location.search]);
+  const tabFromPath = useMemo<HubTab>(
+    () => hubTabFromLocation(location.pathname, location.search),
+    [location.pathname, location.search]
+  );
 
   const [tab, setTab] = useState<HubTab>(tabFromPath);
 
@@ -39,7 +50,7 @@ const ChaseHub: React.FC = () => {
         <div
           className="flex p-0.5 rounded-lg border border-white/10 bg-black/40"
           role="tablist"
-          aria-label="Fleet desk modules"
+          aria-label={t('chase.deskAria')}
         >
           <button
             type="button"

@@ -12,3 +12,12 @@ describe('interview welcome follows nation', () => {
     expect(msg).toMatch(/case brief/i);
   });
 });
+
+describe('Action desk greeting', () => {
+  it('names Action Desk, not Fleet Desk', () => {
+    const msg = getChatInitialMessage('chase-game', 'us');
+    expect(msg).toMatch(/Action Desk/);
+    expect(msg).not.toMatch(/Fleet Desk/);
+    expect(msg).not.toMatch(/\bFleet\b/);
+  });
+});

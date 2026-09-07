@@ -5,12 +5,16 @@ import 'leaflet/dist/leaflet.css';
 import type { FleetCity } from '../utils/cities';
 import type { FleetMarker } from '../utils/fleetMarkers';
 import { fleetKindMeta } from '../utils/fleetMarkers';
+import MapPinFlyTo from './MapPinFlyTo';
 
 interface FleetMapCanvasProps {
   city: FleetCity;
   markers: FleetMarker[];
   activeTagId?: string | null;
   placing?: boolean;
+  focusPinId?: string | null;
+  focusLat?: number;
+  focusLng?: number;
   onMapClick?: (lat: number, lng: number) => void;
   onMarkerClick?: (marker: FleetMarker) => void;
 }
@@ -48,7 +52,10 @@ function buildFleetIcon(marker: FleetMarker, active = false): L.DivIcon {
   });
 }
 
-const CityFlyTo: React.FC<{ city: FleetCity }> = ({ city }) => {
+const CityFlyTo: React.FC<{ city: FleetCity; skipCityCenter?: boolean }> = ({
+  city,
+  skipCityCenter = false,
+}) => {
   const map = useMap();
   const first = useRef(true);
 
@@ -58,13 +65,17 @@ const CityFlyTo: React.FC<{ city: FleetCity }> = ({ city }) => {
   }, [map]);
 
   useEffect(() => {
+    if (skipCityCenter) {
+      first.current = false;
+      return;
+    }
     if (first.current) {
       first.current = false;
       map.setView([city.lat, city.lng], city.zoom, { animate: false });
       return;
     }
     map.flyTo([city.lat, city.lng], city.zoom, { duration: 0.85 });
-  }, [map, city.id, city.lat, city.lng, city.zoom]);
+  }, [map, city.id, city.lat, city.lng, city.zoom, skipCityCenter]);
 
   return null;
 };
@@ -133,6 +144,9 @@ const FleetMapCanvas: React.FC<FleetMapCanvasProps> = ({
   markers,
   activeTagId = null,
   placing = true,
+  focusPinId = null,
+  focusLat,
+  focusLng,
   onMapClick,
   onMarkerClick,
 }) => {
@@ -148,7 +162,8 @@ const FleetMapCanvas: React.FC<FleetMapCanvasProps> = ({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <CityFlyTo city={city} />
+      <CityFlyTo city={city} skipCityCenter={!!focusPinId} />
+      <MapPinFlyTo pinId={focusPinId} lat={focusLat} lng={focusLng} />
       <MapZoomControls />
       <MapClickHandler enabled={placing} onMapClick={onMapClick} />
 

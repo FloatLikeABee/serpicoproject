@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PlaceTagModal from '../../components/PlaceTagModal';
 import FleetMapCanvas from '../../components/FleetMapCanvas';
+import MapPinSearch from '../../components/MapPinSearch';
 import { useAuth } from '../../contexts/AuthContext';
 import { fleetAPI } from '../../services/api';
 import {
@@ -25,6 +26,7 @@ import {
   saveCachedFleetMarkers,
 } from '../../utils/fleetMarkers';
 import { autoMapTagLocation, isCoordsOnlyAddress, MapTag, mergePinLocation } from '../../utils/mapTags';
+import { planPinFocus, type SearchablePin } from '../../utils/mapPinSearch';
 
 function toFleetMarker(tag: MapTag, cityId: string, existing?: FleetMarker): FleetMarker {
   const kind = isFleetKind(tag.kind) ? tag.kind : existing?.kind || 'police_station';
@@ -52,6 +54,7 @@ const FleetMap: React.FC = () => {
   const [markers, setMarkers] = useState<FleetMarker[]>(() => loadCachedFleetMarkers(userId));
   const [placeKind, setPlaceKind] = useState<FleetMarkerKind>('police_station');
   const [activeTag, setActiveTag] = useState<FleetMarker | null>(null);
+  const [focusPinId, setFocusPinId] = useState<string | null>(null);
   const [autoEnrichTagId, setAutoEnrichTagId] = useState<string | null>(null);
   const [placingBusy, setPlacingBusy] = useState(false);
   const [syncError, setSyncError] = useState('');
@@ -71,6 +74,26 @@ const FleetMap: React.FC = () => {
     [markers, cityId]
   );
   const kindOptions = useMemo(() => fleetKindsForModal(), []);
+  const searchablePins = useMemo<SearchablePin[]>(
+    () =>
+      markers.map((m) => ({
+        id: m.id,
+        name: m.name,
+        address: m.address,
+        notes: m.notes,
+        enrichment: m.enrichment,
+        kindLabel: t(`fleet.kind.${m.kind}`),
+        cityId: m.cityId,
+        cityLabel: cityLabel(fleetCityById(m.cityId, nation), nation),
+        lat: m.lat,
+        lng: m.lng,
+      })),
+    [markers, nation, t]
+  );
+  const focusPin = useMemo(
+    () => markers.find((m) => m.id === focusPinId) || null,
+    [markers, focusPinId]
+  );
 
   useEffect(() => {
     placeKindRef.current = placeKind;
@@ -253,8 +276,23 @@ const FleetMap: React.FC = () => {
   );
 
   const handleMarkerClick = useCallback((marker: FleetMarker) => {
+    setFocusPinId(marker.id);
     setActiveTag(marker);
   }, []);
+
+  const handleSearchSelect = useCallback(
+    (pin: SearchablePin) => {
+      const marker = markers.find((m) => m.id === pin.id);
+      if (!marker) return;
+      const plan = planPinFocus(cityIdRef.current, marker);
+      if (plan.switchCityTo) {
+        setCityId(plan.switchCityTo);
+      }
+      setFocusPinId(marker.id);
+      setActiveTag(marker);
+    },
+    [markers]
+  );
 
   const persistMarker = useCallback(
     (tag: MapTag) => {
@@ -270,6 +308,7 @@ const FleetMap: React.FC = () => {
       setMarkers((prev) => prev.filter((m) => m.id !== id));
       setActiveTag(null);
       setAutoEnrichTagId(null);
+      setFocusPinId(null);
       try {
         if (syncedIdsRef.current.has(id)) {
           await fleetAPI.deleteMarker(userId, id);
@@ -304,6 +343,7 @@ const FleetMap: React.FC = () => {
             onChange={(e) => {
               setCityId(e.target.value);
               setActiveTag(null);
+              setFocusPinId(null);
             }}
             className="flex-1 min-w-0 px-2 py-1.5 rounded-md border border-white/15 bg-black/50 text-xs sm:text-sm text-white"
             style={{ colorScheme: 'dark' }}
@@ -318,6 +358,7 @@ const FleetMap: React.FC = () => {
             {cityMarkers.length} {cityMarkers.length === 1 ? t('fleet.pin') : t('fleet.pins')}
           </span>
         </div>
+        <MapPinSearch pins={searchablePins} onSelect={handleSearchSelect} />
 
         <div className="flex items-center gap-1 flex-wrap">
           {FLEET_MARKER_KINDS.map((k) => {
@@ -354,6 +395,9 @@ const FleetMap: React.FC = () => {
           markers={cityMarkers}
           activeTagId={activeTag?.id}
           placing
+          focusPinId={focusPinId}
+          focusLat={focusPin?.lat}
+          focusLng={focusPin?.lng}
           onMapClick={handleMapClick}
           onMarkerClick={handleMarkerClick}
         />
