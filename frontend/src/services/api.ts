@@ -14,6 +14,20 @@ const api = axios.create({
   },
 });
 
+export const authAPI = {
+  login: async (email: string, password: string) => {
+    const response = await api.post<{ user: { id: string; email: string; name: string; role: string; rank?: string; nation?: string } }>(
+      '/auth/login',
+      { email, password }
+    );
+    return response.data;
+  },
+  redeem: async (code: string) => {
+    const response = await api.post<{ username: string; password: string }>('/auth/redeem', { code });
+    return response.data;
+  },
+};
+
 export interface ChatRequest {
   message: string;
   context?: string;

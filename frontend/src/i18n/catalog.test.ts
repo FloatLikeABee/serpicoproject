@@ -81,6 +81,9 @@ describe('i18n catalog', () => {
     expect(t('cn', 'account.title')).toBe('账户');
     expect(t('us', 'account.close')).toBe('Close');
     expect(t('cn', 'account.close')).toBe('关闭');
+    expect(t('us', 'landing.title')).toBe('SERPICO');
+    expect(t('cn', 'landing.requestTitle')).not.toBe('landing.requestTitle');
+    expect(t('cn', 'join.title')).not.toBe('join.title');
   });
 
   it('returns Simplified Chinese Fleet kind labels used by chips and the pin modal', () => {

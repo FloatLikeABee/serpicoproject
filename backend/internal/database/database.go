@@ -89,6 +89,7 @@ func createTables(db *sql.DB) error {
 			role TEXT NOT NULL,
 			rank TEXT,
 			nation TEXT DEFAULT 'us',
+			password_hash TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS cases (
@@ -259,6 +260,15 @@ func createTables(db *sql.DB) error {
 			topic TEXT NOT NULL UNIQUE,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS invites (
+			id TEXT PRIMARY KEY,
+			code TEXT NOT NULL UNIQUE,
+			user_id TEXT NOT NULL,
+			username TEXT NOT NULL UNIQUE,
+			password_plain TEXT NOT NULL,
+			note TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	for _, query := range queries {
@@ -269,7 +279,14 @@ func createTables(db *sql.DB) error {
 
 	migrateNationColumns(db)
 	migrateFleetMarkerColumns(db)
+	migrateUserPasswordHash(db)
 	return nil
+}
+
+func migrateUserPasswordHash(db *sql.DB) {
+	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN password_hash TEXT`); err != nil {
+		_ = err
+	}
 }
 
 func migrateNationColumns(db *sql.DB) {

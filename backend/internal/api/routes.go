@@ -11,10 +11,11 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 	// Auth routes (mock)
 	auth := r.Group("/auth")
 	{
-		auth.POST("/login", handleLogin)
+		auth.POST("/login", func(c *gin.Context) { handleLogin(c, db) })
 		auth.POST("/login/google", handleGoogleLogin)
 		auth.POST("/login/apple", handleAppleLogin)
 		auth.POST("/logout", handleLogout)
+		auth.POST("/redeem", func(c *gin.Context) { handleRedeemInvite(c, db) })
 	}
 
 	// User routes
@@ -154,6 +155,8 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		admin.GET("/mysteries", func(c *gin.Context) { handleAdminGetAllMysteries(c, db) })
 		admin.POST("/mysteries", func(c *gin.Context) { handleAdminCreateMystery(c, db) })
 		admin.GET("/users", func(c *gin.Context) { handleAdminGetAllUsers(c, db) })
+		admin.POST("/invites", func(c *gin.Context) { handleAdminCreateInvite(c, db) })
+		admin.GET("/invites", func(c *gin.Context) { handleAdminListInvites(c, db) })
 		admin.POST("/hardware", func(c *gin.Context) { handleRegisterHardware(c, db) })
 		admin.GET("/hardware", func(c *gin.Context) { handleListHardware(c, db) })
 		admin.GET("/hardware/:id", func(c *gin.Context) { handleGetHardware(c, db) })

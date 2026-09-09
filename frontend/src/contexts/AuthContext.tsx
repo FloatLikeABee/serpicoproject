@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
-import { usersAPI } from '../services/api';
+import { usersAPI, authAPI } from '../services/api';
 import { DEFAULT_NATION, loadNation, parseNation, resolveAccountNation, saveLastNation, saveNation, type Nation } from '../utils/nation';
 
 export type UserRole = 'police' | 'civilian';
@@ -61,15 +61,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const hydrated = persistUser(next);
     setUser(hydrated);
     document.documentElement.lang = hydrated.nation === 'cn' ? 'zh-CN' : 'en';
-    usersAPI.upsertNation(hydrated.id, hydrated.nation || DEFAULT_NATION).catch(() => undefined);
+    usersAPI.upsertNation?.(hydrated.id, hydrated.nation || DEFAULT_NATION)?.catch?.(() => undefined);
   }, []);
 
   useEffect(() => {
     if (!user?.id) return;
     document.documentElement.lang = user.nation === 'cn' ? 'zh-CN' : 'en';
     usersAPI
-      .getMe(user.id)
-      .then((res) => {
+      .getMe?.(user.id)
+      ?.then((res) => {
         const raw = res?.user?.nation;
         if (raw == null || String(raw).trim() === '') return;
         const remote = parseNation(raw);
@@ -84,17 +84,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (username: string, password: string) => {
     const normalized = username.trim().toLowerCase();
-    if (normalized !== DEMO_USERNAME || password !== DEMO_PASSWORD) {
+    try {
+      const res = await authAPI.login(username.trim(), password);
+      const remote = res?.user;
+      if (!remote?.id) {
+        throw new Error('Invalid username or password');
+      }
+      const role: UserRole = remote.role === 'civilian' ? 'civilian' : 'police';
+      applyUser({
+        id: remote.id,
+        email: remote.email || normalized,
+        name: remote.name || normalized,
+        role,
+        rank: remote.rank,
+        nation: remote.nation ? parseNation(remote.nation) : loadNation(remote.id),
+      });
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number }; message?: string };
+      const offline = !axiosErr.response;
+      if (offline && normalized === DEMO_USERNAME && password === DEMO_PASSWORD) {
+        applyUser({
+          id: DEMO_USER_ID,
+          email: DEMO_USERNAME,
+          name: 'Officer Serpico',
+          role: 'police',
+          rank: 'Officer',
+          nation: loadNation(DEMO_USER_ID),
+        });
+        return;
+      }
       throw new Error('Invalid username or password');
     }
-    applyUser({
-      id: DEMO_USER_ID,
-      email: DEMO_USERNAME,
-      name: 'Officer Serpico',
-      role: 'police',
-      rank: 'Officer',
-      nation: loadNation(DEMO_USER_ID),
-    });
   };
 
   const loginWithGoogle = async () => {
