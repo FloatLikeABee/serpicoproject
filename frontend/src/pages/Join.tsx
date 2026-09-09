@@ -71,11 +71,15 @@ const Join: React.FC = () => {
             </form>
             {username ? (
               <div className="mt-5 space-y-2">
-                <p className="text-xs uppercase tracking-wide text-neon-green/80">
-                  {t(nation, 'join.username')}: <span className="font-mono text-synth-text">{username}</span>
+                <p className="text-xs tracking-wide text-neon-green/80">
+                  <span className="uppercase">{t(nation, 'join.username')}</span>
+                  {': '}
+                  <span className="font-mono normal-case text-synth-text">{username}</span>
                 </p>
-                <p className="text-xs uppercase tracking-wide text-neon-green/80">
-                  {t(nation, 'join.password')}: <span className="font-mono text-synth-text">{password}</span>
+                <p className="text-xs tracking-wide text-neon-green/80">
+                  <span className="uppercase">{t(nation, 'join.password')}</span>
+                  {': '}
+                  <span className="font-mono normal-case text-synth-text">{password}</span>
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className="btn-neon-primary rounded px-3 py-2 text-xs" onClick={() => copy('user', username)}>

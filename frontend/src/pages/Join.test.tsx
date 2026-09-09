@@ -26,8 +26,8 @@ test('join is public and shows the same credentials on two redeems', async () =>
   expect(screen.getByRole('heading', { name: /Enter invitation/i })).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText(/Invitation code/i), 'long-invite-code');
   await userEvent.click(screen.getByRole('button', { name: /Reveal credentials/i }));
-  expect(await screen.findByText(/offabc123xyz/)).toBeInTheDocument();
-  expect(screen.getByText(/GeneratedPass99/)).toBeInTheDocument();
+  expect(await screen.findByText('offabc123xyz')).toBeInTheDocument();
+  expect(screen.getByText('GeneratedPass99')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: /Reveal credentials/i }));
   expect(await screen.findByText(/offabc123xyz/)).toBeInTheDocument();
