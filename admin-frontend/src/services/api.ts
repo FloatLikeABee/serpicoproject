@@ -15,6 +15,8 @@ export const adminAPI = {
     api.post('/admin/login', { username, password }),
 
   getAllUsers: () => api.get('/admin/users'),
+  listInvites: () => api.get('/admin/invites'),
+  createInvite: (note?: string) => api.post('/admin/invites', { note: note || '' }),
 
   getRAGDocuments: () => api.get('/rag/documents'),
   getRAGDocument: (id: string) => api.get(`/rag/documents/${id}`),

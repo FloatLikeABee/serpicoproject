@@ -7,6 +7,8 @@ import Login from './pages/Login';
 import HardDataDocs from './pages/HardDataDocs';
 import HardDataHandle from './pages/HardDataHandle';
 import Dashboard from './pages/Dashboard';
+import HomeGate from './pages/HomeGate';
+import Join from './pages/Join';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -16,6 +18,8 @@ function AppContent() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<HomeGate />} />
+        <Route path="/join" element={<Join />} />
         <Route path="/login" element={<Login />} />
         <Route path="/x-hard-data/hw/:serial" element={<HardDataHandle />} />
         <Route path="/x-hard-data" element={<HardDataDocs />} />

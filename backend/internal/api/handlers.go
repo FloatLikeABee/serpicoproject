@@ -8,12 +8,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	"serpico/backend/internal/ai"
 	"serpico/backend/internal/database"
 )
 
-// Mock login handler — demo user serpico / cops123
-func handleLogin(c *gin.Context) {
+func handleLogin(c *gin.Context, db *database.Database) {
 	var req struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -25,17 +25,49 @@ func handleLogin(c *gin.Context) {
 	}
 
 	username := strings.TrimSpace(strings.ToLower(req.Email))
-	if username != "serpico" || req.Password != "cops123" {
+	if username == "serpico" && req.Password == "cops123" {
+		c.JSON(http.StatusOK, gin.H{
+			"user": gin.H{
+				"id":    "demo-serpico",
+				"email": "serpico",
+				"name":  "Officer Serpico",
+				"role":  "police",
+				"rank":  "Officer",
+			},
+			"token": "mock_token_" + uuid.New().String(),
+		})
+		return
+	}
+
+	if db == nil || db.SQLite == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+		return
+	}
+
+	var id, email, name, role, rank, nation, hash string
+	err := db.SQLite.QueryRow(
+		`SELECT id, email, name, role, COALESCE(rank,''), COALESCE(nation,''), COALESCE(password_hash,'')
+		 FROM users WHERE lower(email) = ?`,
+		username,
+	).Scan(&id, &email, &name, &role, &rank, &nation, &hash)
+	if err != nil || hash == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password)) != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 		return
 	}
 
 	user := gin.H{
-		"id":    "demo-serpico",
-		"email": "serpico",
-		"name":  "Officer Serpico",
-		"role":  "police",
-		"rank":  "Officer",
+		"id":    id,
+		"email": email,
+		"name":  name,
+		"role":  role,
+		"rank":  rank,
+	}
+	if nation != "" {
+		user["nation"] = nation
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -281,12 +313,12 @@ func handleGetPerps(c *gin.Context, db *database.Database) {
 		db.SQLite.QueryRow("SELECT COUNT(*) FROM cases WHERE location LIKE ?", "%"+location+"%").Scan(&caseCount)
 
 		perps = append(perps, gin.H{
-			"id":        id,
-			"alias":     alias,
-			"lastSeen":  lastSeen,
-			"location":  location,
-			"status":    status,
-			"cases":     caseCount,
+			"id":       id,
+			"alias":    alias,
+			"lastSeen": lastSeen,
+			"location": location,
+			"status":   status,
+			"cases":    caseCount,
 		})
 	}
 
@@ -312,12 +344,12 @@ func handleGetPerp(c *gin.Context, db *database.Database) {
 	db.SQLite.QueryRow("SELECT COUNT(*) FROM cases WHERE location LIKE ?", "%"+location+"%").Scan(&caseCount)
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":        id,
-		"alias":     alias,
-		"lastSeen":  lastSeen,
-		"location":  location,
-		"status":    status,
-		"cases":     caseCount,
+		"id":       id,
+		"alias":    alias,
+		"lastSeen": lastSeen,
+		"location": location,
+		"status":   status,
+		"cases":    caseCount,
 	})
 }
 
@@ -397,13 +429,13 @@ func handleGetEmergencies(c *gin.Context, db *database.Database) {
 			continue
 		}
 		emergencies = append(emergencies, gin.H{
-			"id":         id,
-			"type":       emergencyType,
-			"priority":   priority,
-			"location":   location,
-			"category":   category,
-			"status":     status,
-			"createdAt":  createdAt,
+			"id":        id,
+			"type":      emergencyType,
+			"priority":  priority,
+			"location":  location,
+			"category":  category,
+			"status":    status,
+			"createdAt": createdAt,
 		})
 	}
 
@@ -433,13 +465,13 @@ func handleCreateEmergency(c *gin.Context, db *database.Database) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"id":         id,
-		"type":       req.Type,
-		"location":   req.Location,
-		"priority":   req.Priority,
-		"category":   req.Category,
-		"status":     "Active",
-		"createdAt":  createdAt,
+		"id":        id,
+		"type":      req.Type,
+		"location":  req.Location,
+		"priority":  req.Priority,
+		"category":  req.Category,
+		"status":    "Active",
+		"createdAt": createdAt,
 	})
 }
 
@@ -459,13 +491,13 @@ func handleGetEmergency(c *gin.Context, db *database.Database) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":         id,
-		"type":       emergencyType,
-		"priority":   priority,
-		"location":   location,
-		"category":   category,
-		"status":     status,
-		"createdAt":  createdAt,
+		"id":        id,
+		"type":      emergencyType,
+		"priority":  priority,
+		"location":  location,
+		"category":  category,
+		"status":    status,
+		"createdAt": createdAt,
 	})
 }
 
@@ -528,12 +560,12 @@ func handleGetRouteRecommendations(c *gin.Context) {
 	// Mock route recommendations
 	routes := []gin.H{
 		{
-			"id":       "1",
-			"from":     from,
-			"to":       to,
-			"safety":   "High",
-			"time":     "15 min",
-			"distance": "3.2 miles",
+			"id":        "1",
+			"from":      from,
+			"to":        to,
+			"safety":    "High",
+			"time":      "15 min",
+			"distance":  "3.2 miles",
 			"waypoints": []string{"38.8814,-94.8191", "38.8914,-94.8091"},
 		},
 	}
@@ -652,14 +684,14 @@ func handleAdminGetAllEmergencies(c *gin.Context, db *database.Database) {
 			continue
 		}
 		emergencies = append(emergencies, gin.H{
-			"id":                id,
-			"type":              emergencyType,
-			"priority":          priority,
-			"location":          location,
-			"category":          category,
+			"id":                  id,
+			"type":                emergencyType,
+			"priority":            priority,
+			"location":            location,
+			"category":            category,
 			"assigned_officer_id": assignedOfficerID,
-			"status":            status,
-			"created_at":        createdAt,
+			"status":              status,
+			"created_at":          createdAt,
 		})
 	}
 
@@ -907,12 +939,12 @@ func handleAdminCreateOfficer(c *gin.Context, db *database.Database) {
 
 func handleAdminCreateEmergency(c *gin.Context, db *database.Database) {
 	var req struct {
-		Type            string `json:"type"`
-		Location        string `json:"location"`
-		Priority        string `json:"priority"`
-		Category        string `json:"category"`
+		Type              string `json:"type"`
+		Location          string `json:"location"`
+		Priority          string `json:"priority"`
+		Category          string `json:"category"`
 		AssignedOfficerID string `json:"assigned_officer_id"`
-		Status          string `json:"status"`
+		Status            string `json:"status"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -936,13 +968,13 @@ func handleAdminCreateEmergency(c *gin.Context, db *database.Database) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"id":                id,
-		"type":              req.Type,
-		"location":          req.Location,
-		"priority":          req.Priority,
-		"category":          req.Category,
+		"id":                  id,
+		"type":                req.Type,
+		"location":            req.Location,
+		"priority":            req.Priority,
+		"category":            req.Category,
 		"assigned_officer_id": req.AssignedOfficerID,
-		"status":            req.Status,
+		"status":              req.Status,
 	})
 }
 
@@ -961,7 +993,7 @@ func handleRAGGetDocuments(c *gin.Context, aiService interface{}) {
 
 func handleRAGGetDocument(c *gin.Context, aiService interface{}) {
 	id := c.Param("id")
-	
+
 	service, ok := aiService.(*ai.AIService)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI service type assertion failed"})
