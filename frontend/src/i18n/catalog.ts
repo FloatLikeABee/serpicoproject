@@ -251,6 +251,14 @@ const en: Catalog = {
   'fridgeRaid.rate': 'Too many asks. Wait a few minutes.',
   'fridgeRaid.tooLarge': 'That photo is too large. Try a smaller one.',
   'fridgeRaid.removePhoto': 'Remove photo',
+  'fridgeRaid.detail.close': 'Close',
+  'fridgeRaid.detail.busy': 'Writing the dish…',
+  'fridgeRaid.detail.error': 'Could not load this dish.',
+  'fridgeRaid.detail.tryAgain': 'Try again',
+  'fridgeRaid.detail.steps': 'How to cook',
+  'fridgeRaid.detail.tcm': 'Seasonal kitchen notes',
+  'fridgeRaid.detail.goodFor': 'Good for',
+  'fridgeRaid.detail.caution': 'Go easy',
 };
 
 const zh: Catalog = {
@@ -501,6 +509,14 @@ const zh: Catalog = {
   'fridgeRaid.rate': '问得太勤，请稍后再试。',
   'fridgeRaid.tooLarge': '照片太大了，换一张小一点的。',
   'fridgeRaid.removePhoto': '去掉照片',
+  'fridgeRaid.detail.close': '关闭',
+  'fridgeRaid.detail.busy': '正在写这道菜…',
+  'fridgeRaid.detail.error': '没能打开这道菜。',
+  'fridgeRaid.detail.tryAgain': '再试一次',
+  'fridgeRaid.detail.steps': '做法',
+  'fridgeRaid.detail.tcm': '时令饮食',
+  'fridgeRaid.detail.goodFor': '适宜',
+  'fridgeRaid.detail.caution': '少吃为宜',
 };
 
 const catalogs: Record<Nation, Catalog> = { us: en, cn: zh };

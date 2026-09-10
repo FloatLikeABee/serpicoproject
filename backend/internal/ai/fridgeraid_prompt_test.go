@@ -53,6 +53,40 @@ func TestBuildFridgeRaidPromptTCMConstraintsNoOfficerRAG(t *testing.T) {
 	}
 }
 
+func TestBuildFridgeRaidDetailPromptCookThenTCM(t *testing.T) {
+	prompt := BuildFridgeRaidDetailPrompt(FridgeRaidDetailPromptInput{
+		Locale: "en",
+		Suggestion: FridgeRaidSuggestion{
+			Title:   "Tomato egg stir-fry",
+			Hook:    "Sweet-tart tomatoes hugging silky eggs.",
+			TCMNote: "Tomato is cooling in summer heat.",
+			Uses:    []string{"tomato", "egg"},
+			Need:    []string{"scallion"},
+		},
+		Season:  SeasonInfo{Name: "summer", SolarTerm: "大暑"},
+		Weather: &WeatherSnapshot{Label: "热", TempC: 32},
+	})
+	needles := []string{
+		"steps",
+		"寒",
+		"热",
+		"开胃",
+		"good for",
+		"diagnos",
+		"cure",
+		"Tomato egg stir-fry",
+		"tomato",
+		"大暑",
+		"disclaimer",
+	}
+	lower := strings.ToLower(prompt)
+	for _, n := range needles {
+		if !strings.Contains(prompt, n) && !strings.Contains(lower, strings.ToLower(n)) {
+			t.Errorf("detail prompt missing %q", n)
+		}
+	}
+}
+
 func TestBuildChatPromptUnchangedNoFridgeRaidPrimer(t *testing.T) {
 	prompt := BuildChatPrompt("status of the case file?", "chat", nil, nil, "", "")
 	if strings.Contains(prompt, "春养肝") || strings.Contains(prompt, "fridge-raid") || strings.Contains(prompt, "翻冰箱") {

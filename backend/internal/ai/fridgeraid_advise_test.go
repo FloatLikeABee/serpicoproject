@@ -107,3 +107,64 @@ func TestAdviseImageOnlyVisionDownAsksFridgeRaid(t *testing.T) {
 		t.Fatal("expected a short nudge to type what is in the fridge")
 	}
 }
+
+func TestAdviseFridgeRaidDetailReturnsStepsAndGoodFor(t *testing.T) {
+	visionCalls := 0
+	adv := &FridgeRaidAdvisor{
+		VisionFn: func(image []byte, mime string) (string, error) {
+			visionCalls++
+			return "should-not-run", nil
+		},
+		CompleteFn: func(prompt string) (string, error) {
+			if !strings.Contains(prompt, "Tomato egg stir-fry") {
+				t.Errorf("prompt missing dish, got %s", prompt)
+			}
+			return `{
+				"title":"Tomato egg stir-fry",
+				"steps":["Heat wok","Scramble eggs","Add tomatoes"],
+				"tasteNote":"Sweet-tart and silky.",
+				"tcm":{"nature":"cool","goodFor":["summer heat","appetite"]},
+				"disclaimer":"Culinary TCM-inspired ideas, not medical advice.",
+				"locale":"en"
+			}`, nil
+		},
+	}
+	got, err := adv.AdviseFridgeRaidDetail(FridgeRaidDetailInput{
+		Locale: "en",
+		Suggestion: FridgeRaidSuggestion{
+			Title: "Tomato egg stir-fry",
+			Hook:  "Sweet-tart.",
+			Uses:  []string{"tomato", "egg"},
+		},
+		Season: SeasonInfo{Name: "summer"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if visionCalls != 0 {
+		t.Fatal("detail path must not call vision")
+	}
+	if len(got.Steps) < 2 || got.TCM == nil || len(got.TCM.GoodFor) == 0 {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestAdviseFridgeRaidDetailMissingLiveModelDoesNotCallVision(t *testing.T) {
+	visionCalls := 0
+	adv := &FridgeRaidAdvisor{
+		VisionFn: func(image []byte, mime string) (string, error) {
+			visionCalls++
+			return "eggs", nil
+		},
+	}
+	_, err := adv.AdviseFridgeRaidDetail(FridgeRaidDetailInput{
+		Locale:     "en",
+		Suggestion: FridgeRaidSuggestion{Title: "Tomato egg stir-fry"},
+	})
+	if err == nil {
+		t.Fatal("expected error when live model is missing")
+	}
+	if visionCalls != 0 {
+		t.Fatal("missing live model must not call vision")
+	}
+}

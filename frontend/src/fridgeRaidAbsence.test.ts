@@ -11,6 +11,10 @@ test('officer Navigation, Login, and landing have no fridge-raid link; App mount
   expect(login).not.toMatch(/fridge-raid/);
   expect(landing).not.toMatch(/fridge-raid/);
   expect(homeGate).not.toMatch(/fridge-raid/);
+  expect(nav).not.toMatch(/fridgeRaid\.detail|fr-modal/);
+  expect(login).not.toMatch(/fridgeRaid\.detail|fr-modal/);
+  expect(landing).not.toMatch(/fridgeRaid\.detail|fr-modal/);
+  expect(homeGate).not.toMatch(/fridgeRaid\.detail|fr-modal/);
   expect(app).toMatch(/path="\/fridge-raid"/);
   const fridgeIdx = app.indexOf('path="/fridge-raid"');
   const protectedIdx = app.indexOf('<ProtectedRoute>');

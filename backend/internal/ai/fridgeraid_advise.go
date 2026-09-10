@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"fmt"
 	"strings"
 	"time"
 )
@@ -13,6 +14,13 @@ type FridgeRaidAdviseInput struct {
 	ImageMIME string
 	Lat       *float64
 	Lon       *float64
+}
+
+type FridgeRaidDetailInput struct {
+	Locale     string
+	Suggestion FridgeRaidSuggestion
+	Season     SeasonInfo
+	Weather    *WeatherSnapshot
 }
 
 type FridgeRaidAdvisor struct {
@@ -160,4 +168,33 @@ func splitIngredients(list string) []string {
 		}
 	}
 	return out
+}
+
+func (a *FridgeRaidAdvisor) AdviseFridgeRaidDetail(in FridgeRaidDetailInput) (*FridgeRaidDishDetail, error) {
+	if a == nil || a.CompleteFn == nil {
+		return nil, fmt.Errorf("live model is not configured (set SILICONFLOW_API_KEY)")
+	}
+	locale := normalizeFridgeLocale(in.Locale)
+	prompt := BuildFridgeRaidDetailPrompt(FridgeRaidDetailPromptInput{
+		Locale:     locale,
+		Suggestion: in.Suggestion,
+		Season:     in.Season,
+		Weather:    in.Weather,
+	})
+	raw, err := a.CompleteFn(prompt)
+	if err != nil {
+		return nil, err
+	}
+	detail, err := ParseFridgeRaidDetail(raw)
+	if err != nil {
+		return nil, err
+	}
+	detail.Locale = locale
+	if detail.Disclaimer == "" {
+		detail.Disclaimer = fridgeDisclaimer(locale)
+	}
+	if detail.Title == "" {
+		detail.Title = in.Suggestion.Title
+	}
+	return detail, nil
 }

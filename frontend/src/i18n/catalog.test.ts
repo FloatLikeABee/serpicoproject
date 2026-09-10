@@ -101,6 +101,18 @@ describe('i18n catalog', () => {
     expect(t('cn', 'fridgeRaid.photo')).toMatch(/照片|拍照|图片/);
     expect(t('us', 'fridgeRaid.tryAgain')).toMatch(/try again/i);
     expect(t('cn', 'fridgeRaid.tryAgain')).not.toBe('fridgeRaid.tryAgain');
+    expect(t('us', 'fridgeRaid.detail.close')).toMatch(/close/i);
+    expect(t('cn', 'fridgeRaid.detail.close')).toMatch(/关闭/);
+    expect(t('us', 'fridgeRaid.detail.busy')).not.toBe('fridgeRaid.detail.busy');
+    expect(t('cn', 'fridgeRaid.detail.busy')).not.toBe('fridgeRaid.detail.busy');
+    expect(t('us', 'fridgeRaid.detail.error')).not.toBe('fridgeRaid.detail.error');
+    expect(t('us', 'fridgeRaid.detail.tryAgain')).toMatch(/try again/i);
+    expect(t('us', 'fridgeRaid.detail.steps')).toMatch(/how|step/i);
+    expect(t('cn', 'fridgeRaid.detail.steps')).toMatch(/做|步骤/);
+    expect(t('us', 'fridgeRaid.detail.tcm')).toMatch(/tcm|season/i);
+    expect(t('us', 'fridgeRaid.detail.goodFor')).toMatch(/good for/i);
+    expect(t('cn', 'fridgeRaid.detail.goodFor')).toMatch(/宜|适合/);
+    expect(t('us', 'fridgeRaid.detail.caution')).toMatch(/caution|go easy/i);
   });
 
   it('returns Simplified Chinese Fleet kind labels used by chips and the pin modal', () => {

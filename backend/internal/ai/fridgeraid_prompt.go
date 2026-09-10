@@ -87,3 +87,69 @@ func fridgeDisclaimer(locale string) string {
 	}
 	return "Culinary TCM-inspired ideas, not medical advice."
 }
+
+const fridgeRaidDetailSystemPrompt = `You are Fridge Raid (翻冰箱) writing ONE dish detail card.
+
+TCM CULINARY THEORY (food as cooking, never as clinical medicine):
+- Four natures 寒 热 温 凉 and five flavors 酸 苦 甘 辛 咸.
+- Rank: cooking steps first, then a taste note, then culinary TCM “good for” (appetite / 开胃, seasonal heat/damp/dry).
+- Never diagnose disease, prescribe treatment, or claim to cure conditions. Culinary wellness only.
+
+OUTPUT:
+- Return JSON only. No markdown essay.
+- steps: 4–8 short cook steps using uses[] and at most the need[] extras.
+- tasteNote: at most two sentences about deliciousness.
+- tcm.nature, tcm.flavors[], tcm.goodFor[] (culinary / seasonal), tcm.caution[] (food, not clinic).
+- One locale. Include disclaimer.
+
+JSON keys: title, titleAlias, steps, tasteNote, tcm {nature, flavors, goodFor, caution}, disclaimer, locale.
+JSON types: steps, flavors, goodFor, caution are JSON arrays of strings.
+`
+
+type FridgeRaidDetailPromptInput struct {
+	Locale     string
+	Suggestion FridgeRaidSuggestion
+	Season     SeasonInfo
+	Weather    *WeatherSnapshot
+}
+
+func BuildFridgeRaidDetailPrompt(in FridgeRaidDetailPromptInput) string {
+	var b strings.Builder
+	b.WriteString(fridgeRaidDetailSystemPrompt)
+	b.WriteString("\n")
+	locale := normalizeFridgeLocale(in.Locale)
+	if locale == "cn" {
+		b.WriteString("Reply locale: Simplified Chinese only (locale=cn).\n")
+	} else {
+		b.WriteString("Reply locale: English only (locale=en).\n")
+	}
+	b.WriteString(fmt.Sprintf("Season: %s", in.Season.Name))
+	if in.Season.SolarTerm != "" {
+		b.WriteString(fmt.Sprintf("  solarTerm: %s", in.Season.SolarTerm))
+	}
+	b.WriteString("\n")
+	if in.Weather != nil && !in.Weather.Unavailable && in.Weather.Label != "" {
+		b.WriteString(fmt.Sprintf("Weather (TCM climate): %s tempC=%.1f\n", in.Weather.Label, in.Weather.TempC))
+	} else {
+		b.WriteString("Weather unavailable — use calendar season only.\n")
+	}
+	sug := in.Suggestion
+	b.WriteString("Dish title: " + strings.TrimSpace(sug.Title) + "\n")
+	if strings.TrimSpace(sug.TitleAlias) != "" {
+		b.WriteString("titleAlias: " + strings.TrimSpace(sug.TitleAlias) + "\n")
+	}
+	if strings.TrimSpace(sug.Hook) != "" {
+		b.WriteString("Taste hook: " + strings.TrimSpace(sug.Hook) + "\n")
+	}
+	if strings.TrimSpace(sug.TCMNote) != "" {
+		b.WriteString("Short TCM peek: " + strings.TrimSpace(sug.TCMNote) + "\n")
+	}
+	if len(sug.Uses) > 0 {
+		b.WriteString("Uses: " + strings.Join(sug.Uses, ", ") + "\n")
+	}
+	if len(sug.Need) > 0 {
+		b.WriteString("Need: " + strings.Join(sug.Need, ", ") + "\n")
+	}
+	b.WriteString("Return JSON now.\n")
+	return b.String()
+}
