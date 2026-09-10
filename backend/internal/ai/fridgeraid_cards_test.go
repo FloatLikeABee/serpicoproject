@@ -88,6 +88,46 @@ func TestParseFridgeRaidCardsIngredientsSeenString(t *testing.T) {
 	}
 }
 
+func TestParseFridgeRaidCardsLooseModelTypes(t *testing.T) {
+	raw := `{
+		"season": "lateSummer",
+		"weather": {"label": "hot", "tempC": "32"},
+		"ingredientsSeen": "eggs, tomatoes",
+		"askFridgeRaid": "false",
+		"suggestions": [
+			{
+				"title": "Tomato egg",
+				"hook": "Silky eggs, tart tomato.",
+				"chips": "开胃, 15 min",
+				"uses": "tomato, egg",
+				"need": "scallion"
+			}
+		],
+		"disclaimer": "Culinary wellness, not medical advice.",
+		"locale": "en"
+	}`
+	got, err := ParseFridgeRaidCards(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.AskFridgeRaid {
+		t.Fatal("askFridgeRaid string false should be false")
+	}
+	if got.Weather == nil || got.Weather.TempC != 32 {
+		t.Fatalf("weather=%+v", got.Weather)
+	}
+	if len(got.IngredientsSeen) != 2 {
+		t.Fatalf("ingredientsSeen=%v", got.IngredientsSeen)
+	}
+	s0 := got.Suggestions[0]
+	if len(s0.Chips) != 2 || s0.Chips[0] != "开胃" || s0.Chips[1] != "15 min" {
+		t.Fatalf("chips=%v", s0.Chips)
+	}
+	if len(s0.Uses) != 2 || s0.Need[0] != "scallion" {
+		t.Fatalf("uses=%v need=%v", s0.Uses, s0.Need)
+	}
+}
+
 func TestParseFridgeRaidCardsProseWithoutJSONErrors(t *testing.T) {
 	_, err := ParseFridgeRaidCards("Once upon a time in a kitchen far away, let me tell you a long story about soup and the Yellow Emperor.")
 	if err == nil {

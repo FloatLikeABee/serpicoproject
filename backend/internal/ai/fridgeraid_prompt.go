@@ -23,6 +23,7 @@ OUTPUT:
 - Never diagnose disease, prescribe treatment, or claim to cure conditions. Culinary wellness only.
 
 JSON keys: season, solarTerm, weather {label, tempC}, ingredientsSeen, askFridgeRaid, nudge, suggestions[{title,titleAlias,hook,chips,tcmNote,uses,need}], disclaimer, locale.
+JSON types (strict): askFridgeRaid is a boolean not a string; ingredientsSeen, chips, uses, and need are JSON arrays of strings; weather.tempC is a number.
 `
 
 type FridgeRaidPromptInput struct {
