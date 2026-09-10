@@ -16,5 +16,5 @@
 
 ## 4. Isolation and verify
 
-- [ ] 4.1 Confirm officer Navigation, Login, landing/HomeGate still have no `/fridge-raid` and no detail-modal copy; verify existing `fridgeRaidAbsence` test still passes
-- [ ] 4.2 Run fridge-raid frontend tests plus `go test ./internal/ai ./internal/api -count=1` and verify they pass
+- [x] 4.1 Confirm officer Navigation, Login, landing/HomeGate still have no `/fridge-raid` and no detail-modal copy; verify existing `fridgeRaidAbsence` test still passes
+- [x] 4.2 Run fridge-raid frontend tests plus `go test ./internal/ai ./internal/api -count=1` and verify they pass
