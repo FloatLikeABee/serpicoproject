@@ -6,6 +6,7 @@ import { apiV1Base } from '../utils/hardDataUrls';
 import type { Nation } from '../utils/nation';
 
 const SESSION_KEY = 'serpico.fridgeRaid.v1';
+const DETAIL_CACHE_KEY = 'serpico.fridgeRaid.detail.v1';
 
 export type FridgeRaidSuggestion = {
   title: string;
@@ -28,12 +29,55 @@ export type FridgeRaidCards = {
   locale?: string;
 };
 
+export type FridgeRaidDishDetail = {
+  title: string;
+  titleAlias?: string;
+  steps?: string[];
+  tasteNote?: string;
+  tcm?: {
+    nature?: string;
+    flavors?: string[];
+    goodFor?: string[];
+    caution?: string[];
+  };
+  disclaimer?: string;
+  locale?: string;
+};
+
 type Bubble = {
   role: 'assistant' | 'user';
   text?: string;
   photo?: boolean;
   cards?: FridgeRaidCards;
 };
+
+function fridgeLocale(nation: Nation): string {
+  return nation === 'cn' ? 'cn' : 'en';
+}
+
+function detailCacheKey(locale: string, card: FridgeRaidSuggestion): string {
+  return `${locale}\n${card.title}\n${(card.uses || []).join(',')}`;
+}
+
+function readDetailCache(): Record<string, FridgeRaidDishDetail> {
+  try {
+    const raw = sessionStorage.getItem(DETAIL_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, FridgeRaidDishDetail>;
+    if (parsed && typeof parsed === 'object') return parsed;
+  } catch {
+    /* ignore */
+  }
+  return {};
+}
+
+function writeDetailCache(map: Record<string, FridgeRaidDishDetail>) {
+  try {
+    sessionStorage.setItem(DETAIL_CACHE_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore */
+  }
+}
 
 function opening(nation: Nation): Bubble {
   return { role: 'assistant', text: t(nation, 'fridgeRaid.opening') };
@@ -77,6 +121,11 @@ const FridgeRaid: React.FC = () => {
   const [coords, setCoords] = useState<{ lat?: number; lon?: number }>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const [detailOpen, setDetailOpen] = useState<{
+    card: FridgeRaidSuggestion;
+    cards: FridgeRaidCards;
+    accent: number;
+  } | null>(null);
 
   const tx = useCallback((key: string) => t(nation, key), [nation]);
   const season = useMemo(() => {
@@ -160,7 +209,7 @@ const FridgeRaid: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          locale: nation === 'cn' ? 'cn' : 'en',
+          locale: fridgeLocale(nation),
           text: leftover,
           plan: planText,
           imageBase64: imageBase64 || undefined,
@@ -214,7 +263,13 @@ const FridgeRaid: React.FC = () => {
             {b.cards?.suggestions?.length ? (
               <div className="fr-cards">
                 {b.cards.suggestions.slice(0, 4).map((card, ci) => (
-                  <SuggestionCard key={ci} card={card} accent={ci} nation={nation} />
+                  <SuggestionCard
+                    key={ci}
+                    card={card}
+                    accent={ci}
+                    nation={nation}
+                    onOpen={() => setDetailOpen({ card, cards: b.cards!, accent: ci })}
+                  />
                 ))}
               </div>
             ) : null}
@@ -274,6 +329,15 @@ const FridgeRaid: React.FC = () => {
           </button>
         </div>
       </form>
+      {detailOpen ? (
+        <FridgeRaidDetailModal
+          nation={nation}
+          card={detailOpen.card}
+          cards={detailOpen.cards}
+          accent={detailOpen.accent}
+          onClose={() => setDetailOpen(null)}
+        />
+      ) : null}
     </div>
   );
 };
@@ -282,14 +346,30 @@ function SuggestionCard({
   card,
   accent,
   nation,
+  onOpen,
 }: {
   card: FridgeRaidSuggestion;
   accent: number;
   nation: Nation;
+  onOpen: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <article data-testid="fridge-raid-card" className={`fr-card fr-accent-${accent % 4}`}>
+    <article
+      data-testid="fridge-raid-card"
+      className={`fr-card fr-accent-${accent % 4}`}
+      role="button"
+      tabIndex={0}
+      aria-haspopup="dialog"
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.currentTarget !== e.target) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+    >
       <h2>{card.title}</h2>
       {card.titleAlias ? <p className="fr-alias">{card.titleAlias}</p> : null}
       <p className="fr-hook">{card.hook}</p>
@@ -302,7 +382,15 @@ function SuggestionCard({
       ) : null}
       {card.tcmNote ? (
         <div>
-          <button type="button" className="fr-tcm-toggle" onClick={() => setOpen((v) => !v)}>
+          <button
+            type="button"
+            className="fr-tcm-toggle"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen((v) => !v);
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             {open ? t(nation, 'fridgeRaid.tcmHide') : t(nation, 'fridgeRaid.tcmMore')}
           </button>
           {open ? <p className="fr-tcm">{card.tcmNote}</p> : null}
@@ -319,6 +407,186 @@ function SuggestionCard({
         </p>
       ) : null}
     </article>
+  );
+}
+
+function FridgeRaidDetailModal({
+  nation,
+  card,
+  cards,
+  accent,
+  onClose,
+}: {
+  nation: Nation;
+  card: FridgeRaidSuggestion;
+  cards: FridgeRaidCards;
+  accent: number;
+  onClose: () => void;
+}) {
+  const locale = fridgeLocale(nation);
+  const cacheKey = detailCacheKey(locale, card);
+  const cached = readDetailCache()[cacheKey];
+  const [detail, setDetail] = useState<FridgeRaidDishDetail | null>(cached || null);
+  const [busy, setBusy] = useState(!cached);
+  const [error, setError] = useState('');
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const titleId = 'fr-modal-title';
+
+  const load = useCallback(async () => {
+    const hit = readDetailCache()[cacheKey];
+    if (hit) {
+      setDetail(hit);
+      setBusy(false);
+      setError('');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch(`${apiV1Base()}/fridge-raid/detail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locale,
+          suggestion: card,
+          season: cards.season,
+          solarTerm: cards.solarTerm,
+          weather: cards.weather,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error('detail failed');
+      }
+      const payload = (await res.json()) as FridgeRaidDishDetail;
+      const map = readDetailCache();
+      map[cacheKey] = payload;
+      writeDetailCache(map);
+      setDetail(payload);
+    } catch {
+      setError(t(nation, 'fridgeRaid.detail.error'));
+    } finally {
+      setBusy(false);
+    }
+  }, [cacheKey, card, cards.season, cards.solarTerm, cards.weather, locale, nation]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    closeRef.current?.focus?.();
+  }, []);
+
+  const steps = detail?.steps?.filter(Boolean) || [];
+  const tcm = detail?.tcm;
+  const flavors = [tcm?.nature, ...(tcm?.flavors || [])].filter(Boolean) as string[];
+
+  return (
+    <div
+      className="fr-modal-backdrop"
+      data-testid="fridge-raid-modal-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className={`fr-modal fr-modal-accent-${accent % 4}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="fr-modal-head">
+          <div>
+            <h2 id={titleId}>{card.title}</h2>
+            {card.titleAlias || detail?.titleAlias ? (
+              <p className="fr-modal-alias">{card.titleAlias || detail?.titleAlias}</p>
+            ) : null}
+          </div>
+          <button
+            ref={closeRef}
+            type="button"
+            className="fr-modal-close"
+            aria-label={t(nation, 'fridgeRaid.detail.close')}
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+        {busy ? <p className="fr-modal-busy">{t(nation, 'fridgeRaid.detail.busy')}</p> : null}
+        {error ? (
+          <p className="fr-modal-error">
+            {error}{' '}
+            <button type="button" onClick={() => void load()}>
+              {t(nation, 'fridgeRaid.detail.tryAgain')}
+            </button>
+          </p>
+        ) : null}
+        {!busy && !error && detail ? (
+          <>
+            {detail.tasteNote ? <p className="fr-modal-taste">{detail.tasteNote}</p> : null}
+            {steps.length ? (
+              <section>
+                <h3>{t(nation, 'fridgeRaid.detail.steps')}</h3>
+                <ol>
+                  {steps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </section>
+            ) : null}
+            {tcm ? (
+              <section>
+                <h3>{t(nation, 'fridgeRaid.detail.tcm')}</h3>
+                {flavors.length ? (
+                  <ul className="fr-modal-tcm-bits">
+                    {flavors.map((bit) => (
+                      <li key={bit}>{bit}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {tcm.goodFor?.length ? (
+                  <div>
+                    <p className="fr-modal-sub">{t(nation, 'fridgeRaid.detail.goodFor')}</p>
+                    <ul className="fr-modal-good">
+                      {tcm.goodFor.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {tcm.caution?.length ? (
+                  <div>
+                    <p className="fr-modal-sub">{t(nation, 'fridgeRaid.detail.caution')}</p>
+                    <ul className="fr-modal-caution">
+                      {tcm.caution.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+            {detail.disclaimer ? <p className="fr-modal-disclaimer">{detail.disclaimer}</p> : null}
+          </>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

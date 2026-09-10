@@ -11,8 +11,8 @@
 ## 3. Kitchen modal UI
 
 - [x] 3.1 Add i18n keys for modal close, busy, error, try again, steps heading, TCM heading, good-for heading, caution heading (en + zh) under `fridgeRaid.detail.*`; verify catalog tests
-- [ ] 3.2 Implement the kitchen `role="dialog"` overlay (mobile sheet / desktop centered, opaque, ESC/backdrop/close, body scroll lock, isolated `.fr-modal*` CSS, no Navigation/synth-grid); verify RTL: open shows dialog named by dish title, close/Escape/backdrop dismiss, no `navigation`
-- [ ] 3.3 Wire card click to open the modal (TCM expand `stopPropagation`), fetch `/fridge-raid/detail` on first open, session-cache by locale+title+uses, show busy then steps + culinary TCM + disclaimer; verify: click card opens dialog with fixture steps, TCM peek does not open dialog, second open does not call fetch again
+- [x] 3.2 Implement the kitchen `role="dialog"` overlay (mobile sheet / desktop centered, opaque, ESC/backdrop/close, body scroll lock, isolated `.fr-modal*` CSS, no Navigation/synth-grid); verify RTL: open shows dialog named by dish title, close/Escape/backdrop dismiss, no `navigation`
+- [x] 3.3 Wire card click to open the modal (TCM expand `stopPropagation`), fetch `/fridge-raid/detail` on first open, session-cache by locale+title+uses, show busy then steps + culinary TCM + disclaimer; verify: click card opens dialog with fixture steps, TCM peek does not open dialog, second open does not call fetch again
 
 ## 4. Isolation and verify
 
