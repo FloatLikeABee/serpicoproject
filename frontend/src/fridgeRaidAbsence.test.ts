@@ -20,3 +20,13 @@ test('officer Navigation, Login, and landing have no fridge-raid link; App mount
   const spaRoutes = readFileSync(join(__dirname, '../scripts/spa-routes.js'), 'utf8');
   expect(spaRoutes).toMatch(/'fridge-raid'/);
 });
+
+test('fridge-raid thread scrolls above an in-flow composer (no fixed overlap)', () => {
+  const css = readFileSync(join(__dirname, 'index.css'), 'utf8');
+  const composer = css.match(/\.fr-composer\s*\{[^}]+\}/)?.[0] || '';
+  const thread = css.match(/\.fr-thread\s*\{[^}]+\}/)?.[0] || '';
+  expect(composer).toBeTruthy();
+  expect(composer).not.toMatch(/position:\s*fixed/);
+  expect(thread).toMatch(/overflow-y:\s*auto/);
+  expect(thread).toMatch(/min-height:\s*0/);
+});
