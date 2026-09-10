@@ -25,6 +25,10 @@ func TestFridgeRaidVisionModelFollowsSerpicoLiveConfig(t *testing.T) {
 	if FridgeRaidVisionModel() != "custom-vl-override" {
 		t.Fatalf("explicit FRIDGE_RAID_VISION_MODEL should win, got %s", FridgeRaidVisionModel())
 	}
+	t.Setenv("FRIDGE_RAID_VISION_MODEL", "Qwen/Qwen2.5-VL-32B-Instruct")
+	if FridgeRaidVisionModel() != "deepseek-ai/DeepSeek-V4-Flash" {
+		t.Fatalf("stale Qwen VL blueprint value should follow Serpico live model, got %s", FridgeRaidVisionModel())
+	}
 }
 
 func TestFridgeRaidVisionRequestIncludesImageURL(t *testing.T) {

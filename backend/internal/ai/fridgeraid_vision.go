@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -21,7 +22,16 @@ type FridgeRaidVisionClient struct {
 }
 
 func FridgeRaidVisionModel() string {
-	return envOrDefault("FRIDGE_RAID_VISION_MODEL", liveModelName())
+	model := strings.TrimSpace(os.Getenv("FRIDGE_RAID_VISION_MODEL"))
+	if model == "" || isStaleFridgeRaidVisionModel(model) {
+		return liveModelName()
+	}
+	return model
+}
+
+func isStaleFridgeRaidVisionModel(model string) bool {
+	l := strings.ToLower(model)
+	return strings.Contains(l, "qwen2.5-vl") || strings.Contains(l, "qwen3-vl")
 }
 
 func NewFridgeRaidVisionClient(apiKey, model, baseURL string) *FridgeRaidVisionClient {
