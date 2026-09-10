@@ -86,6 +86,23 @@ describe('i18n catalog', () => {
     expect(t('cn', 'join.title')).not.toBe('join.title');
   });
 
+  it('returns Fridge Raid kitchen chrome in English and Simplified Chinese', () => {
+    expect(t('us', 'fridgeRaid.title')).toBe('Fridge Raid');
+    expect(t('cn', 'fridgeRaid.title')).toBe('翻冰箱');
+    expect(t('us', 'fridgeRaid.opening')).toMatch(/fridge/i);
+    expect(t('us', 'fridgeRaid.opening')).toMatch(/photo/i);
+    expect(t('cn', 'fridgeRaid.opening')).toMatch(/冰箱/);
+    expect(t('cn', 'fridgeRaid.opening')).toMatch(/拍/);
+    expect(t('us', 'fridgeRaid.disclaimer')).toMatch(/not medical/i);
+    expect(t('cn', 'fridgeRaid.disclaimer')).toMatch(/医疗/);
+    expect(t('us', 'fridgeRaid.send')).toBe('Send');
+    expect(t('cn', 'fridgeRaid.send')).toBe('发送');
+    expect(t('us', 'fridgeRaid.photo')).toMatch(/photo/i);
+    expect(t('cn', 'fridgeRaid.photo')).toMatch(/照片|拍照|图片/);
+    expect(t('us', 'fridgeRaid.tryAgain')).toMatch(/try again/i);
+    expect(t('cn', 'fridgeRaid.tryAgain')).not.toBe('fridgeRaid.tryAgain');
+  });
+
   it('returns Simplified Chinese Fleet kind labels used by chips and the pin modal', () => {
     expect(t('cn', 'fleet.short.station')).toMatch(/[\u4e00-\u9fff]/);
     expect(t('cn', 'fleet.kind.police_station')).toMatch(/[\u4e00-\u9fff]/);
