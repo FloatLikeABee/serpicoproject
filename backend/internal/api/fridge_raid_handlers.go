@@ -116,3 +116,49 @@ func handleFridgeRaidChat(c *gin.Context, aiService interface{}) {
 	}
 	c.JSON(http.StatusOK, cards)
 }
+
+type fridgeRaidDetailAdviser interface {
+	AdviseFridgeRaidDetail(in ai.FridgeRaidDetailInput) (*ai.FridgeRaidDishDetail, error)
+}
+
+func handleFridgeRaidDetail(c *gin.Context, aiService interface{}) {
+	if !fridgeRaidAllowed(c.ClientIP()) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests. Try again in a few minutes."})
+		return
+	}
+	var req struct {
+		Locale     string                  `json:"locale"`
+		Suggestion ai.FridgeRaidSuggestion `json:"suggestion"`
+		Season     string                  `json:"season"`
+		SolarTerm  string                  `json:"solarTerm"`
+		Weather    *ai.FridgeRaidWeather   `json:"weather"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if strings.TrimSpace(req.Suggestion.Title) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dish title required"})
+		return
+	}
+	adviser, ok := aiService.(fridgeRaidDetailAdviser)
+	if !ok {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "kitchen advisor is not available"})
+		return
+	}
+	var weather *ai.WeatherSnapshot
+	if req.Weather != nil {
+		weather = &ai.WeatherSnapshot{Label: req.Weather.Label, TempC: req.Weather.TempC}
+	}
+	detail, err := adviser.AdviseFridgeRaidDetail(ai.FridgeRaidDetailInput{
+		Locale:     req.Locale,
+		Suggestion: req.Suggestion,
+		Season:     ai.SeasonInfo{Name: req.Season, SolarTerm: req.SolarTerm},
+		Weather:    weather,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, detail)
+}

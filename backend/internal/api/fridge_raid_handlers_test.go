@@ -33,6 +33,18 @@ func (s *stubFridgeAI) AdviseFridgeRaid(in ai.FridgeRaidAdviseInput) (*ai.Fridge
 	}, nil
 }
 
+func (s *stubFridgeAI) AdviseFridgeRaidDetail(in ai.FridgeRaidDetailInput) (*ai.FridgeRaidDishDetail, error) {
+	s.adviseCalls++
+	return &ai.FridgeRaidDishDetail{
+		Title:      in.Suggestion.Title,
+		Steps:      []string{"Heat wok", "Scramble eggs", "Add tomatoes"},
+		TasteNote:  "Sweet-tart and silky.",
+		TCM:        &ai.FridgeRaidDetailTCM{GoodFor: []string{"summer heat", "appetite"}},
+		Disclaimer: "Culinary TCM-inspired ideas, not medical advice.",
+		Locale:     "en",
+	}, nil
+}
+
 func fridgeRaidTestRouter(t *testing.T, aiService interface{}) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -108,5 +120,57 @@ func TestFridgeRaidChatDoesNotBreakOfficerChatRoute(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code == http.StatusNotFound {
 		t.Fatalf("officer /chat route missing: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestFridgeRaidDetailReturnsSteps(t *testing.T) {
+	resetFridgeRaidLimiter()
+	stub := &stubFridgeAI{}
+	r := fridgeRaidTestRouter(t, stub)
+	w := postJSON(r, "/api/v1/fridge-raid/detail", `{"locale":"en","suggestion":{"title":"Tomato egg stir-fry","hook":"Silky.","uses":["tomato","egg"]}}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	var got ai.FridgeRaidDishDetail
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Title != "Tomato egg stir-fry" || len(got.Steps) < 2 {
+		t.Fatalf("got %+v", got)
+	}
+	if stub.adviseCalls != 1 {
+		t.Fatalf("advise calls=%d", stub.adviseCalls)
+	}
+}
+
+func TestFridgeRaidDetailRejectsEmptyTitle(t *testing.T) {
+	resetFridgeRaidLimiter()
+	stub := &stubFridgeAI{}
+	r := fridgeRaidTestRouter(t, stub)
+	w := postJSON(r, "/api/v1/fridge-raid/detail", `{"locale":"en","suggestion":{"title":""}}`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if stub.adviseCalls != 0 {
+		t.Fatalf("empty title must not call advisor, calls=%d", stub.adviseCalls)
+	}
+}
+
+func TestFridgeRaidDetailSharesRateLimitWithChat(t *testing.T) {
+	prev := fridgeRaidMaxAttempts
+	fridgeRaidMaxAttempts = 3
+	t.Cleanup(func() { fridgeRaidMaxAttempts = prev })
+	resetFridgeRaidLimiter()
+	stub := &stubFridgeAI{}
+	r := fridgeRaidTestRouter(t, stub)
+	postJSON(r, "/api/v1/fridge-raid/chat", `{"locale":"en","text":"eggs"}`)
+	postJSON(r, "/api/v1/fridge-raid/chat", `{"locale":"en","text":"eggs"}`)
+	last := postJSON(r, "/api/v1/fridge-raid/detail", `{"locale":"en","suggestion":{"title":"Tomato egg stir-fry"}}`)
+	if last.Code != http.StatusTooManyRequests && last.Code != http.StatusOK {
+		t.Fatalf("unexpected %d %s", last.Code, last.Body.String())
+	}
+	last = postJSON(r, "/api/v1/fridge-raid/detail", `{"locale":"en","suggestion":{"title":"Tomato egg stir-fry"}}`)
+	if last.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected rate limit, got %d %s", last.Code, last.Body.String())
 	}
 }

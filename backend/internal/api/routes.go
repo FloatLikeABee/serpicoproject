@@ -82,6 +82,7 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 	fridgeRaid := r.Group("/fridge-raid")
 	{
 		fridgeRaid.POST("/chat", func(c *gin.Context) { handleFridgeRaidChat(c, aiService) })
+		fridgeRaid.POST("/detail", func(c *gin.Context) { handleFridgeRaidDetail(c, aiService) })
 	}
 
 	// Chase Game routes
