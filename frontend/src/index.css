@@ -392,7 +392,8 @@ html.fr-world,
 html.fr-world.synth-world {
   color-scheme: light;
   height: 100%;
-  overflow: auto;
+  height: 100dvh;
+  overflow: hidden;
   background: #fbf6ee;
 }
 html.fr-world body,
@@ -400,19 +401,21 @@ html.fr-world.synth-world body,
 html.fr-world #root,
 html.fr-world.synth-world #root {
   height: 100%;
-  overflow: auto;
+  overflow: hidden;
   background: #fbf6ee;
   color: #2c2118;
   font-family: "Source Han Sans SC", "Noto Sans SC", "Segoe UI", sans-serif;
 }
 
 .fr-page {
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   max-width: 34rem;
   margin: 0 auto;
-  padding: 1rem 1rem 7.5rem;
+  padding: 1rem 1rem 0;
+  overflow: hidden;
   background:
     radial-gradient(1200px 400px at 10% -10%, rgba(255, 196, 120, 0.35), transparent 55%),
     radial-gradient(900px 360px at 110% 0%, rgba(120, 196, 140, 0.28), transparent 50%),
@@ -425,7 +428,7 @@ html.fr-world.synth-world #root {
 .fr-page.fr-season-autumn { background-image: radial-gradient(900px 400px at 10% 0%, rgba(232, 168, 64, 0.4), transparent 55%); }
 .fr-page.fr-season-winter { background-image: radial-gradient(900px 400px at 90% 0%, rgba(90, 140, 196, 0.28), transparent 55%); }
 
-.fr-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+.fr-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; flex-shrink: 0; }
 .fr-kicker { margin: 0; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: #b45309; }
 .fr-page h1 { margin: 0.15rem 0 0; font-size: 2rem; font-weight: 800; color: #9a3412; letter-spacing: -0.02em; }
 .fr-lang { display: flex; gap: 0.35rem; }
@@ -438,8 +441,17 @@ html.fr-world.synth-world #root {
   cursor: pointer;
 }
 .fr-lang button.is-on { background: #9a3412; color: #fff7ed; border-color: #9a3412; }
-.fr-disclaimer { font-size: 0.8rem; color: #7c5c32; margin: 0.75rem 0 1rem; }
-.fr-thread { display: flex; flex-direction: column; gap: 0.85rem; flex: 1; }
+.fr-disclaimer { font-size: 0.8rem; color: #7c5c32; margin: 0.75rem 0 1rem; flex-shrink: 0; }
+.fr-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 0.5rem;
+}
 .fr-bubble p { margin: 0 0 0.5rem; line-height: 1.45; }
 .fr-assistant { background: transparent; }
 .fr-user {
@@ -485,14 +497,11 @@ html.fr-world.synth-world #root {
 .fr-busy, .fr-error { font-size: 0.9rem; }
 .fr-error button { margin-left: 0.35rem; }
 .fr-composer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  max-width: 34rem;
-  margin: 0 auto;
-  padding: 0.65rem 1rem 1rem;
-  background: linear-gradient(180deg, transparent, #fbf6ee 18%);
+  flex-shrink: 0;
+  width: 100%;
+  padding: 0.65rem 0 max(1rem, env(safe-area-inset-bottom, 0px));
+  background: #fbf6ee;
+  border-top: 1px solid #f0e0c8;
 }
 .fr-plan-hint { margin: 0 0 0.25rem; font-size: 0.75rem; color: #7c5c32; }
 .fr-plan, .fr-composer textarea {
