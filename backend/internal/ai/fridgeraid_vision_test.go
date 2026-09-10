@@ -10,8 +10,31 @@ import (
 	"testing"
 )
 
-func TestFridgeRaidVisionRequestIncludesImageURL(t *testing.T) {
+func TestFridgeRaidVisionModelFollowsSerpicoLiveConfig(t *testing.T) {
+	t.Setenv("FRIDGE_RAID_VISION_MODEL", "")
+	t.Setenv("SILICONFLOW_MODEL", "")
+	t.Setenv("QWEN_MODEL", "")
+	if FridgeRaidVisionModel() != defaultLiveModel {
+		t.Fatalf("unset env should use Serpico live model %s, got %s", defaultLiveModel, FridgeRaidVisionModel())
+	}
+	t.Setenv("SILICONFLOW_MODEL", "deepseek-ai/DeepSeek-V4-Flash")
+	if FridgeRaidVisionModel() != "deepseek-ai/DeepSeek-V4-Flash" {
+		t.Fatalf("SILICONFLOW_MODEL should win when FRIDGE_RAID_VISION_MODEL unset, got %s", FridgeRaidVisionModel())
+	}
+	t.Setenv("FRIDGE_RAID_VISION_MODEL", "custom-vl-override")
+	if FridgeRaidVisionModel() != "custom-vl-override" {
+		t.Fatalf("explicit FRIDGE_RAID_VISION_MODEL should win, got %s", FridgeRaidVisionModel())
+	}
 	t.Setenv("FRIDGE_RAID_VISION_MODEL", "Qwen/Qwen2.5-VL-32B-Instruct")
+	if FridgeRaidVisionModel() != "deepseek-ai/DeepSeek-V4-Flash" {
+		t.Fatalf("stale Qwen VL blueprint value should follow Serpico live model, got %s", FridgeRaidVisionModel())
+	}
+}
+
+func TestFridgeRaidVisionRequestIncludesImageURL(t *testing.T) {
+	t.Setenv("FRIDGE_RAID_VISION_MODEL", "")
+	t.Setenv("SILICONFLOW_MODEL", "")
+	t.Setenv("QWEN_MODEL", "")
 	var raw map[string]interface{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -31,8 +54,8 @@ func TestFridgeRaidVisionRequestIncludesImageURL(t *testing.T) {
 	if got != "eggs, tomatoes" {
 		t.Fatalf("got %q", got)
 	}
-	if raw["model"] != "Qwen/Qwen2.5-VL-32B-Instruct" {
-		t.Fatalf("model=%v", raw["model"])
+	if raw["model"] != defaultLiveModel {
+		t.Fatalf("model=%v want %s", raw["model"], defaultLiveModel)
 	}
 	blob, _ := json.Marshal(raw)
 	if !strings.Contains(string(blob), "image_url") {
