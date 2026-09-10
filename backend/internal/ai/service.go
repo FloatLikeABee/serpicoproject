@@ -150,6 +150,24 @@ func (s *AIService) generateChat(userMessage, context string, history []ChatHist
 	return s.qwen.GenerateResponse(userMessage, context, history, ragResults, webResult, newsDigests)
 }
 
+func (s *AIService) AdviseFridgeRaid(in FridgeRaidAdviseInput) (*FridgeRaidCards, error) {
+	adv := &FridgeRaidAdvisor{
+		WeatherFn: func(lat, lon float64) (*WeatherSnapshot, error) {
+			return FetchOpenMeteoWeather(nil, "", lat, lon)
+		},
+		CompleteFn: func(prompt string) (string, error) {
+			return s.generateWithLiveModel("", prompt)
+		},
+	}
+	if s != nil && s.config != nil && s.config.QwenAPIKey != "" {
+		vis := NewFridgeRaidVisionClient(s.config.QwenAPIKey, FridgeRaidVisionModel(), s.config.QwenBaseURL)
+		if vis.Enabled() {
+			adv.VisionFn = vis.IdentifyIngredients
+		}
+	}
+	return adv.Advise(in)
+}
+
 func (s *AIService) generateWithLiveModel(systemPrompt, userPrompt string) (string, error) {
 	if s == nil || s.qwen == nil || !s.qwen.Enabled() {
 		return "", fmt.Errorf("live model is not configured (set SILICONFLOW_API_KEY)")

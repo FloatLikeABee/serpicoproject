@@ -78,6 +78,12 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		chat.POST("", func(c *gin.Context) { handleChat(c, aiService) })
 	}
 
+	// Fridge Raid kitchen advisor (public, unlisted side app)
+	fridgeRaid := r.Group("/fridge-raid")
+	{
+		fridgeRaid.POST("/chat", func(c *gin.Context) { handleFridgeRaidChat(c, aiService) })
+	}
+
 	// Chase Game routes
 	chaseGame := r.Group("/chase-game")
 	{
