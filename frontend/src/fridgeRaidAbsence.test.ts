@@ -17,4 +17,6 @@ test('officer Navigation, Login, and landing have no fridge-raid link; App mount
   expect(fridgeIdx).toBeGreaterThan(-1);
   expect(protectedIdx).toBeGreaterThan(-1);
   expect(fridgeIdx).toBeLessThan(protectedIdx);
+  const spaRoutes = readFileSync(join(__dirname, '../scripts/spa-routes.js'), 'utf8');
+  expect(spaRoutes).toMatch(/'fridge-raid'/);
 });
