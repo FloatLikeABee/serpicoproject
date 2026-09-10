@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const defaultFridgeRaidVisionModel = "Qwen/Qwen2.5-VL-32B-Instruct"
+const defaultFridgeRaidVisionModel = defaultLiveModel
 
 type FridgeRaidVisionClient struct {
 	apiKey  string
@@ -21,7 +21,7 @@ type FridgeRaidVisionClient struct {
 }
 
 func FridgeRaidVisionModel() string {
-	return envOrDefault("FRIDGE_RAID_VISION_MODEL", defaultFridgeRaidVisionModel)
+	return envOrDefault("FRIDGE_RAID_VISION_MODEL", liveModelName())
 }
 
 func NewFridgeRaidVisionClient(apiKey, model, baseURL string) *FridgeRaidVisionClient {
