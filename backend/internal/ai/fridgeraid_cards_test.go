@@ -68,6 +68,26 @@ func TestParseFridgeRaidCardsMessyFences(t *testing.T) {
 	}
 }
 
+func TestParseFridgeRaidCardsIngredientsSeenString(t *testing.T) {
+	raw := `{
+		"season": "lateSummer",
+		"ingredientsSeen": "eggs, tomatoes",
+		"askFridgeRaid": false,
+		"suggestions": [
+			{"title": "Tomato egg", "hook": "Silky eggs, tart tomato."}
+		],
+		"disclaimer": "Culinary wellness, not medical advice.",
+		"locale": "en"
+	}`
+	got, err := ParseFridgeRaidCards(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.IngredientsSeen) != 2 || got.IngredientsSeen[0] != "eggs" || got.IngredientsSeen[1] != "tomatoes" {
+		t.Fatalf("ingredientsSeen=%v", got.IngredientsSeen)
+	}
+}
+
 func TestParseFridgeRaidCardsProseWithoutJSONErrors(t *testing.T) {
 	_, err := ParseFridgeRaidCards("Once upon a time in a kitchen far away, let me tell you a long story about soup and the Yellow Emperor.")
 	if err == nil {
