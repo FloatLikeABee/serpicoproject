@@ -486,7 +486,7 @@ func TestLalemDigestReadsWarmStoreWithoutAdvise(t *testing.T) {
 	stub := &stubLalemAI{}
 	r, db := lalemRouterWithDB(t, stub)
 	now := time.Now()
-	seedLalemStore(t, db, "cn", "昨日综艺", "别蹲太久", now.Add(-time.Hour))
+	seedLalemStore(t, db, "cn", "昨日综艺", "别蹲太久", now)
 	w := getJSON(r, "/api/v1/lalem/digest?locale=cn")
 	if w.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", w.Code, w.Body.String())
