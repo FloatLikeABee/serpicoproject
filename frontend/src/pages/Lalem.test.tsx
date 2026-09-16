@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import Lalem from './Lalem';
 
 const toilets = {
@@ -41,16 +43,16 @@ const digest = {
   disclaimer: '卫生间小贴士，不能替代医疗诊断或治疗。',
   trends: [
     {
-      kind: 'entertainment',
-      title: '综艺夜',
-      hook: '今晚热聊。',
-      imageUrl: '/lalem/trends/entertainment-1.svg',
+      kind: 'fashion',
+      title: '今日新色',
+      hook: '今天的热搜。',
+      imageUrl: '/lalem/trends/fashion-1.svg',
     },
     {
-      kind: 'fashion',
-      title: '新色号',
-      hook: '妆容换季。',
-      imageUrl: '/lalem/trends/fashion-1.svg',
+      kind: 'entertainment',
+      title: '昨日综艺',
+      hook: '昨天还在聊。',
+      imageUrl: '/lalem/trends/entertainment-1.svg',
     },
   ],
   videos: [
@@ -60,7 +62,7 @@ const digest = {
       srcUrl: '/lalem/videos/hot-ent.mp4',
     },
   ],
-  useful: ['别蹲太久', '洗手到泡沫'],
+  useful: ['今日贴士：别蹲太久', '昨日贴士：洗手到泡沫'],
 };
 
 function mockLalemFetch() {
@@ -86,6 +88,11 @@ beforeEach(() => {
   sessionStorage.clear();
   Object.defineProperty(window.navigator, 'language', { configurable: true, value: 'en-US' });
   global.fetch = mockLalemFetch();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+  Object.defineProperty(document, 'hidden', { configurable: true, value: false });
 });
 
 test('fresh visit shows 拉了么 and toilet images, not officer nav', async () => {
@@ -135,9 +142,80 @@ test('热榜 has a playable video and 有用 shows not-medical copy', async () =
   });
   expect(video).toHaveAttribute('src', '/lalem/videos/hot-ent.mp4');
   expect(video.muted).toBe(true);
-  expect(screen.getByText('综艺夜')).toBeInTheDocument();
+  expect(screen.getByText('今日新色')).toBeInTheDocument();
+  const trendTitles = screen.getAllByRole('heading', { level: 2 }).map((el) => el.textContent);
+  expect(trendTitles.indexOf('今日新色')).toBeLessThan(trendTitles.indexOf('昨日综艺'));
+  const trendImgs = screen.getAllByRole('img', { name: '' });
+  expect(trendImgs.length).toBeGreaterThanOrEqual(2);
+  expect(trendImgs[0]).toHaveAttribute('src', '/lalem/trends/fashion-1.svg');
   await userEvent.click(screen.getByRole('button', { name: '有用' }));
   expect(screen.getByText(/不能替代医疗|not medical/i)).toBeInTheDocument();
-  expect(screen.getByText('别蹲太久')).toBeInTheDocument();
+  const notes = screen.getAllByRole('listitem').map((el) => el.textContent);
+  expect(notes.indexOf('今日贴士：别蹲太久')).toBeLessThan(notes.indexOf('昨日贴士：洗手到泡沫'));
+  expect(screen.getByText('今日贴士：别蹲太久')).toBeInTheDocument();
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+});
+
+test('sit alert pops at 5 minutes, dismiss waits, 10 minutes is more dramatic', () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  render(<Lalem />);
+  expect(screen.queryByRole('dialog', { name: '久坐警报' })).not.toBeInTheDocument();
+
+  act(() => {
+    jest.setSystemTime(start + 5 * 60 * 1000);
+    jest.advanceTimersByTime(1000);
+  });
+  const five = screen.getByRole('dialog', { name: '久坐警报' });
+  expect(five).toHaveClass('ll-sit-alert', 'll-sit-alert--t1');
+  expect(five).toHaveTextContent('5');
+  expect(screen.getAllByRole('dialog', { name: '久坐警报' })).toHaveLength(1);
+
+  fireEvent.click(screen.getByRole('button', { name: '再蹲会儿' }));
+  expect(screen.queryByRole('dialog', { name: '久坐警报' })).not.toBeInTheDocument();
+
+  act(() => {
+    jest.setSystemTime(start + 9 * 60 * 1000 + 58 * 1000);
+    jest.advanceTimersByTime(1000);
+  });
+  expect(screen.queryByRole('dialog', { name: '久坐警报' })).not.toBeInTheDocument();
+
+  act(() => {
+    jest.setSystemTime(start + 10 * 60 * 1000);
+    jest.advanceTimersByTime(1000);
+  });
+  const ten = screen.getByRole('dialog', { name: '久坐警报' });
+  expect(ten).toHaveClass('ll-sit-alert--t2');
+  expect(ten).not.toHaveClass('ll-sit-alert--t1');
+  expect(ten).toHaveTextContent('10');
+  expect(screen.getAllByRole('dialog', { name: '久坐警报' })).toHaveLength(1);
+  jest.useRealTimers();
+});
+
+test('sit alert waits until the page is visible again', () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  let hidden = true;
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+  render(<Lalem />);
+  act(() => {
+    jest.setSystemTime(start + 5 * 60 * 1000);
+    jest.advanceTimersByTime(1000);
+  });
+  expect(screen.queryByRole('dialog', { name: '久坐警报' })).not.toBeInTheDocument();
+  hidden = false;
+  act(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    jest.advanceTimersByTime(1000);
+  });
+  expect(screen.getByRole('dialog', { name: '久坐警报' })).toHaveClass('ll-sit-alert--t1');
+  jest.useRealTimers();
+});
+
+test('Lalem source does not use the Notification API', () => {
+  const src = readFileSync(join(__dirname, 'Lalem.tsx'), 'utf8');
+  expect(src).not.toMatch(/Notification/);
+  expect(src).not.toMatch(/requestPermission/);
 });

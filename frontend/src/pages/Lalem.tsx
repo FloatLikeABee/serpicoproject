@@ -75,6 +75,15 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
+function sitMilestone(elapsedSeconds: number): number {
+  return Math.floor(Math.max(0, elapsedSeconds) / 300);
+}
+
+function sitAlertTier(milestone: number): number {
+  if (milestone < 1) return 0;
+  return Math.min(6, milestone);
+}
+
 export default function Lalem() {
   const [nation, setNation] = useState<Nation>(() => detectLalemLang());
   const [dock, setDock] = useState<Dock>(() => readDock());
@@ -86,8 +95,12 @@ export default function Lalem() {
   const [era, setEra] = useState('');
   const [open, setOpen] = useState<LalemToilet | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [pageVisible, setPageVisible] = useState(() => (typeof document === 'undefined' ? true : !document.hidden));
+  const [sitAlert, setSitAlert] = useState(0);
+  const [dismissedSit, setDismissedSit] = useState(0);
   const started = useRef(Date.now());
   const titleId = useId();
+  const sitTitleId = useId();
   const tx = useCallback((key: string, vars?: Record<string, string | number>) => t(nation, key, vars), [nation]);
 
   useEffect(() => {
@@ -105,6 +118,12 @@ export default function Lalem() {
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const onVis = () => setPageVisible(!document.hidden);
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
   useEffect(() => {
@@ -155,6 +174,27 @@ export default function Lalem() {
   const elapsed = Math.max(0, Math.floor((nowMs - started.current) / 1000));
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
+  const dueSit = sitMilestone(elapsed);
+
+  useEffect(() => {
+    if (dueSit < 1 || !pageVisible) return;
+    if (dueSit <= dismissedSit) return;
+    setSitAlert(dueSit);
+  }, [dueSit, pageVisible, dismissedSit]);
+
+  const dismissSit = useCallback(() => {
+    setDismissedSit((prev) => Math.max(prev, sitAlert, dueSit));
+    setSitAlert(0);
+  }, [sitAlert, dueSit]);
+
+  useEffect(() => {
+    if (!sitAlert) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismissSit();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sitAlert, dismissSit]);
 
   const visible = useMemo(() => {
     return toilets.filter((item) => {
@@ -328,6 +368,24 @@ export default function Lalem() {
             <p className="ll-credit">
               {tx('lalem.credit')}: {open.credit}
             </p>
+          </div>
+        </div>
+      ) : null}
+
+      {sitAlert > 0 ? (
+        <div className="ll-sit-alert-backdrop" role="presentation" onClick={dismissSit}>
+          <div
+            className={`ll-sit-alert ll-sit-alert--t${sitAlertTier(sitAlert)}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={sitTitleId}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id={sitTitleId}>{tx('lalem.sitAlert.title')}</h2>
+            <p>{tx(`lalem.sitAlert.t${sitAlertTier(sitAlert)}`, { m: String(Math.max(minutes, sitAlert * 5)) })}</p>
+            <button type="button" className="ll-sit-alert-dismiss" onClick={dismissSit}>
+              {tx('lalem.sitAlert.dismiss')}
+            </button>
           </div>
         </div>
       ) : null}

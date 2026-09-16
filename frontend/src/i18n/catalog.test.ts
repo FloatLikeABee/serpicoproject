@@ -127,6 +127,23 @@ describe('i18n catalog', () => {
     expect(t('cn', 'lalem.langEn')).toBe('EN');
   });
 
+  it('returns escalating 拉了么 sit-alert copy that names the minutes and is not medical', () => {
+    const cn = [1, 2, 3, 4, 5, 6].map((tier, i) => t('cn', `lalem.sitAlert.t${tier}`, { m: (i + 1) * 5 }));
+    const en = [1, 2, 3, 4, 5, 6].map((tier, i) => t('us', `lalem.sitAlert.t${tier}`, { m: (i + 1) * 5 }));
+    cn.forEach((text, i) => {
+      expect(text).toContain(String((i + 1) * 5));
+      expect(text).not.toBe(`lalem.sitAlert.t${i + 1}`);
+    });
+    en.forEach((text, i) => {
+      expect(text).toContain(String((i + 1) * 5));
+    });
+    const unique = new Set(cn);
+    expect(unique.size).toBe(6);
+    const blob = [...cn, ...en, t('cn', 'lalem.sitAlert.dismiss'), t('us', 'lalem.sitAlert.dismiss')].join('\n');
+    expect(blob).not.toMatch(/诊断|处方|治疗|Notification|requestPermission|diagnose|prescribe|cure/i);
+    expect(t('cn', 'lalem.sitAlert.dismiss')).toMatch(/[\u4e00-\u9fff]/);
+  });
+
   it('returns Simplified Chinese Fleet kind labels used by chips and the pin modal', () => {
     expect(t('cn', 'fleet.short.station')).toMatch(/[\u4e00-\u9fff]/);
     expect(t('cn', 'fleet.kind.police_station')).toMatch(/[\u4e00-\u9fff]/);

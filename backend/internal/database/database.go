@@ -269,6 +269,31 @@ func createTables(db *sql.DB) error {
 			note TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS lalem_trends (
+			id TEXT PRIMARY KEY,
+			locale TEXT NOT NULL,
+			kind TEXT NOT NULL,
+			title TEXT NOT NULL,
+			hook TEXT,
+			image_url TEXT,
+			chips_json TEXT,
+			created_at DATETIME NOT NULL,
+			UNIQUE (locale, title)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_lalem_trends_locale_created ON lalem_trends(locale, created_at DESC)`,
+		`CREATE TABLE IF NOT EXISTS lalem_useful (
+			id TEXT PRIMARY KEY,
+			locale TEXT NOT NULL,
+			body TEXT NOT NULL,
+			created_at DATETIME NOT NULL,
+			UNIQUE (locale, body)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_lalem_useful_locale_created ON lalem_useful(locale, created_at DESC)`,
+		`CREATE TABLE IF NOT EXISTS lalem_feed_meta (
+			locale TEXT PRIMARY KEY,
+			last_increment_date TEXT NOT NULL,
+			last_generated_at TEXT
+		)`,
 	}
 
 	for _, query := range queries {

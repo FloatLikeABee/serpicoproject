@@ -7,6 +7,7 @@ import (
 
 type LalemDigestInput struct {
 	Locale string
+	Mode   string // "" or "seed" for full digest; "increment" for 2 trends + 1 useful
 }
 
 type LalemAdvisor struct {
@@ -22,21 +23,59 @@ func (a *LalemAdvisor) now() time.Time {
 	return time.Now().UTC()
 }
 
+func lalemIncrementMode(mode string) bool {
+	return strings.EqualFold(strings.TrimSpace(mode), "increment")
+}
+
 func (a *LalemAdvisor) AdviseLalemDigest(in LalemDigestInput) (*LalemDigest, error) {
 	locale := lalemLocale(in.Locale)
+	increment := lalemIncrementMode(in.Mode)
 	if a == nil || a.CompleteFn == nil {
-		return cannedLalemDigest(locale, a.now()), nil
+		return cannedLalemByMode(locale, a.now(), increment), nil
 	}
-	prompt := BuildLalemDigestPrompt(LalemDigestPromptInput{Locale: locale, Now: a.now()})
+	promptIn := LalemDigestPromptInput{Locale: locale, Now: a.now()}
+	prompt := BuildLalemDigestPrompt(promptIn)
+	if increment {
+		prompt = BuildLalemIncrementPrompt(promptIn)
+	}
 	raw, err := a.CompleteFn(prompt)
 	if err != nil || strings.TrimSpace(raw) == "" {
-		return cannedLalemDigest(locale, a.now()), nil
+		return cannedLalemByMode(locale, a.now(), increment), nil
 	}
-	parsed, err := ParseLalemDigest(raw)
+	var parsed *LalemDigest
+	if increment {
+		parsed, err = ParseLalemIncrement(raw)
+	} else {
+		parsed, err = ParseLalemDigest(raw)
+	}
 	if err != nil {
-		return cannedLalemDigest(locale, a.now()), nil
+		return cannedLalemByMode(locale, a.now(), increment), nil
 	}
-	return finishLalemDigest(parsed, locale, a.now()), nil
+	out := finishLalemDigest(parsed, locale, a.now())
+	if increment {
+		return capLalemIncrementDigest(out), nil
+	}
+	return out, nil
+}
+
+func cannedLalemByMode(locale string, now time.Time, increment bool) *LalemDigest {
+	if increment {
+		return capLalemIncrementDigest(cannedLalemDigest(locale, now))
+	}
+	return cannedLalemDigest(locale, now)
+}
+
+func capLalemIncrementDigest(d *LalemDigest) *LalemDigest {
+	if d == nil {
+		return d
+	}
+	if len(d.Trends) > 2 {
+		d.Trends = d.Trends[:2]
+	}
+	if len(d.Useful) > 1 {
+		d.Useful = d.Useful[:1]
+	}
+	return d
 }
 
 func finishLalemDigest(d *LalemDigest, locale string, now time.Time) *LalemDigest {

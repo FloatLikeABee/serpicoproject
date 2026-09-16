@@ -126,6 +126,82 @@ func TestAdviseLalemDigestModelFailureReturnsCannedMedia(t *testing.T) {
 	}
 }
 
+func TestAdviseLalemIncrementStubbedMapsLocalMediaTwoPlusOne(t *testing.T) {
+	visionCalls := 0
+	adv := &LalemAdvisor{
+		Now: time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC),
+		VisionFn: func(image []byte, mime string) (string, error) {
+			visionCalls++
+			return "should-not-run", nil
+		},
+		CompleteFn: func(prompt string) (string, error) {
+			if !strings.Contains(prompt, "exactly two") || !strings.Contains(prompt, "exactly one") {
+				t.Errorf("increment prompt missing caps, got %s", prompt)
+			}
+			if strings.Contains(prompt, "at most 8 trends") {
+				t.Error("increment must not use seed cap")
+			}
+			return `{
+				"locale":"cn",
+				"disclaimer":"卫生间小贴士，不能替代医疗诊断或治疗。",
+				"trends":[
+					{"kind":"entertainment","title":"新综艺","hook":"弹幕热闹。","imageHint":"variety"},
+					{"kind":"fashion","title":"新色号","hook":"换季口红。","imageHint":"lipstick"},
+					{"kind":"entertainment","title":"不该留下","hook":"第三张。","imageHint":"drama"}
+				],
+				"useful":["别蹲太久","洗手"]
+			}`, nil
+		},
+	}
+	got, err := adv.AdviseLalemDigest(LalemDigestInput{Locale: "cn", Mode: "increment"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if visionCalls != 0 {
+		t.Fatal("increment path must not call vision")
+	}
+	if len(got.Trends) != 2 {
+		t.Fatalf("trends=%d want 2", len(got.Trends))
+	}
+	for _, tr := range got.Trends {
+		if !strings.HasPrefix(tr.ImageURL, "/lalem/trends/") {
+			t.Fatalf("trend image must be local pack: %+v", tr)
+		}
+	}
+	if len(got.Useful) != 1 {
+		t.Fatalf("useful=%d want 1", len(got.Useful))
+	}
+}
+
+func TestAdviseLalemIncrementMissingLiveModelDoesNotCallVision(t *testing.T) {
+	visionCalls := 0
+	adv := &LalemAdvisor{
+		VisionFn: func(image []byte, mime string) (string, error) {
+			visionCalls++
+			return "nope", nil
+		},
+		CompleteFn: nil,
+	}
+	got, err := adv.AdviseLalemDigest(LalemDigestInput{Locale: "en", Mode: "increment"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if visionCalls != 0 {
+		t.Fatal("missing live model must not call vision")
+	}
+	if len(got.Trends) != 2 {
+		t.Fatalf("canned increment trends=%d want 2", len(got.Trends))
+	}
+	if len(got.Useful) != 1 {
+		t.Fatalf("canned increment useful=%d want 1", len(got.Useful))
+	}
+	for _, tr := range got.Trends {
+		if !strings.HasPrefix(tr.ImageURL, "/lalem/trends/") {
+			t.Fatalf("canned image %+v", tr)
+		}
+	}
+}
+
 var errLalemDown = errString("model down")
 
 type errString string
