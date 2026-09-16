@@ -189,6 +189,37 @@ func TestLalemWikiRejectsOffHostWithoutUpstream(t *testing.T) {
 	}
 }
 
+func TestLalemWikiBlocksOffHostRedirect(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	var hosts []string
+	prev := lalemWikiClient
+	lalemWikiClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		hosts = append(hosts, r.URL.Host)
+		if r.URL.Host == "zh.wikipedia.org" {
+			return &http.Response{
+				StatusCode: http.StatusFound,
+				Header:     http.Header{"Location": []string{"https://example.com/owned"}},
+				Body:       io.NopCloser(strings.NewReader("")),
+				Request:    r,
+			}, nil
+		}
+		t.Errorf("followed redirect to %s", r.URL.String())
+		return nil, errString("should not follow")
+	})}
+	t.Cleanup(func() { lalemWikiClient = prev })
+	r := fridgeRaidTestRouter(t, &stubLalemAI{})
+	w := getJSON(r, "/api/v1/lalem/wiki?url="+url.QueryEscape("https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80"))
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	for _, host := range hosts {
+		if host == "example.com" {
+			t.Fatal("must not fetch redirect host")
+		}
+	}
+}
+
 func getJSON(r http.Handler, path string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	w := httptest.NewRecorder()

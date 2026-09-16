@@ -284,10 +284,16 @@ export default function Lalem() {
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
       .then((body: { title?: string; extract?: string; sourceUrl?: string }) => {
         if (wikiGen.current !== gen) return;
+        const title = String(body.title || '').trim();
+        const extract = String(body.extract || '').trim();
+        if (!title || !extract) {
+          setWiki({ status: 'error', url });
+          return;
+        }
         setWiki({
           status: 'ok',
-          title: String(body.title || ''),
-          extract: String(body.extract || ''),
+          title,
+          extract,
           sourceUrl: String(body.sourceUrl || url),
         });
       })
@@ -525,7 +531,7 @@ export default function Lalem() {
             {(digest?.trends || []).map((tr, i) => (
               <li key={`${tr.title}-${i}`}>
                 <button type="button" className="ll-card ll-trend" onClick={() => openTrend(tr)}>
-                  <span className="ll-trend-tag">{tx(`lalem.kind.${tr.kind}`)}</span>
+                  <span className="ll-trend-tag">{tx(`lalem.kind.${tr.kind === 'fashion' || tr.kind === 'entertainment' ? tr.kind : 'other'}`)}</span>
                   <h2 className="ll-card-title" title={tr.title}>
                     {tr.title}
                   </h2>

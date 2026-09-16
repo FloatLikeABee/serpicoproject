@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -25,7 +26,7 @@ var (
 	lalemCacheMu   sync.Mutex
 	lalemDigestMem = map[string]lalemCacheEntry{}
 
-	lalemWikiClient = &http.Client{Timeout: 8 * time.Second}
+	lalemWikiClient = &http.Client{Timeout: 8 * time.Second, CheckRedirect: lalemWikiCheckRedirect}
 )
 
 type lalemCacheEntry struct {
@@ -104,10 +105,7 @@ func handleLalemWiki(c *gin.Context) {
 	}
 	req.Header.Set("User-Agent", lalemWikiUserAgent)
 	req.Header.Set("Accept", "application/json")
-	client := lalemWikiClient
-	if client == nil {
-		client = http.DefaultClient
-	}
+	client := wikiHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "wiki summary unavailable"})
@@ -124,7 +122,7 @@ func handleLalemWiki(c *gin.Context) {
 		Extract string `json:"extract"`
 		Lang    string `json:"lang"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&payload); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "wiki summary unavailable"})
 		return
 	}
@@ -165,6 +163,33 @@ func parseLalemWikiURL(raw string) (host, title string, ok bool) {
 		return "", "", false
 	}
 	return host, title, true
+}
+
+func wikiHTTPClient() *http.Client {
+	base := lalemWikiClient
+	if base == nil {
+		base = &http.Client{Timeout: 8 * time.Second}
+	}
+	cp := *base
+	cp.CheckRedirect = lalemWikiCheckRedirect
+	if cp.Timeout == 0 {
+		cp.Timeout = 8 * time.Second
+	}
+	return &cp
+}
+
+func lalemWikiCheckRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 3 {
+		return errors.New("too many wiki redirects")
+	}
+	if req.URL.Scheme != "https" {
+		return errors.New("wiki redirect must be https")
+	}
+	host := strings.ToLower(req.URL.Hostname())
+	if host != "zh.wikipedia.org" && host != "en.wikipedia.org" {
+		return errors.New("wiki redirect host not allowed")
+	}
+	return nil
 }
 
 type lalemAdviser interface {
