@@ -182,6 +182,26 @@ test('toilet image is a Wikipedia link; title opens the sheet', async () => {
   expect(enImg.closest('a')).toHaveAttribute('href', 'https://en.wikipedia.org/wiki/Latrine');
 });
 
+test('toilet filters use a label column and wrapping chips', async () => {
+  render(<Lalem />);
+  await screen.findByRole('img', { name: '罗马公共厕所' });
+  const rows = document.querySelectorAll('.ll-filter-row');
+  expect(rows.length).toBeGreaterThanOrEqual(4);
+  rows.forEach((row) => {
+    const label = row.querySelector('.ll-chip-label');
+    const wrap = row.querySelector('.ll-chip-wrap');
+    expect(label).not.toBeNull();
+    expect(wrap).not.toBeNull();
+    expect(wrap?.querySelectorAll('button').length).toBeGreaterThan(1);
+    expect(label?.nextElementSibling).toBe(wrap);
+    expect(row.querySelector(':scope > button')).toBeNull();
+  });
+  expect(document.querySelectorAll('.ll-dock button')).toHaveLength(5);
+  const title = document.querySelector('.ll-card-title');
+  expect(title).toHaveAttribute('title');
+  expect(document.querySelector('video')).toBeNull();
+});
+
 test('shape filter hides non-matching toilets', async () => {
   render(<Lalem />);
   await screen.findByRole('img', { name: '罗马公共厕所' });

@@ -36,3 +36,59 @@ test('officer Navigation, Login, and landing have no /lalem link; App mounts it 
   expect(css).not.toMatch(/#c6a56a/);
   expect(lalemPage).not.toMatch(/ll-chip-track/);
 });
+
+function loungeCss(): string {
+  const css = readFileSync(join(__dirname, 'index.css'), 'utf8');
+  const start = css.indexOf('html.ll-world');
+  expect(start).toBeGreaterThan(-1);
+  return css.slice(start);
+}
+
+function cssRule(css: string, selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`);
+  return re.exec(css)?.[1] ?? '';
+}
+
+test('lounge chrome uses calm dark tokens, one gutter, and no candy gold/pink', () => {
+  const lounge = loungeCss();
+  const page = cssRule(lounge, '.ll-page');
+  const card = cssRule(lounge, '.ll-card');
+  const title = cssRule(lounge, '.ll-card-title');
+  const top = cssRule(lounge, '.ll-top');
+  const body = cssRule(lounge, '.ll-body');
+  const dock = cssRule(lounge, '.ll-dock');
+  const sheet = cssRule(lounge, '.ll-sheet');
+  const sit = cssRule(lounge, '.ll-sit-alert');
+  const sitDismiss = cssRule(lounge, '.ll-sit-alert-dismiss');
+
+  expect(lounge).toMatch(/--ll-bg:\s*#12161c\b/i);
+  expect(lounge).toMatch(/--ll-surface:\s*#1b212b\b/i);
+  expect(lounge).toMatch(/--ll-text:\s*#e6ebf2\b/i);
+  expect(lounge).toMatch(/--ll-muted:\s*#9aa8b8\b/i);
+  expect(lounge).toMatch(/--ll-accent:\s*#8ec5c0\b/i);
+  expect(lounge).toMatch(/--ll-line:/);
+  expect(lounge).toMatch(/--ll-gutter:\s*1rem\b/);
+
+  expect(lounge).not.toMatch(/#c6a56a/i);
+  expect(lounge).not.toMatch(/#ff4d8d/i);
+  expect(lounge).not.toMatch(/#2a1710/i);
+  expect(page).toMatch(/var\(--ll-bg\)/);
+  expect(page).not.toMatch(/radial-gradient/);
+  expect(page).not.toMatch(/repeating-linear-gradient/);
+  expect(page).toMatch(/40rem/);
+
+  expect(card).toMatch(/minmax\(2\.75rem/);
+  expect(title).toMatch(/-webkit-line-clamp:\s*2/);
+  expect(title).toMatch(/line-clamp:\s*2/);
+
+  expect(top).toMatch(/padding-inline:\s*var\(--ll-gutter\)/);
+  expect(body).toMatch(/padding-inline:\s*var\(--ll-gutter\)/);
+  expect(dock).toMatch(/padding-inline:\s*var\(--ll-gutter\)/);
+  expect(dock).toMatch(/repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  expect(sheet).toMatch(/padding-inline:\s*var\(--ll-gutter\)/);
+
+  expect(sit).not.toMatch(/#ffd36a/i);
+  expect(sitDismiss).not.toMatch(/#ff4d8d/i);
+  expect(sitDismiss).not.toMatch(/#ffd36a/i);
+});
