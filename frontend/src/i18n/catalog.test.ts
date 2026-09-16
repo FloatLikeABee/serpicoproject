@@ -115,6 +115,18 @@ describe('i18n catalog', () => {
     expect(t('us', 'fridgeRaid.detail.caution')).toMatch(/caution|go easy/i);
   });
 
+  it('returns 拉了么 chrome in Simplified Chinese by default keys', () => {
+    expect(t('cn', 'lalem.title')).toBe('拉了么');
+    expect(t('cn', 'lalem.kicker')).toBe('来都来了');
+    expect(t('cn', 'lalem.dock.toilets')).toBe('马桶');
+    expect(t('cn', 'lalem.dock.hot')).toBe('热榜');
+    expect(t('cn', 'lalem.dock.useful')).toBe('有用');
+    expect(t('cn', 'lalem.disclaimer')).toMatch(/医疗|诊断/);
+    expect(t('us', 'lalem.title')).not.toBe('拉了么');
+    expect(t('us', 'lalem.langEn')).toBe('EN');
+    expect(t('cn', 'lalem.langEn')).toBe('EN');
+  });
+
   it('returns Simplified Chinese Fleet kind labels used by chips and the pin modal', () => {
     expect(t('cn', 'fleet.short.station')).toMatch(/[\u4e00-\u9fff]/);
     expect(t('cn', 'fleet.kind.police_station')).toMatch(/[\u4e00-\u9fff]/);

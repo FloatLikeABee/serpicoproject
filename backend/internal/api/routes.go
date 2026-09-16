@@ -85,6 +85,13 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		fridgeRaid.POST("/detail", func(c *gin.Context) { handleFridgeRaidDetail(c, aiService) })
 	}
 
+	// 拉了么 lounge (public, unlisted side app)
+	lalem := r.Group("/lalem")
+	{
+		lalem.GET("/toilets", handleLalemToilets)
+		lalem.GET("/digest", func(c *gin.Context) { handleLalemDigest(c, aiService) })
+	}
+
 	// Chase Game routes
 	chaseGame := r.Group("/chase-game")
 	{

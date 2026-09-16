@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import HomeGate from './pages/HomeGate';
 import Join from './pages/Join';
 import FridgeRaid from './pages/FridgeRaid';
+import Lalem from './pages/Lalem';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -25,6 +26,7 @@ function AppContent() {
         <Route path="/x-hard-data/hw/:serial" element={<HardDataHandle />} />
         <Route path="/x-hard-data" element={<HardDataDocs />} />
         <Route path="/fridge-raid" element={<FridgeRaid />} />
+        <Route path="/lalem" element={<Lalem />} />
         <Route
           path="/*"
           element={
