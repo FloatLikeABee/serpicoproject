@@ -635,3 +635,235 @@ html.fr-world.synth-world #root {
     max-height: min(90vh, 42rem);
   }
 }
+
+/* ─── 拉了么 side app (isolated from officer chrome and fridge-raid kitchen) ─── */
+html.ll-world,
+html.ll-world.synth-world {
+  color-scheme: dark;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #2a1710;
+}
+html.ll-world body,
+html.ll-world.synth-world body,
+html.ll-world #root,
+html.ll-world.synth-world #root {
+  height: 100%;
+  overflow: hidden;
+  background: #2a1710;
+  color: #ffe8d2;
+  font-family: "Source Han Sans SC", "Noto Sans SC", "Segoe UI", sans-serif;
+}
+
+.ll-page {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 0;
+  overflow: hidden;
+  background:
+    radial-gradient(900px 380px at 12% -8%, rgba(255, 77, 141, 0.28), transparent 55%),
+    radial-gradient(800px 320px at 110% 8%, rgba(62, 224, 200, 0.22), transparent 50%),
+    repeating-linear-gradient(90deg, rgba(255, 211, 106, 0.06) 0 12px, transparent 12px 24px),
+    #2a1710;
+}
+
+.ll-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.ll-kicker {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #3ee0c8;
+}
+.ll-page h1 {
+  margin: 0.15rem 0 0;
+  font-size: 2.1rem;
+  font-weight: 800;
+  color: #ffd36a;
+  letter-spacing: -0.03em;
+  text-shadow: 0 0 18px rgba(255, 77, 141, 0.45);
+}
+.ll-timer {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: #ff8fb8;
+}
+.ll-lang { display: flex; gap: 0.35rem; }
+.ll-lang button,
+.ll-chip-row button,
+.ll-dock button,
+.ll-sheet-close {
+  min-height: 2.5rem;
+  border: 1px solid rgba(255, 211, 106, 0.35);
+  background: rgba(42, 23, 16, 0.7);
+  color: #ffe8d2;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.ll-lang button.is-on,
+.ll-chip-row button.is-on,
+.ll-dock button.is-on {
+  background: #ff4d8d;
+  color: #2a1710;
+  border-color: #ff4d8d;
+  font-weight: 700;
+}
+
+.ll-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.75rem 0 0.5rem;
+}
+.ll-filters { display: flex; flex-direction: column; gap: 0.45rem; }
+.ll-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+.ll-chip-label {
+  font-size: 0.75rem;
+  color: #3ee0c8;
+  margin-right: 0.15rem;
+}
+
+.ll-gallery {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+.ll-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  background: rgba(18, 8, 6, 0.55);
+  border: 1px solid rgba(255, 211, 106, 0.2);
+  border-radius: 1rem;
+  overflow: hidden;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.ll-card img,
+.ll-sheet img,
+.ll-video video {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  display: block;
+  background: #4a2a1c;
+}
+.ll-card-title {
+  font-weight: 700;
+  padding: 0.45rem 0.6rem 0.1rem;
+  font-size: 0.92rem;
+}
+.ll-card-meta,
+.ll-trend p {
+  padding: 0 0.6rem 0.55rem;
+  font-size: 0.75rem;
+  color: #ffc9a8;
+  margin: 0;
+}
+.ll-trend { cursor: default; }
+.ll-trend h2 { margin: 0; }
+
+.ll-videos { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1rem; }
+.ll-video {
+  margin: 0;
+  background: rgba(18, 8, 6, 0.55);
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(62, 224, 200, 0.25);
+}
+.ll-video figcaption {
+  padding: 0.5rem 0.7rem 0.2rem;
+  color: #3ee0c8;
+  font-weight: 700;
+}
+
+.ll-useful ul {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.ll-useful li {
+  background: rgba(18, 8, 6, 0.55);
+  border-radius: 0.9rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(255, 77, 141, 0.25);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+.ll-disclaimer {
+  margin: 0 0 0.75rem;
+  color: #ffd36a;
+  font-size: 0.85rem;
+}
+.ll-empty { color: #ffc9a8; }
+
+.ll-dock {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  padding: 0.65rem 0 calc(0.65rem + env(safe-area-inset-bottom, 0px));
+}
+.ll-dock button { min-height: 3rem; font-size: 1rem; }
+
+.ll-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(12, 4, 2, 0.72);
+  display: flex;
+  align-items: flex-end;
+  z-index: 20;
+}
+.ll-sheet {
+  width: min(34rem, 100%);
+  margin: 0 auto;
+  max-height: min(88vh, 40rem);
+  overflow-y: auto;
+  background: #3a2218;
+  color: #ffe8d2;
+  border-radius: 1.25rem 1.25rem 0 0;
+  padding: 1rem 1rem 1.4rem;
+  box-shadow: 0 -12px 40px rgba(255, 77, 141, 0.2);
+}
+.ll-sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.ll-sheet h2 { margin: 0 0 0.6rem; font-size: 1.35rem; color: #ffd36a; }
+.ll-sheet-meta { color: #3ee0c8; font-size: 0.85rem; }
+.ll-credit { font-size: 0.75rem; color: #ffc9a8; }
+.ll-sheet img { border-radius: 0.85rem; margin-bottom: 0.7rem; }
+
+@media (min-width: 640px) {
+  .ll-sheet-backdrop { align-items: center; padding: 1.5rem; }
+  .ll-sheet { border-radius: 1.25rem; }
+}

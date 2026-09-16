@@ -1,0 +1,101 @@
+package ai
+
+import (
+	_ "embed"
+	"encoding/json"
+	"path/filepath"
+	"strings"
+)
+
+//go:embed lalem_toilets.json
+var lalemToiletsJSON []byte
+
+type LalemToilet struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	TitleEn  string `json:"titleEn"`
+	Blurb    string `json:"blurb"`
+	BlurbEn  string `json:"blurbEn"`
+	Shape    string `json:"shape"`
+	Size     string `json:"size"`
+	Class    string `json:"class"`
+	Era      string `json:"era"`
+	Region   string `json:"region"`
+	ImageURL string `json:"imageUrl"`
+	Credit   string `json:"credit"`
+}
+
+type LalemToiletFilter struct {
+	Shape string
+	Size  string
+	Class string
+	Era   string
+}
+
+type lalemToiletFile struct {
+	Toilets []LalemToilet `json:"toilets"`
+}
+
+func LalemToilets() []LalemToilet {
+	var file lalemToiletFile
+	if err := json.Unmarshal(lalemToiletsJSON, &file); err != nil {
+		return nil
+	}
+	return file.Toilets
+}
+
+func FilterLalemToilets(f LalemToiletFilter) []LalemToilet {
+	out := make([]LalemToilet, 0)
+	for _, item := range LalemToilets() {
+		if f.Shape != "" && item.Shape != f.Shape {
+			continue
+		}
+		if f.Size != "" && item.Size != f.Size {
+			continue
+		}
+		if f.Class != "" && item.Class != f.Class {
+			continue
+		}
+		if f.Era != "" && item.Era != f.Era {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func lalemLocale(locale string) string {
+	if strings.EqualFold(strings.TrimSpace(locale), "cn") || strings.EqualFold(strings.TrimSpace(locale), "zh") {
+		return "cn"
+	}
+	return "en"
+}
+
+type LalemVideo struct {
+	Title     string `json:"title"`
+	TitleEn   string `json:"titleEn"`
+	PosterURL string `json:"posterUrl"`
+	SrcURL    string `json:"srcUrl"`
+}
+
+func LalemCuratedVideos() []LalemVideo {
+	return []LalemVideo{
+		{Title: "娱乐热片", TitleEn: "Entertainment clip", PosterURL: "/lalem/videos/hot-ent.jpg", SrcURL: "/lalem/videos/hot-ent.mp4"},
+		{Title: "时尚热片", TitleEn: "Fashion clip", PosterURL: "/lalem/videos/hot-fashion.jpg", SrcURL: "/lalem/videos/hot-fashion.mp4"},
+	}
+}
+
+func LalemTrendImagePool() []string {
+	return []string{
+		"/lalem/trends/entertainment-1.svg",
+		"/lalem/trends/entertainment-2.svg",
+		"/lalem/trends/entertainment-3.svg",
+		"/lalem/trends/fashion-1.svg",
+		"/lalem/trends/fashion-2.svg",
+		"/lalem/trends/fashion-3.svg",
+	}
+}
+
+func LalemPublicRoot() string {
+	return filepath.Join("..", "..", "..", "frontend", "public")
+}
