@@ -35,6 +35,9 @@ test('officer Navigation, Login, and landing have no /lalem link; App mounts it 
   const css = readFileSync(join(__dirname, 'index.css'), 'utf8');
   expect(css).not.toMatch(/#c6a56a/);
   expect(lalemPage).not.toMatch(/ll-chip-track/);
+  const anchors = [...lalemPage.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]).join('\n');
+  expect(anchors).not.toMatch(/wikipedia\.org|wikiHref/i);
+  expect(lalemPage).toMatch(/ll-trend-tag/);
 });
 
 function loungeCss(): string {
@@ -95,4 +98,17 @@ test('lounge chrome uses calm dark tokens, one gutter, and no candy gold/pink', 
   expect(sit).not.toMatch(/#ffd36a/i);
   expect(sitDismiss).not.toMatch(/#ff4d8d/i);
   expect(sitDismiss).not.toMatch(/#ffd36a/i);
+});
+
+test('lounge cards are pixel sprites; 热榜 is a tag; wiki reader sits under sit-alert', () => {
+  const lounge = loungeCss();
+  const cardImg = cssRule(lounge, '.ll-card img');
+  expect(cardImg).toMatch(/image-rendering:\s*pixelated/);
+  expect(cardImg).toMatch(/aspect-ratio:\s*1\s*\/\s*1/);
+  expect(lounge).toMatch(/\.ll-trend-tag\s*\{/);
+  expect(cssRule(lounge, '.ll-wiki-backdrop')).toMatch(/z-index:\s*30/);
+  expect(lounge).not.toMatch(/#c6a56a/i);
+  expect(lounge).not.toMatch(/ll-chip-track/);
+  const lalemPage = readFileSync(join(__dirname, 'pages/Lalem.tsx'), 'utf8');
+  expect(lalemPage).not.toMatch(/target="_blank"[\s\S]{0,80}wikiHref|wikiHref[\s\S]{0,80}target="_blank"/);
 });

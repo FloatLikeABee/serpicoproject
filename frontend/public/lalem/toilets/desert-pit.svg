@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img">
-  <rect width="640" height="400" rx="28" fill="#f5d0a6"/>
-  <g fill="#78716c" stroke="#1f140c" stroke-width="3"><polygon points="20,340 140,180 260,340"/><polygon points="220,340 360,120 500,340"/><circle cx="360" cy="250" r="40"/></g>
-  <text x="320" y="372" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="700" fill="#1f140c">DESERT</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges"><rect x="0" y="0" width="32" height="32" fill="#12161c"/><rect x="0" y="18" width="32" height="14" fill="#e8d5a3"/><rect x="10" y="16" width="12" height="8" fill="#12161c"/><rect x="12" y="18" width="8" height="4" fill="#d47b6a"/><rect x="3" y="4" width="2" height="2" fill="#e8d5a3"/><rect x="24" y="6" width="2" height="2" fill="#e8d5a3"/><rect x="16" y="3" width="2" height="2" fill="#8ec5c0"/></svg>

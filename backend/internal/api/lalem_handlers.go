@@ -1,7 +1,11 @@
 package api
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +24,8 @@ var (
 	lalemCacheTTL  = time.Hour
 	lalemCacheMu   sync.Mutex
 	lalemDigestMem = map[string]lalemCacheEntry{}
+
+	lalemWikiClient = &http.Client{Timeout: 8 * time.Second}
 )
 
 type lalemCacheEntry struct {
@@ -78,6 +84,87 @@ func handleLalemPapers(c *gin.Context) {
 
 func handleLalemMedicine(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"articles": ai.LalemMedicineArticles()})
+}
+
+const lalemWikiUserAgent = "SerpicoLalem/1.0 (https://serpico.onrender.com/lalem; wiki-summary)"
+
+func handleLalemWiki(c *gin.Context) {
+	raw := strings.TrimSpace(c.Query("url"))
+	host, title, ok := parseLalemWikiURL(raw)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported wiki url"})
+		return
+	}
+	restTitle := strings.ReplaceAll(title, " ", "_")
+	endpoint := "https://" + host + "/api/rest_v1/page/summary/" + url.PathEscape(restTitle)
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, endpoint, nil)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "wiki summary unavailable"})
+		return
+	}
+	req.Header.Set("User-Agent", lalemWikiUserAgent)
+	req.Header.Set("Accept", "application/json")
+	client := lalemWikiClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "wiki summary unavailable"})
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "wiki summary unavailable"})
+		return
+	}
+	var payload struct {
+		Title   string `json:"title"`
+		Extract string `json:"extract"`
+		Lang    string `json:"lang"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "wiki summary unavailable"})
+		return
+	}
+	lang := payload.Lang
+	if lang == "" {
+		if strings.HasPrefix(host, "zh.") {
+			lang = "zh"
+		} else {
+			lang = "en"
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"title":     payload.Title,
+		"extract":   payload.Extract,
+		"lang":      lang,
+		"sourceUrl": raw,
+	})
+}
+
+func parseLalemWikiURL(raw string) (host, title string, ok bool) {
+	if raw == "" {
+		return "", "", false
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" {
+		return "", "", false
+	}
+	host = strings.ToLower(u.Hostname())
+	if host != "zh.wikipedia.org" && host != "en.wikipedia.org" {
+		return "", "", false
+	}
+	path := strings.Trim(u.Path, "/")
+	if !strings.HasPrefix(path, "wiki/") {
+		return "", "", false
+	}
+	title = strings.TrimSpace(strings.TrimPrefix(path, "wiki/"))
+	if title == "" {
+		return "", "", false
+	}
+	return host, title, true
 }
 
 type lalemAdviser interface {

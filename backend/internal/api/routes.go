@@ -91,6 +91,7 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		lalem.GET("/toilets", handleLalemToilets)
 		lalem.GET("/papers", handleLalemPapers)
 		lalem.GET("/medicine", handleLalemMedicine)
+		lalem.GET("/wiki", handleLalemWiki)
 		lalem.GET("/digest", func(c *gin.Context) { handleLalemDigest(c, db, aiService) })
 	}
 
