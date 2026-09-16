@@ -28,3 +28,15 @@ test('officer Navigation, Login, and landing have no /lalem link; App mounts it 
   expect(fridge).not.toMatch(/拉了么/);
   expect(fridge).not.toMatch(/ll-page|ll-world/);
 });
+
+test('lalem filter chips stay on one aligned row per category (no wrap jumble)', () => {
+  const css = readFileSync(join(__dirname, 'index.css'), 'utf8');
+  const row = css.match(/\.ll-chip-row\s*\{[^}]+\}/)?.[0] || '';
+  const track = css.match(/\.ll-chip-track\s*\{[^}]+\}/)?.[0] || '';
+  expect(row).toBeTruthy();
+  expect(track).toBeTruthy();
+  expect(row).not.toMatch(/flex-wrap:\s*wrap/);
+  expect(track).toMatch(/flex-wrap:\s*nowrap/);
+  expect(track).toMatch(/overflow-x:\s*auto/);
+  expect(css).not.toMatch(/#ff4d8d/);
+});
