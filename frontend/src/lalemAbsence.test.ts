@@ -55,6 +55,8 @@ test('lounge chrome uses calm dark tokens, one gutter, and no candy gold/pink', 
   const page = cssRule(lounge, '.ll-page');
   const card = cssRule(lounge, '.ll-card');
   const title = cssRule(lounge, '.ll-card-title');
+  const filters = cssRule(lounge, '.ll-filters');
+  const filterRow = cssRule(lounge, '.ll-filter-row');
   const top = cssRule(lounge, '.ll-top');
   const body = cssRule(lounge, '.ll-body');
   const dock = cssRule(lounge, '.ll-dock');
@@ -81,6 +83,8 @@ test('lounge chrome uses calm dark tokens, one gutter, and no candy gold/pink', 
   expect(card).toMatch(/minmax\(2\.75rem/);
   expect(title).toMatch(/-webkit-line-clamp:\s*2/);
   expect(title).toMatch(/line-clamp:\s*2/);
+  expect(filters).toMatch(/grid-template-columns:\s*auto\s+1fr/);
+  expect(filterRow).toMatch(/display:\s*contents/);
 
   expect(top).toMatch(/padding-inline:\s*var\(--ll-gutter\)/);
   expect(body).toMatch(/padding-inline:\s*var\(--ll-gutter\)/);
