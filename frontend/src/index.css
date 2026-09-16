@@ -739,6 +739,16 @@ html.ll-world.synth-world #root {
   align-items: center;
   column-gap: 0.55rem;
   min-inline-size: 0;
+  position: relative;
+}
+.ll-chip-row::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: 1.25rem;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, #14110d);
 }
 .ll-chip-label {
   font-size: 0.7rem;
@@ -752,10 +762,12 @@ html.ll-world.synth-world #root {
   flex-wrap: nowrap;
   gap: 0.4rem;
   overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior-x: contain;
   min-inline-size: 0;
   padding-block: 0.08rem;
   scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 .ll-chip-track::-webkit-scrollbar { display: none; }
 .ll-chip-track button {
