@@ -94,24 +94,11 @@ func finishLalemDigest(d *LalemDigest, locale string, now time.Time) *LalemDiges
 		d.Trends = cannedLalemTrends(locale)
 	}
 	d.Useful = sanitizeLalemUseful(d.Useful, locale)
-	d.Videos = localizeLalemVideos(locale)
+	d.Videos = []LalemVideo{}
+	for i := range d.Trends {
+		d.Trends[i].TopicID = MapLalemTrendTopic(d.Trends[i].Title, d.Trends[i].Hook, d.Trends[i].TopicID)
+	}
 	return d
-}
-
-func localizeLalemVideos(locale string) []LalemVideo {
-	src := LalemCuratedVideos()
-	out := make([]LalemVideo, 0, len(src))
-	for _, v := range src {
-		item := v
-		if locale != "cn" {
-			item.Title = v.TitleEn
-		}
-		out = append(out, item)
-	}
-	if len(out) > 4 {
-		out = out[:4]
-	}
-	return out
 }
 
 func filterLalemTrends(in []LalemTrend) []LalemTrend {
@@ -236,7 +223,7 @@ func cannedLalemTrends(locale string) []LalemTrend {
 	if locale == "cn" {
 		return []LalemTrend{
 			{Kind: "entertainment", Title: "综艺还在热聊", Hook: "今晚弹幕比剧情热闹。来都来了，刷两眼再冲。", ImageHint: "variety", Chips: []string{"娱乐"}},
-			{Kind: "fashion", Title: "妆容换季色号", Hook: "口红和外套一起换挡。蹲着也能看秀。", ImageHint: "lipstick", Chips: []string{"时尚"}},
+			{Kind: "fashion", Title: "妆容换季色号", Hook: "口红和外套一起换挡。坐着也能看秀。", ImageHint: "lipstick", Chips: []string{"时尚"}},
 			{Kind: "entertainment", Title: "短剧三分钟", Hook: "反转来得比冲水快。", ImageHint: "drama", Chips: []string{"热搜"}},
 			{Kind: "fashion", Title: "街拍阔腿还在", Hook: "裤型宽松，心情也宽松。", ImageHint: "street", Chips: []string{"穿搭"}},
 		}

@@ -59,13 +59,8 @@ func TestAdviseLalemDigestStubbedCompleteMapsLocalMedia(t *testing.T) {
 	if entFashion*10 < len(got.Trends)*7 {
 		t.Fatalf("entertainment/fashion ratio too low: %d/%d", entFashion, len(got.Trends))
 	}
-	if len(got.Videos) < 1 {
-		t.Fatal("expected curated videos")
-	}
-	for _, v := range got.Videos {
-		if !strings.HasPrefix(v.SrcURL, "/lalem/videos/") || !strings.HasSuffix(v.SrcURL, ".mp4") {
-			t.Fatalf("video src %+v", v)
-		}
+	if len(got.Videos) != 0 {
+		t.Fatalf("digest must not ship playable videos %+v", got.Videos)
 	}
 	if len(got.Useful) == 0 {
 		t.Fatal("expected useful notes")
@@ -92,8 +87,8 @@ func TestAdviseLalemDigestMissingLiveModelDoesNotCallVision(t *testing.T) {
 	if completeCalls != 0 {
 		t.Fatal("missing complete must not be invoked")
 	}
-	if len(got.Videos) < 1 {
-		t.Fatal("canned digest still ships videos")
+	if len(got.Videos) != 0 {
+		t.Fatalf("canned digest must not ship videos %+v", got.Videos)
 	}
 	if len(got.Trends) == 0 || got.Disclaimer == "" {
 		t.Fatalf("canned digest incomplete %+v", got)
@@ -121,8 +116,8 @@ func TestAdviseLalemDigestModelFailureReturnsCannedMedia(t *testing.T) {
 	if got.Locale != "en" {
 		t.Fatalf("locale %s", got.Locale)
 	}
-	if len(got.Videos) < 1 || len(got.Trends) == 0 {
-		t.Fatalf("expected canned en digest %+v", got)
+	if len(got.Videos) != 0 || len(got.Trends) == 0 {
+		t.Fatalf("expected canned en digest without videos %+v", got)
 	}
 }
 

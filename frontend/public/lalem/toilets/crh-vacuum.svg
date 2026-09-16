@@ -1,12 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img">
-  <rect width="640" height="400" rx="28" fill="#dbeafe"/>
-  <rect x="40" y="36" width="560" height="328" rx="24" fill="#fffdf8" opacity="0.55"/>
-  <ellipse cx="320" cy="250" rx="140" ry="90" fill="#1e3a8a"/>
-  <ellipse cx="320" cy="250" rx="88" ry="52" fill="#1d4ed8" opacity="0.85"/>
-  <ellipse cx="320" cy="250" rx="48" ry="28" fill="#0f172a" opacity="0.35"/>
-  <rect x="250" y="86" width="140" height="70" rx="18" fill="#1d4ed8"/>
-  <rect x="292" y="50" width="56" height="50" rx="12" fill="#1e3a8a"/>
-  <circle cx="120" cy="90" r="18" fill="#1d4ed8" opacity="0.5"/>
-  <circle cx="520" cy="320" r="26" fill="#1d4ed8" opacity="0.4"/>
-  <text x="320" y="372" text-anchor="middle" font-family="sans-serif" font-size="28" font-weight="700" fill="#1f140c">高铁</text>
+  <rect width="640" height="400" rx="28" fill="#1e1b4b"/>
+  <g fill="#38bdf8" stroke="#1f140c" stroke-width="3"><rect x="40" y="120" width="560" height="160"/><polygon points="320,140 280,260 360,260"/><circle cx="80" cy="200" r="18"/></g>
+  <text x="320" y="372" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="700" fill="#1f140c">CRH</text>
 </svg>

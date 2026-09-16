@@ -30,6 +30,8 @@ test('officer Navigation, Login, and landing have no /lalem link; App mounts it 
   const lalemPage = readFileSync(join(__dirname, 'pages/Lalem.tsx'), 'utf8');
   expect(lalemPage).not.toMatch(/\bNotification\b/);
   expect(lalemPage).not.toMatch(/requestPermission/);
+  expect(lalemPage).not.toMatch(/<video/);
+  expect(lalemPage).not.toMatch(/youtube|douyin/i);
   const css = readFileSync(join(__dirname, 'index.css'), 'utf8');
   expect(css).not.toMatch(/#c6a56a/);
   expect(lalemPage).not.toMatch(/ll-chip-track/);

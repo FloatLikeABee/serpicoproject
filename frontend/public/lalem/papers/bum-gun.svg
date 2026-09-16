@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img">
+  <rect width="640" height="400" rx="28" fill="#ccfbf1"/>
+  <g fill="#0f766e" stroke="#1f140c" stroke-width="3"><rect x="220" y="160" width="200" height="40" rx="12"/><circle cx="180" cy="180" r="28"/><polyline points="420,180 520,120 560,160"/></g>
+  <text x="320" y="372" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="700" fill="#1f140c">SPRAY</text>
+</svg>

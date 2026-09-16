@@ -1,8 +1,10 @@
 package ai
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -32,6 +34,8 @@ func TestLalemCatalogHasPicturesAndFilters(t *testing.T) {
 		if !strings.HasPrefix(item.ImageURL, "/lalem/toilets/") {
 			t.Fatalf("image must be local pack: %s", item.ImageURL)
 		}
+		assertLalemWikiURL(t, item.WikiURLZh, "zh.wikipedia.org")
+		assertLalemWikiURL(t, item.WikiURLEn, "en.wikipedia.org")
 		shapes[item.Shape]++
 		sizes[item.Size]++
 		classes[item.Class]++
@@ -80,6 +84,145 @@ func TestLalemCatalogHasPicturesAndFilters(t *testing.T) {
 	for _, item := range mini {
 		if item.Size != "mini" {
 			t.Fatalf("size filter leaked %s", item.Size)
+		}
+	}
+}
+
+func TestLalemToiletImagesHaveDistinctGeometry(t *testing.T) {
+	root := LalemPublicRoot()
+	byShape := map[string][]string{}
+	for _, item := range LalemToilets() {
+		rel := strings.TrimPrefix(item.ImageURL, "/")
+		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatalf("read %s: %v", item.ImageURL, err)
+		}
+		byShape[item.Shape] = append(byShape[item.Shape], normalizeLalemSVG(raw))
+	}
+	seen := map[string]string{}
+	for _, shape := range []string{"sit", "squat", "urinal", "vacuum", "portable"} {
+		files := byShape[shape]
+		if len(files) == 0 {
+			t.Fatalf("missing shape %s", shape)
+		}
+		if prev, ok := seen[files[0]]; ok {
+			t.Fatalf("shape %s shares geometry with %s after stripping color/text", shape, prev)
+		}
+		seen[files[0]] = shape
+		cousinsDiffer := false
+		for i := 1; i < len(files); i++ {
+			if files[i] != files[0] {
+				cousinsDiffer = true
+			}
+		}
+		if len(files) > 1 && !cousinsDiffer {
+			t.Fatalf("same-shape %s files are identical clones after stripping color/text", shape)
+		}
+	}
+}
+
+func assertLalemWikiURL(t *testing.T, raw, host string) {
+	t.Helper()
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host != host || strings.Trim(u.Path, "/") == "" {
+		t.Fatalf("want https://%s/<article>, got %q", host, raw)
+	}
+}
+
+func normalizeLalemSVG(raw []byte) string {
+	s := string(raw)
+	s = regexp.MustCompile(`(?i)\s*(fill|stroke|stroke-width|opacity)="[^"]*"`).ReplaceAllString(s, "")
+	s = regexp.MustCompile(`(?s)<text\b[^>]*>.*?</text>`).ReplaceAllString(s, "")
+	return strings.Join(strings.Fields(s), " ")
+}
+
+func TestLalemPapersCatalogHasWikiAndImages(t *testing.T) {
+	all := LalemPapers()
+	if len(all) < 8 {
+		t.Fatalf("papers=%d", len(all))
+	}
+	need := map[string]bool{
+		"xylospongium": true, "newspaper": true, "leaves": true, "chu-chou": true, "corn-cob": true,
+		"roll-paper": true, "wet-wipe": true, "bidet": true, "washlet-water": true, "bum-gun": true,
+	}
+	root := LalemPublicRoot()
+	norms := []string{}
+	for _, item := range all {
+		delete(need, item.ID)
+		assertLalemWikiURL(t, item.WikiURLZh, "zh.wikipedia.org")
+		assertLalemWikiURL(t, item.WikiURLEn, "en.wikipedia.org")
+		if !strings.HasPrefix(item.ImageURL, "/lalem/papers/") {
+			t.Fatalf("paper image %s", item.ImageURL)
+		}
+		rel := strings.TrimPrefix(item.ImageURL, "/")
+		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatalf("missing paper image %s: %v", item.ImageURL, err)
+		}
+		norms = append(norms, normalizeLalemSVG(raw))
+	}
+	if len(need) > 0 {
+		t.Fatalf("missing paper ids %v", need)
+	}
+	uniq := map[string]bool{}
+	for _, n := range norms {
+		uniq[n] = true
+	}
+	if len(uniq) < 8 {
+		t.Fatalf("paper drawings not distinct after color/text strip: %d", len(uniq))
+	}
+	var sitNorm string
+	for _, item := range LalemToilets() {
+		if item.Shape != "sit" {
+			continue
+		}
+		rel := strings.TrimPrefix(item.ImageURL, "/")
+		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatalf("read sit %s: %v", item.ImageURL, err)
+		}
+		sitNorm = normalizeLalemSVG(raw)
+		break
+	}
+	if sitNorm == "" {
+		t.Fatal("missing sit toilet for paper comparison")
+	}
+	for _, n := range norms {
+		if n == sitNorm {
+			t.Fatal("paper drawing reused the sit-toilet ellipse template")
+		}
+	}
+}
+
+func TestLalemMedicineCatalogIsSourcedEncyclopedia(t *testing.T) {
+	need := []string{"posture-squat-sit", "footstool-lean", "straining-valsalva", "time-on-bowl", "pelvic-floor", "hemorrhoids", "constipation"}
+	got := map[string]LalemMedicine{}
+	for _, item := range LalemMedicineArticles() {
+		got[item.ID] = item
+	}
+	for _, id := range need {
+		item, ok := got[id]
+		if !ok {
+			t.Fatalf("missing article %s", id)
+		}
+		if strings.Count(item.Body, "。") < 2 || strings.Count(item.BodyEn, ".") < 2 {
+			t.Fatalf("body too short %s", id)
+		}
+		low := strings.ToLower(item.Body + item.BodyEn)
+		if strings.Contains(low, "you have") || strings.Contains(item.Body, "你患有") {
+			t.Fatalf("diagnoses visitor %s", id)
+		}
+		hasWiki, hasOrg := false, false
+		for _, src := range item.Sources {
+			if lalemWikiHostOK(src.URL, "zh.wikipedia.org") || lalemWikiHostOK(src.URL, "en.wikipedia.org") {
+				hasWiki = true
+			}
+			if lalemOrgHostOK(src.URL) {
+				hasOrg = true
+			}
+		}
+		if !hasWiki || !hasOrg {
+			t.Fatalf("sources wiki=%v org=%v for %s", hasWiki, hasOrg, id)
 		}
 	}
 }

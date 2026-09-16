@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img">
+  <rect width="640" height="400" rx="28" fill="#f8fafc"/>
+  <g fill="#94a3b8" stroke="#1f140c" stroke-width="3"><circle cx="320" cy="190" r="110"/><circle cx="320" cy="190" r="36"/><path d="M430 190 q40 20 60 80"/></g>
+  <text x="320" y="372" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="700" fill="#1f140c">ROLL</text>
+</svg>
