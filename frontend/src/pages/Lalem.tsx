@@ -399,7 +399,9 @@ export default function Lalem() {
                     <img src={item.imageUrl} alt={toiletName(item)} width={320} height={200} />
                   )}
                   <button type="button" className="ll-card-open" onClick={() => setOpen({ kind: 'toilet', item })}>
-                    <span className="ll-card-title">{toiletName(item)}</span>
+                    <span className="ll-card-title" title={toiletName(item)}>
+                      {toiletName(item)}
+                    </span>
                     <span className="ll-card-meta">
                       {tx(`lalem.shape.${item.shape}`)} · {tx(`lalem.era.${item.era}`)}
                     </span>
@@ -431,7 +433,9 @@ export default function Lalem() {
                     <img src={item.imageUrl} alt={paperName(item)} width={320} height={200} />
                   )}
                   <button type="button" className="ll-card-open" onClick={() => setOpen({ kind: 'paper', item })}>
-                    <span className="ll-card-title">{paperName(item)}</span>
+                    <span className="ll-card-title" title={paperName(item)}>
+                      {paperName(item)}
+                    </span>
                     <span className="ll-card-meta">{tx(`lalem.era.${item.era}`)}</span>
                   </button>
                 </article>
@@ -469,7 +473,9 @@ export default function Lalem() {
                     height={200}
                     loading={i < 2 ? 'eager' : 'lazy'}
                   />
-                  <h2 className="ll-card-title">{tr.title}</h2>
+                  <h2 className="ll-card-title" title={tr.title}>
+                    {tr.title}
+                  </h2>
                   <p>{tr.hook}</p>
                 </button>
               </li>
@@ -619,27 +625,29 @@ function ChipRow({
   options: { id: string; label: string }[];
 }) {
   return (
-    <div className="ll-chip-row">
+    <div className="ll-filter-row">
       <span className="ll-chip-label">{label}</span>
-      <button
-        type="button"
-        className={!value ? 'is-on' : undefined}
-        aria-pressed={!value}
-        onClick={() => onChange('')}
-      >
-        {allLabel}
-      </button>
-      {options.map((opt) => (
+      <div className="ll-chip-wrap">
         <button
-          key={opt.id}
           type="button"
-          className={value === opt.id ? 'is-on' : undefined}
-          aria-pressed={value === opt.id}
-          onClick={() => onChange(value === opt.id ? '' : opt.id)}
+          className={!value ? 'is-on' : undefined}
+          aria-pressed={!value}
+          onClick={() => onChange('')}
         >
-          {opt.label}
+          {allLabel}
         </button>
-      ))}
+        {options.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            className={value === opt.id ? 'is-on' : undefined}
+            aria-pressed={value === opt.id}
+            onClick={() => onChange(value === opt.id ? '' : opt.id)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
