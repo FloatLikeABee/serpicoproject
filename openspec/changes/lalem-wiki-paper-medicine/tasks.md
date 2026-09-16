@@ -27,4 +27,4 @@
 ## 6. Isolation and verify
 
 - [x] 6.1 Confirm no luxury gold from PR #104, no Navigation/`Notification`, no Douyin/YouTube embed, Fridge Raid path unchanged; verify `lalemAbsence` and a grep that `Lalem.tsx` has no `<video>` and no `Notification`
-- [ ] 6.2 Run 拉了么 frontend tests plus `go test ./internal/ai ./internal/api ./internal/database -count=1` and verify they pass
+- [x] 6.2 Run 拉了么 frontend tests plus `go test ./internal/ai ./internal/api ./internal/database -count=1` and verify they pass
