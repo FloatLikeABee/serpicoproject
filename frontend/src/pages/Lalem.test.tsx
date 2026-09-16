@@ -100,6 +100,7 @@ test('fresh visit shows 拉了么 and toilet images, not officer nav', async () 
   expect(document.querySelector('.fr-page')).toBeNull();
   expect(document.documentElement).toHaveClass('ll-world');
   expect(document.querySelector('.ll-page')).not.toBeNull();
+  expect(document.querySelectorAll('.ll-chip-track').length).toBe(4);
 });
 
 test('language toggle switches chrome to English', async () => {

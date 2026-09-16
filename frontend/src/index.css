@@ -643,7 +643,7 @@ html.ll-world.synth-world {
   height: 100%;
   height: 100dvh;
   overflow: hidden;
-  background: #2a1710;
+  background: #14110d;
 }
 html.ll-world body,
 html.ll-world.synth-world body,
@@ -651,8 +651,8 @@ html.ll-world #root,
 html.ll-world.synth-world #root {
   height: 100%;
   overflow: hidden;
-  background: #2a1710;
-  color: #ffe8d2;
+  background: #14110d;
+  color: #f3ead7;
   font-family: "Source Han Sans SC", "Noto Sans SC", "Segoe UI", sans-serif;
 }
 
@@ -666,10 +666,8 @@ html.ll-world.synth-world #root {
   padding: 1rem 1rem 0;
   overflow: hidden;
   background:
-    radial-gradient(900px 380px at 12% -8%, rgba(255, 77, 141, 0.28), transparent 55%),
-    radial-gradient(800px 320px at 110% 8%, rgba(62, 224, 200, 0.22), transparent 50%),
-    repeating-linear-gradient(90deg, rgba(255, 211, 106, 0.06) 0 12px, transparent 12px 24px),
-    #2a1710;
+    radial-gradient(80% 42% at 50% -12%, rgba(198, 165, 106, 0.18), transparent 58%),
+    linear-gradient(180deg, #1c1814 0%, #14110d 46%, #0e0c0a 100%);
 }
 
 .ll-top {
@@ -681,44 +679,45 @@ html.ll-world.synth-world #root {
 }
 .ll-kicker {
   margin: 0;
-  font-size: 0.78rem;
-  letter-spacing: 0.16em;
+  font-size: 0.68rem;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: #3ee0c8;
+  color: #c6a56a;
 }
 .ll-page h1 {
-  margin: 0.15rem 0 0;
-  font-size: 2.1rem;
-  font-weight: 800;
-  color: #ffd36a;
-  letter-spacing: -0.03em;
-  text-shadow: 0 0 18px rgba(255, 77, 141, 0.45);
+  margin: 0.2rem 0 0;
+  font-family: "Noto Serif SC", "Songti SC", "STSong", serif;
+  font-size: 1.9rem;
+  font-weight: 650;
+  color: #f3ead7;
+  letter-spacing: 0.12em;
 }
 .ll-timer {
-  margin: 0.35rem 0 0;
-  font-size: 0.95rem;
-  color: #ff8fb8;
+  margin: 0.4rem 0 0;
+  font-size: 0.88rem;
+  color: #b8a894;
+  font-variant-numeric: tabular-nums;
 }
 .ll-lang { display: flex; gap: 0.35rem; }
 .ll-lang button,
-.ll-chip-row button,
+.ll-chip-track button,
 .ll-dock button,
 .ll-sheet-close {
-  min-height: 2.5rem;
-  border: 1px solid rgba(255, 211, 106, 0.35);
-  background: rgba(42, 23, 16, 0.7);
-  color: #ffe8d2;
+  min-height: 2.2rem;
+  border: 1px solid rgba(198, 165, 106, 0.38);
+  background: rgba(22, 19, 16, 0.72);
+  color: #f3ead7;
   border-radius: 999px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.9rem;
+  padding: 0.28rem 0.82rem;
+  font-size: 0.82rem;
   cursor: pointer;
 }
 .ll-lang button.is-on,
-.ll-chip-row button.is-on,
+.ll-chip-track button.is-on,
 .ll-dock button.is-on {
-  background: #ff4d8d;
-  color: #2a1710;
-  border-color: #ff4d8d;
+  background: #c6a56a;
+  color: #161310;
+  border-color: #c6a56a;
   font-weight: 700;
 }
 
@@ -727,24 +726,59 @@ html.ll-world.synth-world #root {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0.75rem 0 0.5rem;
+  padding: 0.85rem 0 0.5rem;
 }
-.ll-filters { display: flex; flex-direction: column; gap: 0.45rem; }
-.ll-chip-row {
+.ll-filters {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.ll-chip-row {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
   align-items: center;
+  column-gap: 0.55rem;
+  min-inline-size: 0;
+  position: relative;
+}
+.ll-chip-row::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: 1.25rem;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, #14110d);
 }
 .ll-chip-label {
-  font-size: 0.75rem;
-  color: #3ee0c8;
-  margin-right: 0.15rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: #c6a56a;
+  text-align: end;
+  line-height: 1.1;
+}
+.ll-chip-track {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  min-inline-size: 0;
+  padding-block: 0.08rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ll-chip-track::-webkit-scrollbar { display: none; }
+.ll-chip-track button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  text-wrap: nowrap;
 }
 
 .ll-gallery {
   list-style: none;
-  margin: 0.85rem 0 0;
+  margin: 0.95rem 0 0;
   padding: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -755,13 +789,14 @@ html.ll-world.synth-world #root {
   flex-direction: column;
   width: 100%;
   text-align: left;
-  background: rgba(18, 8, 6, 0.55);
-  border: 1px solid rgba(255, 211, 106, 0.2);
-  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(42, 36, 28, 0.94), rgba(20, 17, 13, 0.96));
+  border: 1px solid rgba(198, 165, 106, 0.28);
+  border-radius: 0.9rem;
   overflow: hidden;
   color: inherit;
   padding: 0;
   cursor: pointer;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
 }
 .ll-card img,
 .ll-sheet img,
@@ -770,18 +805,18 @@ html.ll-world.synth-world #root {
   aspect-ratio: 16 / 10;
   object-fit: cover;
   display: block;
-  background: #4a2a1c;
+  background: #2a241c;
 }
 .ll-card-title {
   font-weight: 700;
-  padding: 0.45rem 0.6rem 0.1rem;
+  padding: 0.5rem 0.65rem 0.12rem;
   font-size: 0.92rem;
 }
 .ll-card-meta,
 .ll-trend p {
-  padding: 0 0.6rem 0.55rem;
-  font-size: 0.75rem;
-  color: #ffc9a8;
+  padding: 0 0.65rem 0.6rem;
+  font-size: 0.74rem;
+  color: #c4b49a;
   margin: 0;
 }
 .ll-trend { cursor: default; }
@@ -790,14 +825,14 @@ html.ll-world.synth-world #root {
 .ll-videos { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1rem; }
 .ll-video {
   margin: 0;
-  background: rgba(18, 8, 6, 0.55);
-  border-radius: 1rem;
+  background: rgba(20, 17, 13, 0.88);
+  border-radius: 0.9rem;
   overflow: hidden;
-  border: 1px solid rgba(62, 224, 200, 0.25);
+  border: 1px solid rgba(198, 165, 106, 0.28);
 }
 .ll-video figcaption {
   padding: 0.5rem 0.7rem 0.2rem;
-  color: #3ee0c8;
+  color: #c6a56a;
   font-weight: 700;
 }
 
@@ -810,33 +845,33 @@ html.ll-world.synth-world #root {
   gap: 0.55rem;
 }
 .ll-useful li {
-  background: rgba(18, 8, 6, 0.55);
+  background: rgba(20, 17, 13, 0.88);
   border-radius: 0.9rem;
   padding: 0.85rem 1rem;
-  border: 1px solid rgba(255, 77, 141, 0.25);
+  border: 1px solid rgba(198, 165, 106, 0.22);
   font-size: 1rem;
   line-height: 1.45;
 }
 .ll-disclaimer {
   margin: 0 0 0.75rem;
-  color: #ffd36a;
+  color: #c6a56a;
   font-size: 0.85rem;
 }
-.ll-empty { color: #ffc9a8; }
+.ll-empty { color: #c4b49a; }
 
 .ll-dock {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 0.45rem;
   flex-shrink: 0;
-  padding: 0.65rem 0 calc(0.65rem + env(safe-area-inset-bottom, 0px));
+  padding: 0.7rem 0 calc(0.7rem + env(safe-area-inset-bottom, 0px));
 }
 .ll-dock button { min-height: 3rem; font-size: 1rem; }
 
 .ll-sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(12, 4, 2, 0.72);
+  background: rgba(8, 6, 4, 0.72);
   display: flex;
   align-items: flex-end;
   z-index: 20;
@@ -846,11 +881,12 @@ html.ll-world.synth-world #root {
   margin: 0 auto;
   max-height: min(88vh, 40rem);
   overflow-y: auto;
-  background: #3a2218;
-  color: #ffe8d2;
+  background: #1c1814;
+  color: #f3ead7;
   border-radius: 1.25rem 1.25rem 0 0;
   padding: 1rem 1rem 1.4rem;
-  box-shadow: 0 -12px 40px rgba(255, 77, 141, 0.2);
+  border: 1px solid rgba(198, 165, 106, 0.28);
+  box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.4);
 }
 .ll-sheet-head {
   display: flex;
@@ -858,9 +894,14 @@ html.ll-world.synth-world #root {
   align-items: flex-start;
   gap: 0.75rem;
 }
-.ll-sheet h2 { margin: 0 0 0.6rem; font-size: 1.35rem; color: #ffd36a; }
-.ll-sheet-meta { color: #3ee0c8; font-size: 0.85rem; }
-.ll-credit { font-size: 0.75rem; color: #ffc9a8; }
+.ll-sheet h2 {
+  margin: 0 0 0.6rem;
+  font-family: "Noto Serif SC", "Songti SC", "STSong", serif;
+  font-size: 1.3rem;
+  color: #f3ead7;
+}
+.ll-sheet-meta { color: #c6a56a; font-size: 0.85rem; }
+.ll-credit { font-size: 0.75rem; color: #c4b49a; }
 .ll-sheet img { border-radius: 0.85rem; margin-bottom: 0.7rem; }
 
 @media (min-width: 640px) {

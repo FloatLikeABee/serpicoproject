@@ -351,25 +351,27 @@ function ChipRow({
   return (
     <div className="ll-chip-row">
       <span className="ll-chip-label">{label}</span>
-      <button
-        type="button"
-        className={!value ? 'is-on' : undefined}
-        aria-pressed={!value}
-        onClick={() => onChange('')}
-      >
-        {allLabel}
-      </button>
-      {options.map((opt) => (
+      <div className="ll-chip-track" role="group" aria-label={label}>
         <button
-          key={opt.id}
           type="button"
-          className={value === opt.id ? 'is-on' : undefined}
-          aria-pressed={value === opt.id}
-          onClick={() => onChange(value === opt.id ? '' : opt.id)}
+          className={!value ? 'is-on' : undefined}
+          aria-pressed={!value}
+          onClick={() => onChange('')}
         >
-          {opt.label}
+          {allLabel}
         </button>
-      ))}
+        {options.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            className={value === opt.id ? 'is-on' : undefined}
+            aria-pressed={value === opt.id}
+            onClick={() => onChange(value === opt.id ? '' : opt.id)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
