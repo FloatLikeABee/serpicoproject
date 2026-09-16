@@ -10,19 +10,27 @@ import (
 //go:embed lalem_toilets.json
 var lalemToiletsJSON []byte
 
+//go:embed lalem_papers.json
+var lalemPapersJSON []byte
+
+//go:embed lalem_medicine.json
+var lalemMedicineJSON []byte
+
 type LalemToilet struct {
-	ID       string `json:"id"`
-	Title    string `json:"title"`
-	TitleEn  string `json:"titleEn"`
-	Blurb    string `json:"blurb"`
-	BlurbEn  string `json:"blurbEn"`
-	Shape    string `json:"shape"`
-	Size     string `json:"size"`
-	Class    string `json:"class"`
-	Era      string `json:"era"`
-	Region   string `json:"region"`
-	ImageURL string `json:"imageUrl"`
-	Credit   string `json:"credit"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	TitleEn   string `json:"titleEn"`
+	Blurb     string `json:"blurb"`
+	BlurbEn   string `json:"blurbEn"`
+	Shape     string `json:"shape"`
+	Size      string `json:"size"`
+	Class     string `json:"class"`
+	Era       string `json:"era"`
+	Region    string `json:"region"`
+	ImageURL  string `json:"imageUrl"`
+	WikiURLZh string `json:"wikiUrlZh"`
+	WikiURLEn string `json:"wikiUrlEn"`
+	Credit    string `json:"credit"`
 }
 
 type LalemToiletFilter struct {
@@ -69,6 +77,57 @@ func lalemLocale(locale string) string {
 		return "cn"
 	}
 	return "en"
+}
+
+type LalemPaper struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	TitleEn   string `json:"titleEn"`
+	Blurb     string `json:"blurb"`
+	BlurbEn   string `json:"blurbEn"`
+	Era       string `json:"era"`
+	ImageURL  string `json:"imageUrl"`
+	WikiURLZh string `json:"wikiUrlZh"`
+	WikiURLEn string `json:"wikiUrlEn"`
+	Credit    string `json:"credit"`
+}
+
+type lalemPaperFile struct {
+	Papers []LalemPaper `json:"papers"`
+}
+
+func LalemPapers() []LalemPaper {
+	var file lalemPaperFile
+	if err := json.Unmarshal(lalemPapersJSON, &file); err != nil {
+		return nil
+	}
+	return file.Papers
+}
+
+type LalemMedicineSource struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
+}
+
+type LalemMedicine struct {
+	ID      string                `json:"id"`
+	Title   string                `json:"title"`
+	TitleEn string                `json:"titleEn"`
+	Body    string                `json:"body"`
+	BodyEn  string                `json:"bodyEn"`
+	Sources []LalemMedicineSource `json:"sources"`
+}
+
+type lalemMedicineFile struct {
+	Articles []LalemMedicine `json:"articles"`
+}
+
+func LalemMedicineArticles() []LalemMedicine {
+	var file lalemMedicineFile
+	if err := json.Unmarshal(lalemMedicineJSON, &file); err != nil {
+		return nil
+	}
+	return file.Articles
 }
 
 type LalemVideo struct {

@@ -72,6 +72,14 @@ func handleLalemToilets(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"toilets": ai.FilterLalemToilets(f)})
 }
 
+func handleLalemPapers(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"papers": ai.LalemPapers()})
+}
+
+func handleLalemMedicine(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"articles": ai.LalemMedicineArticles()})
+}
+
 type lalemAdviser interface {
 	AdviseLalemDigest(in ai.LalemDigestInput) (*ai.LalemDigest, error)
 }

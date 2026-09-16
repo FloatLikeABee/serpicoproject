@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -19,6 +19,8 @@ const toilets = {
       era: 'roman',
       region: 'Rome',
       imageUrl: '/lalem/toilets/roman-forica.svg',
+      wikiUrlZh: 'https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80',
+      wikiUrlEn: 'https://en.wikipedia.org/wiki/Latrine',
       credit: '拉了么原创插画',
     },
     {
@@ -33,7 +35,42 @@ const toilets = {
       era: 'modern',
       region: 'Tokyo',
       imageUrl: '/lalem/toilets/japan-washlet.svg',
+      wikiUrlZh: 'https://zh.wikipedia.org/wiki/%E6%B8%85%E6%B4%97%E9%A9%AC%E6%A1%B6%E7%9B%96',
+      wikiUrlEn: 'https://en.wikipedia.org/wiki/Washlet',
       credit: '拉了么原创插画',
+    },
+  ],
+};
+
+const papers = {
+  papers: [
+    {
+      id: 'xylospongium',
+      title: '海绵棒',
+      titleEn: 'Xylospongium',
+      blurb: '古罗马公共厕所里传来传去的海绵棒。',
+      blurbEn: 'A communal sponge-stick.',
+      era: 'roman',
+      imageUrl: '/lalem/papers/xylospongium.svg',
+      wikiUrlZh: 'https://zh.wikipedia.org/wiki/%E6%B5%B7%E7%BB%B5',
+      wikiUrlEn: 'https://en.wikipedia.org/wiki/Xylospongium',
+      credit: '拉了么原创插画',
+    },
+  ],
+};
+
+const medicine = {
+  articles: [
+    {
+      id: 'posture-squat-sit',
+      title: '蹲还是坐：排便姿势',
+      titleEn: 'Squat or sit: defecation posture',
+      body: '坐便器把髋关节放得比较直。蹲坑让膝盖高于髋。这是解剖描述。',
+      bodyEn: 'A sit toilet keeps the hips more open. A squat pan puts the knees above the hips.',
+      sources: [
+        { label: 'Wikipedia', url: 'https://zh.wikipedia.org/wiki/%E6%8E%92%E4%BE%BF' },
+        { label: 'NHS', url: 'https://www.nhs.uk/conditions/constipation/' },
+      ],
     },
   ],
 };
@@ -51,17 +88,12 @@ const digest = {
     {
       kind: 'entertainment',
       title: '昨日综艺',
-      hook: '昨天还在聊。',
+      hook: '昨天还在聊蹲姿。',
       imageUrl: '/lalem/trends/entertainment-1.svg',
+      topicId: 'medicine:posture-squat-sit',
     },
   ],
-  videos: [
-    {
-      title: '娱乐热片',
-      posterUrl: '/lalem/videos/hot-ent.jpg',
-      srcUrl: '/lalem/videos/hot-ent.mp4',
-    },
-  ],
+  videos: [],
   useful: ['今日贴士：别蹲太久', '昨日贴士：洗手到泡沫'],
 };
 
@@ -73,6 +105,20 @@ function mockLalemFetch() {
         ok: true,
         status: 200,
         json: async () => digest,
+      });
+    }
+    if (href.includes('/lalem/papers')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => papers,
+      });
+    }
+    if (href.includes('/lalem/medicine')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => medicine,
       });
     }
     return Promise.resolve({
@@ -103,6 +149,7 @@ test('fresh visit shows 拉了么 and toilet images, not officer nav', async () 
   const img = await screen.findByRole('img', { name: '罗马公共厕所' });
   expect(img).toHaveAttribute('src', '/lalem/toilets/roman-forica.svg');
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(document.querySelectorAll('.ll-dock button')).toHaveLength(5);
   expect(document.querySelector('.synth-grid-bg')).toBeNull();
   expect(document.querySelector('.fr-page')).toBeNull();
   expect(document.documentElement).toHaveClass('ll-world');
@@ -116,6 +163,25 @@ test('language toggle switches chrome to English', async () => {
   expect(screen.getByText(/You’re already here|already here/i)).toBeInTheDocument();
 });
 
+test('toilet image is a Wikipedia link; title opens the sheet', async () => {
+  render(<Lalem />);
+  const img = await screen.findByRole('img', { name: '罗马公共厕所' });
+  const link = img.closest('a');
+  expect(link).toHaveAttribute('href', 'https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80');
+  expect(link).toHaveAttribute('target', '_blank');
+  expect(link?.getAttribute('rel') || '').toMatch(/noopener/);
+  await userEvent.click(screen.getByRole('button', { name: /罗马公共厕所/ }));
+  const dialog = await screen.findByRole('dialog', { name: '罗马公共厕所' });
+  expect(within(dialog).getByRole('link', { name: /维基|Wiki|Wikipedia|百科/i })).toHaveAttribute(
+    'href',
+    'https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80'
+  );
+  fireEvent.click(screen.getByRole('button', { name: '关闭' }));
+  await userEvent.click(screen.getByRole('button', { name: 'EN' }));
+  const enImg = await screen.findByRole('img', { name: 'Roman forica' });
+  expect(enImg.closest('a')).toHaveAttribute('href', 'https://en.wikipedia.org/wiki/Latrine');
+});
+
 test('shape filter hides non-matching toilets', async () => {
   render(<Lalem />);
   await screen.findByRole('img', { name: '罗马公共厕所' });
@@ -125,34 +191,59 @@ test('shape filter hides non-matching toilets', async () => {
   expect(screen.queryByRole('img', { name: '日本智洁马桶' })).not.toBeInTheDocument();
 });
 
-test('tapping a toilet card opens a sheet', async () => {
+test('tapping a toilet title opens a sheet', async () => {
   render(<Lalem />);
-  await userEvent.click(await screen.findByRole('img', { name: '罗马公共厕所' }));
+  await screen.findByRole('img', { name: '罗马公共厕所' });
+  await userEvent.click(screen.getByRole('button', { name: /罗马公共厕所/ }));
   const dialog = await screen.findByRole('dialog', { name: '罗马公共厕所' });
   expect(within(dialog).getByText(/坐成一排/)).toBeInTheDocument();
 });
 
-test('热榜 has a playable video and 有用 shows not-medical copy', async () => {
+test('厕纸 dock persists across remount', async () => {
+  const first = render(<Lalem />);
+  await userEvent.click(screen.getByRole('button', { name: '厕纸' }));
+  await screen.findByRole('img', { name: '海绵棒' });
+  first.unmount();
+  render(<Lalem />);
+  expect(await screen.findByRole('img', { name: '海绵棒' })).toBeInTheDocument();
+});
+
+test('厕纸 and 医典 docks open galleries with sourced detail', async () => {
+  render(<Lalem />);
+  await userEvent.click(screen.getByRole('button', { name: '厕纸' }));
+  const paperImg = await screen.findByRole('img', { name: '海绵棒' });
+  expect(paperImg.closest('a')).toHaveAttribute('href', expect.stringContaining('wikipedia.org'));
+  await userEvent.click(screen.getByRole('button', { name: /海绵棒/ }));
+  expect(await screen.findByRole('dialog', { name: '海绵棒' })).toHaveTextContent(/海绵棒/);
+  fireEvent.click(screen.getByRole('button', { name: '关闭' }));
+  await userEvent.click(screen.getByRole('button', { name: '医典' }));
+  await userEvent.click(await screen.findByRole('button', { name: /蹲还是坐/ }));
+  const lore = await screen.findByRole('dialog', { name: /蹲还是坐/ });
+  expect(lore).toHaveTextContent(/不能替代医疗|not medical/i);
+  expect(within(lore).getByRole('link', { name: /Wikipedia/i })).toHaveAttribute('href', expect.stringContaining('wikipedia.org'));
+  expect(within(lore).getByRole('link', { name: 'NHS' })).toHaveAttribute('href', 'https://www.nhs.uk/conditions/constipation/');
+});
+
+test('热榜 has no video; trends open encyclopedia or lounge copy', async () => {
   render(<Lalem />);
   await userEvent.click(screen.getByRole('button', { name: '热榜' }));
-  const video = await waitFor(() => {
-    const el = document.querySelector('video');
-    expect(el).not.toBeNull();
-    return el as HTMLVideoElement;
-  });
-  expect(video).toHaveAttribute('src', '/lalem/videos/hot-ent.mp4');
-  expect(video.muted).toBe(true);
+  await screen.findByText('今日新色');
+  expect(document.querySelector('video')).toBeNull();
   expect(screen.getByText('今日新色')).toBeInTheDocument();
   const trendTitles = screen.getAllByRole('heading', { level: 2 }).map((el) => el.textContent);
   expect(trendTitles.indexOf('今日新色')).toBeLessThan(trendTitles.indexOf('昨日综艺'));
-  const trendImgs = screen.getAllByRole('img', { name: '' });
-  expect(trendImgs.length).toBeGreaterThanOrEqual(2);
-  expect(trendImgs[0]).toHaveAttribute('src', '/lalem/trends/fashion-1.svg');
+  await userEvent.click(screen.getByRole('button', { name: /昨日综艺/ }));
+  const mapped = await screen.findByRole('dialog', { name: /蹲还是坐|昨日综艺/ });
+  expect(mapped).toHaveTextContent(/解剖|姿势|髋/);
+  fireEvent.click(screen.getByRole('button', { name: '关闭' }));
+  await userEvent.click(screen.getByRole('button', { name: /今日新色/ }));
+  const lounge = await screen.findByRole('dialog', { name: '今日新色' });
+  expect(lounge).toHaveTextContent(/玩笑|lounge|不是新闻/i);
+  fireEvent.click(screen.getByRole('button', { name: '关闭' }));
   await userEvent.click(screen.getByRole('button', { name: '有用' }));
   expect(screen.getByText(/不能替代医疗|not medical/i)).toBeInTheDocument();
   const notes = screen.getAllByRole('listitem').map((el) => el.textContent);
   expect(notes.indexOf('今日贴士：别蹲太久')).toBeLessThan(notes.indexOf('昨日贴士：洗手到泡沫'));
-  expect(screen.getByText('今日贴士：别蹲太久')).toBeInTheDocument();
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
 });
 
@@ -218,4 +309,6 @@ test('Lalem source does not use the Notification API', () => {
   const src = readFileSync(join(__dirname, 'Lalem.tsx'), 'utf8');
   expect(src).not.toMatch(/Notification/);
   expect(src).not.toMatch(/requestPermission/);
+  expect(src).not.toMatch(/<video/);
+  expect(src).not.toMatch(/youtube|douyin|tiktok/i);
 });

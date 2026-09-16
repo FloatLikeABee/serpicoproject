@@ -1,0 +1,151 @@
+{
+  "articles": [
+    {
+      "id": "posture-squat-sit",
+      "title": "蹲还是坐：排便姿势",
+      "titleEn": "Squat or sit: defecation posture",
+      "body": "坐便器把髋关节放得比较直，直肠会有一个弯。很多人会往前倾、垫高脚，让角度更接近蹲。蹲坑让膝盖高于髋，腹压更容易帮忙。这是解剖描述，不是要你改厕所。哪种姿势适合你，取决于关节、平衡和你家里的器具。",
+        "bodyEn": "A sit toilet keeps the hips more open, so the rectum stays angled. Many people lean forward or raise the feet to get closer to a squat. A squat pan puts the knees above the hips so abdominal pressure can help. This is anatomy, not an order to remodel your bathroom. Joints, balance, and the fixture in the room decide what is available.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E6%8E%92%E4%BE%BF"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Defecation"
+        },
+        {
+          "label": "NHS constipation",
+          "url": "https://www.nhs.uk/conditions/constipation/"
+        }
+      ]
+    },
+    {
+      "id": "footstool-lean",
+      "title": "脚凳和前倾",
+      "titleEn": "Footstool and forward lean",
+        "body": "如果只有坐便，把脚垫高、身体微微前倾，是常见的折中。目的是让耻骨直肠肌放松一点，而不是用上半身硬扛。脚凳高度因人而异，膝盖不舒服就放下。不要在湿滑地面玩杂技。这只是姿势说明，不是让你去买某品牌凳子。",
+      "bodyEn": "If you only have a sit toilet, raising the feet and leaning a little forward is a common compromise. The idea is to ease the puborectalis, not to muscle the stool out with your shoulders. Stool height is personal; stop if the knees complain. Do not attempt circus balance on a wet floor.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E6%8E%92%E4%BE%BF"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Defecation_posture"
+        },
+        {
+          "label": "Mayo Clinic constipation",
+          "url": "https://www.mayoclinic.org/diseases-conditions/constipation/symptoms-causes/syc-20354253"
+        }
+      ]
+    },
+    {
+      "id": "straining-valsalva",
+      "title": "用力与瓦氏动作",
+      "titleEn": "Straining and the Valsalva maneuver",
+      "body": "屏气猛用力会让腹压和胸压一起升高，这就是瓦氏动作的亲戚。偶尔轻轻加一点力很常见；长时间憋红脸、太阳穴跳，不是比赛项目。百科里会把它和血压变化、盆底负担放在一起讲。这里只说明机制：力不是越大越好。",
+      "bodyEn": "Holding your breath and pushing hard raises pressure in the belly and chest — a cousin of the Valsalva maneuver. A little effort is ordinary; turning purple is not a sport. Encyclopedias discuss blood-pressure swings and pelvic-floor load. The mechanism is simple: more force is not automatically better.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E7%93%A6%E6%B0%8F%E5%8A%A8%E4%BD%9C"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Valsalva_maneuver"
+        },
+        {
+          "label": "MedlinePlus constipation",
+          "url": "https://medlineplus.gov/constipation.html"
+        }
+      ]
+    },
+    {
+      "id": "time-on-bowl",
+      "title": "在马桶上待多久",
+      "titleEn": "Time on the bowl",
+      "body": "手机把一次方便拉成一集剧。坐得太久、局部受压太久，是厕所里常见的现代问题。拉了么的计时器和久坐警报是玩笑，不是病历。该起来走动时就起来。这不是在给你做诊断。",
+      "bodyEn": "Phones turn a bathroom stop into an episode. Long sits mean long local pressure — a modern stall problem. 拉了么’s timer and sit alerts are a gag, not a chart. Stand when it is time to stand. This is not a diagnosis.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E6%8E%92%E4%BE%BF"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Defecation"
+        },
+        {
+          "label": "Cleveland Clinic constipation",
+          "url": "https://my.clevelandclinic.org/health/diseases/4059-constipation"
+        }
+      ]
+    },
+    {
+      "id": "pelvic-floor",
+      "title": "盆底在干什么",
+      "titleEn": "What the pelvic floor is doing",
+      "body": "盆底肌像吊床，托着膀胱、直肠和子宫（如果有）。排便时它们需要放松，而不是全程咬紧。用力过猛、长期憋忍，都会让这组肌肉加班。细节以医疗机构的说明为准；这里只介绍它们存在、且会参与姿势和力。",
+      "bodyEn": "The pelvic floor is a hammock for the bladder, rectum, and uterus when present. It needs to let go for a bowel movement, not clench the whole time. Heavy straining and long holding both make that hammock work overtime. Clinic pages carry the detail; this lounge only notes that those muscles exist and join posture and force.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E7%9B%86%E5%BA%95"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Pelvic_floor"
+        },
+        {
+          "label": "NHS pelvic floor",
+          "url": "https://www.nhs.uk/conditions/pelvic-floor-muscles/"
+        }
+      ]
+    },
+    {
+      "id": "hemorrhoids",
+      "title": "痔：百科里怎么说",
+      "titleEn": "Hemorrhoids in the encyclopedia",
+      "body": "痔是肛管附近的血管垫变得明显。百科和医院站点会谈到用力、久坐、便秘等关联因素，也会列出需要就医的警示信号。拉了么不判断你有没有痔，也不开药方。若出血、剧痛或突然肿块，去看医生，不要问一个厕所博物馆。",
+        "bodyEn": "Hemorrhoids are vascular cushions near the anal canal that become noticeable. Encyclopedias and clinic sites discuss straining, long sitting, and constipation as associated factors, and they list warning signs. 拉了么 does not diagnose piles for a visitor and does not prescribe. Bleeding, severe pain, or a sudden lump belongs with a clinician, not a toilet museum.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E7%97%94%E7%96%AE"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Hemorrhoid"
+        },
+        {
+          "label": "NHS piles",
+          "url": "https://www.nhs.uk/conditions/piles-haemorrhoids/"
+        }
+      ]
+    },
+    {
+      "id": "constipation",
+      "title": "便秘：通用说明",
+      "titleEn": "Constipation: general notes",
+      "body": "便秘在百科里通常指排便次数变少、粪便干硬、或排得费劲。水分、纤维、活动、药物和疾病都可能有关。世界卫生组织还从卫生设施角度谈排便尊严。这里只提供词条入口，不替你找原因，更不给你疗程。",
+      "bodyEn": "Encyclopedias usually describe constipation as fewer bowel movements, hard stool, or difficult passage. Fluid, fibre, movement, medicines, and illness can all be involved. WHO also talks about sanitation and dignity. These are doorways into those pages, not a cause-finding session and not a treatment plan.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E4%BE%BF%E7%A7%98"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Constipation"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    }
+  ]
+}

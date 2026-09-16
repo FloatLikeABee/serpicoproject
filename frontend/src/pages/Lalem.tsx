@@ -11,7 +11,7 @@ const SIZES = ['mini', 'standard', 'long', 'accessible', 'child'] as const;
 const CLASSES = ['home', 'public', 'transit', 'palace', 'lab', 'luxury'] as const;
 const ERAS = ['ancient', 'roman', 'imperial-cn', 'victorian', 'modern', 'space'] as const;
 
-type Dock = 'toilets' | 'hot' | 'useful';
+type Dock = 'toilets' | 'paper' | 'medicine' | 'hot' | 'useful';
 
 export type LalemToilet = {
   id: string;
@@ -25,7 +25,33 @@ export type LalemToilet = {
   era: string;
   region: string;
   imageUrl: string;
+  wikiUrlZh?: string;
+  wikiUrlEn?: string;
   credit: string;
+};
+
+export type LalemPaper = {
+  id: string;
+  title: string;
+  titleEn: string;
+  blurb: string;
+  blurbEn: string;
+  era: string;
+  imageUrl: string;
+  wikiUrlZh?: string;
+  wikiUrlEn?: string;
+  credit: string;
+};
+
+export type LalemMedicineSource = { label: string; url: string };
+
+export type LalemMedicine = {
+  id: string;
+  title: string;
+  titleEn: string;
+  body: string;
+  bodyEn: string;
+  sources?: LalemMedicineSource[];
 };
 
 export type LalemTrend = {
@@ -34,20 +60,21 @@ export type LalemTrend = {
   hook: string;
   imageUrl: string;
   chips?: string[];
-};
-
-export type LalemVideo = {
-  title: string;
-  posterUrl: string;
-  srcUrl: string;
+  topicId?: string;
 };
 
 export type LalemDigest = {
   disclaimer?: string;
   trends?: LalemTrend[];
-  videos?: LalemVideo[];
+  videos?: unknown[];
   useful?: string[];
 };
+
+type OpenSheet =
+  | { kind: 'toilet'; item: LalemToilet }
+  | { kind: 'paper'; item: LalemPaper }
+  | { kind: 'medicine'; item: LalemMedicine }
+  | { kind: 'trend'; item: LalemTrend };
 
 type SessionSnap = {
   dock?: Dock;
@@ -62,7 +89,13 @@ function readDock(): Dock {
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return 'toilets';
     const parsed = JSON.parse(raw) as SessionSnap;
-    if (parsed?.dock === 'hot' || parsed?.dock === 'useful' || parsed?.dock === 'toilets') {
+    if (
+      parsed?.dock === 'hot' ||
+      parsed?.dock === 'useful' ||
+      parsed?.dock === 'toilets' ||
+      parsed?.dock === 'paper' ||
+      parsed?.dock === 'medicine'
+    ) {
       return parsed.dock;
     }
   } catch {
@@ -84,16 +117,47 @@ function sitAlertTier(milestone: number): number {
   return Math.min(6, milestone);
 }
 
+function wikiHref(item: { wikiUrlZh?: string; wikiUrlEn?: string }, nation: Nation): string {
+  const raw = nation === 'cn' ? item.wikiUrlZh || '' : item.wikiUrlEn || '';
+  try {
+    const parsed = new URL(raw);
+    const host = parsed.hostname.toLowerCase();
+    const want = nation === 'cn' ? 'zh.wikipedia.org' : 'en.wikipedia.org';
+    if (parsed.protocol === 'https:' && host === want && parsed.pathname.replace(/\//g, '') !== '') {
+      return raw;
+    }
+  } catch {
+    /* ignore invalid */
+  }
+  return '';
+}
+
+function sourceAllowed(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    if (host.endsWith('wikipedia.org')) return true;
+    return ['nhs.uk', 'mayoclinic.org', 'medlineplus.gov', 'clevelandclinic.org', 'who.int'].some(
+      (allow) => host === allow || host.endsWith(`.${allow}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default function Lalem() {
   const [nation, setNation] = useState<Nation>(() => detectLalemLang());
   const [dock, setDock] = useState<Dock>(() => readDock());
   const [toilets, setToilets] = useState<LalemToilet[]>([]);
+  const [papers, setPapers] = useState<LalemPaper[]>([]);
+  const [articles, setArticles] = useState<LalemMedicine[]>([]);
   const [digest, setDigest] = useState<LalemDigest | null>(null);
   const [shape, setShape] = useState('');
   const [size, setSize] = useState('');
   const [klass, setKlass] = useState('');
   const [era, setEra] = useState('');
-  const [open, setOpen] = useState<LalemToilet | null>(null);
+  const [open, setOpen] = useState<OpenSheet | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [pageVisible, setPageVisible] = useState(() => (typeof document === 'undefined' ? true : !document.hidden));
   const [sitAlert, setSitAlert] = useState(0);
@@ -136,14 +200,25 @@ export default function Lalem() {
 
   useEffect(() => {
     let gone = false;
-    fetch(`${apiV1Base()}/lalem/toilets`)
-      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-      .then((body: { toilets?: LalemToilet[] }) => {
-        if (!gone) setToilets(Array.isArray(body?.toilets) ? body.toilets : []);
-      })
-      .catch(() => {
-        if (!gone) setToilets([]);
-      });
+    const load = (path: string, apply: (body: Record<string, unknown>) => void) => {
+      fetch(`${apiV1Base()}${path}`)
+        .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+        .then((body) => {
+          if (!gone) apply(body || {});
+        })
+        .catch(() => {
+          /* keep empty */
+        });
+    };
+    load('/lalem/toilets', (body) => {
+      setToilets(Array.isArray(body.toilets) ? (body.toilets as LalemToilet[]) : []);
+    });
+    load('/lalem/papers', (body) => {
+      setPapers(Array.isArray(body.papers) ? (body.papers as LalemPaper[]) : []);
+    });
+    load('/lalem/medicine', (body) => {
+      setArticles(Array.isArray(body.articles) ? (body.articles as LalemMedicine[]) : []);
+    });
     return () => {
       gone = true;
     };
@@ -208,6 +283,47 @@ export default function Lalem() {
 
   const toiletName = (item: LalemToilet) => (nation === 'cn' ? item.title : item.titleEn);
   const toiletBlurb = (item: LalemToilet) => (nation === 'cn' ? item.blurb : item.blurbEn);
+  const paperName = (item: LalemPaper) => (nation === 'cn' ? item.title : item.titleEn);
+  const paperBlurb = (item: LalemPaper) => (nation === 'cn' ? item.blurb : item.blurbEn);
+  const medName = (item: LalemMedicine) => (nation === 'cn' ? item.title : item.titleEn);
+  const medBody = (item: LalemMedicine) => (nation === 'cn' ? item.body : item.bodyEn);
+
+  const openTrend = (tr: LalemTrend) => {
+    const [kind, id] = (tr.topicId || '').split(':');
+    if (kind === 'toilet') {
+      const item = toilets.find((row) => row.id === id);
+      if (item) {
+        setOpen({ kind: 'toilet', item });
+        return;
+      }
+    }
+    if (kind === 'paper') {
+      const item = papers.find((row) => row.id === id);
+      if (item) {
+        setOpen({ kind: 'paper', item });
+        return;
+      }
+    }
+    if (kind === 'medicine') {
+      const item = articles.find((row) => row.id === id);
+      if (item) {
+        setOpen({ kind: 'medicine', item });
+        return;
+      }
+    }
+    setOpen({ kind: 'trend', item: tr });
+  };
+
+  const sheetTitle =
+    open?.kind === 'toilet'
+      ? toiletName(open.item)
+      : open?.kind === 'paper'
+        ? paperName(open.item)
+        : open?.kind === 'medicine'
+          ? medName(open.item)
+          : open?.kind === 'trend'
+            ? open.item.title
+            : '';
 
   return (
     <main className="ll-page">
@@ -262,19 +378,75 @@ export default function Lalem() {
           <ul className="ll-gallery">
             {visible.map((item, i) => (
               <li key={item.id}>
-                <button type="button" className="ll-card" onClick={() => setOpen(item)}>
-                  <img
-                    src={item.imageUrl}
-                    alt={toiletName(item)}
-                    width={320}
-                    height={200}
-                    {...(i === 0 ? { fetchpriority: 'high' } : {})}
-                    loading={i === 0 ? 'eager' : 'lazy'}
-                  />
-                  <span className="ll-card-title">{toiletName(item)}</span>
-                  <span className="ll-card-meta">
-                    {tx(`lalem.shape.${item.shape}`)} · {tx(`lalem.era.${item.era}`)}
-                  </span>
+                <article className="ll-card">
+                  {wikiHref(item, nation) ? (
+                    <a
+                      className="ll-card-wiki"
+                      href={wikiHref(item, nation)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <img
+                        src={item.imageUrl}
+                        alt={toiletName(item)}
+                        width={320}
+                        height={200}
+                        {...(i === 0 ? { fetchpriority: 'high' } : {})}
+                        loading={i === 0 ? 'eager' : 'lazy'}
+                      />
+                    </a>
+                  ) : (
+                    <img src={item.imageUrl} alt={toiletName(item)} width={320} height={200} />
+                  )}
+                  <button type="button" className="ll-card-open" onClick={() => setOpen({ kind: 'toilet', item })}>
+                    <span className="ll-card-title">{toiletName(item)}</span>
+                    <span className="ll-card-meta">
+                      {tx(`lalem.shape.${item.shape}`)} · {tx(`lalem.era.${item.era}`)}
+                    </span>
+                  </button>
+                </article>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {dock === 'paper' ? (
+        <div className="ll-body">
+          <ul className="ll-gallery">
+            {papers.map((item, i) => (
+              <li key={item.id}>
+                <article className="ll-card">
+                  {wikiHref(item, nation) ? (
+                    <a className="ll-card-wiki" href={wikiHref(item, nation)} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={item.imageUrl}
+                        alt={paperName(item)}
+                        width={320}
+                        height={200}
+                        loading={i === 0 ? 'eager' : 'lazy'}
+                      />
+                    </a>
+                  ) : null}
+                  <button type="button" className="ll-card-open" onClick={() => setOpen({ kind: 'paper', item })}>
+                    <span className="ll-card-title">{paperName(item)}</span>
+                    <span className="ll-card-meta">{tx(`lalem.era.${item.era}`)}</span>
+                  </button>
+                </article>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {dock === 'medicine' ? (
+        <div className="ll-body ll-useful">
+          <p className="ll-disclaimer">{tx('lalem.disclaimer')}</p>
+          <ul className="ll-lore-list">
+            {articles.map((item) => (
+              <li key={item.id}>
+                <button type="button" className="ll-lore-open" onClick={() => setOpen({ kind: 'medicine', item })}>
+                  {medName(item)}
                 </button>
               </li>
             ))}
@@ -287,7 +459,7 @@ export default function Lalem() {
           <ul className="ll-gallery">
             {(digest?.trends || []).map((tr, i) => (
               <li key={`${tr.title}-${i}`}>
-                <article className="ll-card ll-trend">
+                <button type="button" className="ll-card ll-trend" onClick={() => openTrend(tr)}>
                   <img
                     src={tr.imageUrl}
                     alt=""
@@ -297,26 +469,10 @@ export default function Lalem() {
                   />
                   <h2 className="ll-card-title">{tr.title}</h2>
                   <p>{tr.hook}</p>
-                </article>
+                </button>
               </li>
             ))}
           </ul>
-          <div className="ll-videos">
-            {(digest?.videos || []).map((vid) => (
-              <figure key={vid.srcUrl} className="ll-video">
-                <figcaption>{vid.title}</figcaption>
-                <video
-                  src={vid.srcUrl}
-                  poster={vid.posterUrl}
-                  controls
-                  muted
-                  playsInline
-                  loop
-                  preload="metadata"
-                />
-              </figure>
-            ))}
-          </div>
           {!digest ? <p className="ll-empty">{tx('lalem.hotEmpty')}</p> : null}
         </div>
       ) : null}
@@ -337,6 +493,12 @@ export default function Lalem() {
         <button type="button" className={dock === 'toilets' ? 'is-on' : undefined} onClick={() => setDock('toilets')}>
           {tx('lalem.dock.toilets')}
         </button>
+        <button type="button" className={dock === 'paper' ? 'is-on' : undefined} onClick={() => setDock('paper')}>
+          {tx('lalem.dock.paper')}
+        </button>
+        <button type="button" className={dock === 'medicine' ? 'is-on' : undefined} onClick={() => setDock('medicine')}>
+          {tx('lalem.dock.medicine')}
+        </button>
         <button type="button" className={dock === 'hot' ? 'is-on' : undefined} onClick={() => setDock('hot')}>
           {tx('lalem.dock.hot')}
         </button>
@@ -355,19 +517,67 @@ export default function Lalem() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="ll-sheet-head">
-              <h2 id={titleId}>{toiletName(open)}</h2>
+              <h2 id={titleId}>{sheetTitle}</h2>
               <button type="button" className="ll-sheet-close" aria-label={tx('lalem.close')} onClick={() => setOpen(null)}>
                 ×
               </button>
             </div>
-            <img src={open.imageUrl} alt="" width={480} height={300} />
-            <p className="ll-sheet-meta">
-              {open.region} · {tx(`lalem.era.${open.era}`)} · {tx(`lalem.shape.${open.shape}`)}
-            </p>
-            <p>{toiletBlurb(open)}</p>
-            <p className="ll-credit">
-              {tx('lalem.credit')}: {open.credit}
-            </p>
+            {open.kind === 'toilet' ? (
+              <>
+                <img src={open.item.imageUrl} alt="" width={480} height={300} />
+                <p className="ll-sheet-meta">
+                  {open.item.region} · {tx(`lalem.era.${open.item.era}`)} · {tx(`lalem.shape.${open.item.shape}`)}
+                </p>
+                <p>{toiletBlurb(open.item)}</p>
+                {wikiHref(open.item, nation) ? (
+                  <p>
+                    <a href={wikiHref(open.item, nation)} target="_blank" rel="noopener noreferrer">
+                      {tx('lalem.wiki')}
+                    </a>
+                  </p>
+                ) : null}
+                <p className="ll-credit">
+                  {tx('lalem.credit')}: {open.item.credit}
+                </p>
+              </>
+            ) : null}
+            {open.kind === 'paper' ? (
+              <>
+                <img src={open.item.imageUrl} alt="" width={480} height={300} />
+                <p>{paperBlurb(open.item)}</p>
+                {wikiHref(open.item, nation) ? (
+                  <p>
+                    <a href={wikiHref(open.item, nation)} target="_blank" rel="noopener noreferrer">
+                      {tx('lalem.wiki')}
+                    </a>
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+            {open.kind === 'medicine' ? (
+              <>
+                <p className="ll-disclaimer">{tx('lalem.disclaimer')}</p>
+                <p className="ll-lore-body">{medBody(open.item)}</p>
+                <ul className="ll-sources">
+                  {(open.item.sources || [])
+                    .filter((src) => sourceAllowed(src.url))
+                    .map((src) => (
+                      <li key={src.url}>
+                        <a href={src.url} target="_blank" rel="noopener noreferrer">
+                          {src.label}
+                        </a>
+                      </li>
+                    ))}
+                </ul>
+              </>
+            ) : null}
+            {open.kind === 'trend' ? (
+              <>
+                {open.item.imageUrl ? <img src={open.item.imageUrl} alt="" width={480} height={300} /> : null}
+                <p>{open.item.hook}</p>
+                <p className="ll-disclaimer">{tx('lalem.trend.loungeOnly')}</p>
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}

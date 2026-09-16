@@ -22,6 +22,7 @@ type LalemTrend struct {
 	ImageURL  string   `json:"imageUrl"`
 	ImageHint string   `json:"imageHint,omitempty"`
 	Chips     []string `json:"chips,omitempty"`
+	TopicID   string   `json:"topicId,omitempty"`
 }
 
 func ParseLalemDigest(raw string) (*LalemDigest, error) {
@@ -92,6 +93,7 @@ func parseLalemTrends(raw json.RawMessage) []LalemTrend {
 			ImageURL:  jsonString(m["imageUrl"]),
 			ImageHint: jsonString(m["imageHint"]),
 			Chips:     parseStringList(m["chips"]),
+			TopicID:   jsonString(m["topicId"]),
 		}
 		if tr.Title == "" && tr.Hook == "" {
 			continue

@@ -761,11 +761,24 @@ html.ll-world.synth-world #root {
   overflow: hidden;
   color: inherit;
   padding: 0;
+}
+.ll-card-wiki { display: block; }
+.ll-card-open,
+.ll-lore-open,
+button.ll-trend {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: inherit;
   cursor: pointer;
+  padding: 0;
+  font: inherit;
 }
 .ll-card img,
-.ll-sheet img,
-.ll-video video {
+.ll-sheet img {
   width: 100%;
   aspect-ratio: 16 / 10;
   object-fit: cover;
@@ -826,12 +839,23 @@ html.ll-world.synth-world #root {
 
 .ll-dock {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.45rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.3rem;
   flex-shrink: 0;
   padding: 0.65rem 0 calc(0.65rem + env(safe-area-inset-bottom, 0px));
 }
-.ll-dock button { min-height: 3rem; font-size: 1rem; }
+.ll-dock button { min-height: 2.75rem; font-size: 0.82rem; }
+.ll-lore-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.ll-lore-open {
+  padding: 0.85rem 0.9rem;
+  border-radius: 0.9rem;
+  background: rgba(18, 8, 6, 0.55);
+  border: 1px solid rgba(255, 211, 106, 0.2);
+  font-weight: 700;
+}
+.ll-lore-body { white-space: pre-wrap; line-height: 1.55; }
+.ll-sources { margin: 0.8rem 0 0; padding-left: 1.1rem; }
+.ll-sources a { color: #ffd36a; }
 
 .ll-sheet-backdrop {
   position: fixed;

@@ -1,0 +1,124 @@
+{
+  "papers": [
+    {
+      "id": "xylospongium",
+      "title": "海绵棒",
+      "titleEn": "Xylospongium",
+      "blurb": "古罗马公共厕所里传来传去的海绵棒。社交，也包括这个。",
+      "blurbEn": "A communal sponge-stick in Roman latrines. Hygiene was a group project.",
+      "era": "roman",
+      "imageUrl": "/lalem/papers/xylospongium.svg",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E6%B5%B7%E7%BB%B5",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Xylospongium",
+      "credit": "拉了么原创插画"
+    },
+    {
+      "id": "newspaper",
+      "title": "旧报纸",
+      "titleEn": "Newspaper pages",
+      "blurb": "读完头版再撕一页。文字先服务眼睛，再服务后面。",
+      "blurbEn": "Read the front page, then tear a sheet. Words did two jobs.",
+      "era": "modern",
+      "imageUrl": "/lalem/papers/newspaper.svg",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E5%8E%95%E7%BA%B8",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Toilet_paper",
+      "credit": "拉了么原创插画"
+    },
+    {
+      "id": "leaves",
+      "title": "树叶苔藓",
+      "titleEn": "Leaves and moss",
+      "blurb": "田野里最老实的选项。选叶子，避开刺。",
+      "blurbEn": "The honest field option. Pick leaves. Skip the thorns.",
+      "era": "ancient",
+      "imageUrl": "/lalem/papers/leaves.svg",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%82%9B%E9%97%A8%E6%B8%85%E6%B4%81",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Anal_cleansing",
+      "credit": "拉了么原创插画"
+    },
+    {
+      "id": "chu-chou",
+      "title": "厕筹",
+      "titleEn": "Chu-chou sticks",
+      "blurb": "中国古代的木竹片。擦完再洗，循环使用。",
+      "blurbEn": "Bamboo or wood slips in imperial China. Wash, reuse, repeat.",
+      "era": "imperial-cn",
+      "imageUrl": "/lalem/papers/chu-chou.svg",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E5%8E%95%E7%AD%B9",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Toilet_paper",
+      "credit": "拉了么原创插画"
+    },
+    {
+      "id": "corn-cob",
+      "title": "玉米芯",
+      "titleEn": "Corn cobs",
+      "blurb": "美洲农村的经典。干燥、粗糙、就地取材。",
+      "blurbEn": "A rural Americas classic. Dry, rough, and already in the barn.",
+      "era": "modern",
+      "imageUrl": "/lalem/papers/corn-cob.svg",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%82%9B%E9%97%A8%E6%B8%85%E6%B4%81",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Corncob",
+      "credit": "拉了么原创插画"
+    },
+    {
+      "id": "roll-paper",
+      "title": "卷筒纸",
+      "titleEn": "Roll paper",
+      "blurb": "今天最常见的软纸卷。层数、压花、是否溶于水，都有说法。",
+      "blurbEn": "Today’s default roll. Ply, quilt, and whether it dissolves all matter.",
+      "era": "modern",
+      "imageUrl": "/lalem/papers/roll-paper.svg",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E5%8E%95%E7%BA%B8",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Toilet_paper",
+      "credit": "拉了么原创插画"
+    },
+    {
+      "id": "wet-wipe",
+      "title": "湿纸巾",
+      "titleEn": "Wet wipes",
+      "blurb": "更软，但不一定更适合管道。包装上写可冲，管道未必同意。",
+      "blurbEn": "Softer, not always sewer-friendly. “Flushable” is a marketing word.",
+      "era": "modern",
+      "imageUrl": "/lalem/papers/wet-wipe.svg",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E6%B9%BF%E5%B7%BE",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Wet_wipe",
+      "credit": "拉了么原创插画"
+    },
+    {
+      "id": "bidet",
+      "title": "坐浴盆",
+      "titleEn": "Bidet",
+      "blurb": "水比纸更早在部分欧洲家庭成为主角。",
+      "blurbEn": "Water beat paper in some European bathrooms long ago.",
+      "era": "victorian",
+      "imageUrl": "/lalem/papers/bidet.svg",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E5%9D%90%E6%B5%B4%E7%9B%86",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Bidet",
+      "credit": "拉了么原创插画"
+    },
+    {
+      "id": "washlet-water",
+      "title": "智洁水洗",
+      "titleEn": "Washlet water",
+      "blurb": "盖子自己抬，水自己暖。纸还在，但不是唯一工具。",
+      "blurbEn": "The lid lifts and the water is warm. Paper is optional, not gone.",
+      "era": "modern",
+      "imageUrl": "/lalem/papers/washlet-water.svg",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E6%B8%85%E6%B4%97%E9%A9%AC%E6%A1%B6%E7%9B%96",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Washlet",
+      "credit": "拉了么原创插画"
+    },
+    {
+      "id": "bum-gun",
+      "title": "冲洗喷枪",
+      "titleEn": "Handheld sprayer",
+      "blurb": "东南亚常见的软管喷头。纸和水可以搭档。",
+      "blurbEn": "A handheld sprayer common in Southeast Asia. Water and paper can team up.",
+      "era": "modern",
+      "imageUrl": "/lalem/papers/bum-gun.svg",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%82%9B%E9%97%A8%E6%B8%85%E6%B4%81",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Anal_cleansing",
+      "credit": "拉了么原创插画"
+    }
+  ]
+}

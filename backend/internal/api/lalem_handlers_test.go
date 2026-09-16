@@ -89,6 +89,12 @@ func TestLalemToiletsCatalogHasImages(t *testing.T) {
 		if item.ImageURL == "" || strings.HasPrefix(item.ImageURL, "http") {
 			t.Fatalf("image %+v", item)
 		}
+		if !strings.HasPrefix(item.WikiURLZh, "https://zh.wikipedia.org/") {
+			t.Fatalf("wiki zh %+v", item)
+		}
+		if !strings.HasPrefix(item.WikiURLEn, "https://en.wikipedia.org/") {
+			t.Fatalf("wiki en %+v", item)
+		}
 	}
 }
 
@@ -119,7 +125,54 @@ func TestLalemToiletsFilterMatches(t *testing.T) {
 	}
 }
 
-func TestLalemDigestReturnsVideoSrc(t *testing.T) {
+func TestLalemPapersAndMedicineCatalogs(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	stub := &stubLalemAI{}
+	r := fridgeRaidTestRouter(t, stub)
+	w := getJSON(r, "/api/v1/lalem/papers")
+	if w.Code != http.StatusOK {
+		t.Fatalf("papers %d %s", w.Code, w.Body.String())
+	}
+	var papers struct {
+		Papers []ai.LalemPaper `json:"papers"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &papers); err != nil {
+		t.Fatal(err)
+	}
+	if len(papers.Papers) < 8 {
+		t.Fatalf("papers=%d", len(papers.Papers))
+	}
+	for _, item := range papers.Papers {
+		if !strings.HasPrefix(item.ImageURL, "/lalem/papers/") {
+			t.Fatalf("paper image %+v", item)
+		}
+		if !strings.HasPrefix(item.WikiURLZh, "https://zh.wikipedia.org/") {
+			t.Fatalf("paper wiki zh %+v", item)
+		}
+		if !strings.HasPrefix(item.WikiURLEn, "https://en.wikipedia.org/") {
+			t.Fatalf("paper wiki en %+v", item)
+		}
+	}
+	w2 := getJSON(r, "/api/v1/lalem/medicine")
+	if w2.Code != http.StatusOK {
+		t.Fatalf("medicine %d %s", w2.Code, w2.Body.String())
+	}
+	var med struct {
+		Articles []ai.LalemMedicine `json:"articles"`
+	}
+	if err := json.Unmarshal(w2.Body.Bytes(), &med); err != nil {
+		t.Fatal(err)
+	}
+	if len(med.Articles) < 7 {
+		t.Fatalf("articles=%d", len(med.Articles))
+	}
+	if stub.digestCalls != 0 {
+		t.Fatal("catalog GETs must not call the live model")
+	}
+}
+
+func TestLalemDigestReturnsNoVideos(t *testing.T) {
 	resetLalemLimiter()
 	resetLalemDigestCache()
 	stub := &stubLalemAI{}
@@ -132,7 +185,7 @@ func TestLalemDigestReturnsVideoSrc(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Videos) < 1 || !strings.Contains(got.Videos[0].SrcURL, ".mp4") {
+	if len(got.Videos) != 0 {
 		t.Fatalf("videos %+v", got.Videos)
 	}
 	if stub.digestCalls != 1 {
@@ -278,7 +331,48 @@ func TestLalemDigestReadsWarmStoreWithoutAdvise(t *testing.T) {
 	if got.Disclaimer == "" {
 		t.Fatal("disclaimer missing")
 	}
-	if len(got.Videos) < 1 || !strings.Contains(got.Videos[0].SrcURL, ".mp4") {
+	if len(got.Videos) != 0 {
+		t.Fatalf("videos %+v", got.Videos)
+	}
+	if got.Trends[0].TopicID != "" {
+		t.Fatalf("unmapped store trend should have empty topicId, got %q", got.Trends[0].TopicID)
+	}
+}
+
+func TestLalemDigestStoreMapsSquatTrendToMedicine(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	stub := &stubLalemAI{}
+	r, db := lalemRouterWithDB(t, stub)
+	now := time.Now()
+	if err := database.InsertLalemTrend(db.SQLite, database.LalemTrendRow{
+		Locale: "cn", Kind: "entertainment", Title: "久蹲热搜", Hook: "今晚都在聊蹲姿", ImageURL: "/lalem/trends/entertainment-1.svg", CreatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.InsertLalemUseful(db.SQLite, database.LalemUsefulRow{
+		Locale: "cn", Body: "洗手", CreatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SetLalemFeedMeta(db.SQLite, "cn", database.LalemShanghaiToday(now), now.UTC().Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
+	w := getJSON(r, "/api/v1/lalem/digest?locale=cn")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if stub.digestCalls != 0 {
+		t.Fatalf("warm store must not call advise, calls=%d", stub.digestCalls)
+	}
+	var got ai.LalemDigest
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Trends) != 1 || got.Trends[0].TopicID != "medicine:posture-squat-sit" {
+		t.Fatalf("topicId %+v", got.Trends)
+	}
+	if len(got.Videos) != 0 {
 		t.Fatalf("videos %+v", got.Videos)
 	}
 }

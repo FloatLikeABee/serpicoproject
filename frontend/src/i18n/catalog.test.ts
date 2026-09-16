@@ -119,6 +119,8 @@ describe('i18n catalog', () => {
     expect(t('cn', 'lalem.title')).toBe('拉了么');
     expect(t('cn', 'lalem.kicker')).toBe('来都来了');
     expect(t('cn', 'lalem.dock.toilets')).toBe('马桶');
+    expect(t('cn', 'lalem.dock.paper')).toBe('厕纸');
+    expect(t('cn', 'lalem.dock.medicine')).toBe('医典');
     expect(t('cn', 'lalem.dock.hot')).toBe('热榜');
     expect(t('cn', 'lalem.dock.useful')).toBe('有用');
     expect(t('cn', 'lalem.disclaimer')).toMatch(/医疗|诊断/);
