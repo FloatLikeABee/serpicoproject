@@ -137,7 +137,7 @@ function sourceAllowed(url: string): boolean {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') return false;
     const host = parsed.hostname.toLowerCase();
-    if (host.endsWith('wikipedia.org')) return true;
+    if (host === 'wikipedia.org' || host.endsWith('.wikipedia.org')) return true;
     return ['nhs.uk', 'mayoclinic.org', 'medlineplus.gov', 'clevelandclinic.org', 'who.int'].some(
       (allow) => host === allow || host.endsWith(`.${allow}`)
     );
@@ -427,7 +427,9 @@ export default function Lalem() {
                         loading={i === 0 ? 'eager' : 'lazy'}
                       />
                     </a>
-                  ) : null}
+                  ) : (
+                    <img src={item.imageUrl} alt={paperName(item)} width={320} height={200} />
+                  )}
                   <button type="button" className="ll-card-open" onClick={() => setOpen({ kind: 'paper', item })}>
                     <span className="ll-card-title">{paperName(item)}</span>
                     <span className="ll-card-meta">{tx(`lalem.era.${item.era}`)}</span>

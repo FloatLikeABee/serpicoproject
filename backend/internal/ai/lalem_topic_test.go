@@ -33,6 +33,33 @@ func TestMapLalemTrendTopicIgnoresUnknownId(t *testing.T) {
 	}
 }
 
+func TestMapLalemTrendTopicIgnoresEnglishSubstringTraps(t *testing.T) {
+	cases := [][2]string{
+		{"Swipe night", "everyone loves a swipe"},
+		{"Constraint chic", "a look about constraint"},
+		{"Good posture", "runway posture tips"},
+		{"Stockpiles", "warehouse stockpiles of lipstick"},
+	}
+	for _, c := range cases {
+		got := MapLalemTrendTopic(c[0], c[1], "")
+		if got != "" {
+			t.Fatalf("%q / %q mapped to %q", c[0], c[1], got)
+		}
+	}
+}
+
+func TestMapLalemTrendTopicKeepsTokenKeywords(t *testing.T) {
+	if got := MapLalemTrendTopic("Valsalva talk", "too much straining", ""); got != "medicine:straining-valsalva" {
+		t.Fatalf("straining got %q", got)
+	}
+	if got := MapLalemTrendTopic("Hemorrhoid explainer", "piles in the encyclopedia", ""); got != "medicine:hemorrhoids" {
+		t.Fatalf("hemorrhoid got %q", got)
+	}
+	if got := MapLalemTrendTopic("Wet wipe debate", "flushable wet wipes", ""); got != "paper:wet-wipe" {
+		t.Fatalf("wet wipe got %q", got)
+	}
+}
+
 func TestComposeStoredLalemDigestMapsSquatAndDropsVideos(t *testing.T) {
 	got := ComposeStoredLalemDigest("cn", []LalemTrend{
 		{Kind: "entertainment", Title: "久蹲热搜", Hook: "今晚都在聊蹲姿", ImageURL: "/lalem/trends/entertainment-1.svg"},

@@ -90,7 +90,7 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 	if db != nil && db.SQLite != nil {
 		_ = database.PruneLalemFeed(db.SQLite, now)
 		if digest := lalemDigestFromStore(db, locale, true); digest != nil {
-			c.JSON(http.StatusOK, digest)
+			replyLalemDigest(c, digest)
 			return
 		}
 		needSeed, needInc := lalemFeedNeedsGeneration(db, locale, now)
@@ -103,7 +103,7 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 			if !ok {
 				if needInc {
 					if fallback := lalemDigestFromStore(db, locale, false); fallback != nil {
-						c.JSON(http.StatusOK, fallback)
+						replyLalemDigest(c, fallback)
 						return
 					}
 				}
@@ -118,7 +118,7 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 			if needInc {
 				if err != nil || digest == nil {
 					if fallback := lalemDigestFromStore(db, locale, false); fallback != nil {
-						c.JSON(http.StatusOK, fallback)
+						replyLalemDigest(c, fallback)
 						return
 					}
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "lounge digest increment failed"})
@@ -126,10 +126,10 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 				}
 				_ = persistLalemDigest(db, locale, digest, now)
 				if composed := lalemDigestFromStore(db, locale, false); composed != nil {
-					c.JSON(http.StatusOK, composed)
+					replyLalemDigest(c, composed)
 					return
 				}
-				c.JSON(http.StatusOK, digest)
+				replyLalemDigest(c, digest)
 				return
 			}
 			if err != nil || digest == nil {
@@ -138,10 +138,10 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 			}
 			_ = persistLalemDigest(db, locale, digest, now)
 			if composed := lalemDigestFromStore(db, locale, false); composed != nil {
-				c.JSON(http.StatusOK, composed)
+				replyLalemDigest(c, composed)
 				return
 			}
-			c.JSON(http.StatusOK, digest)
+			replyLalemDigest(c, digest)
 			return
 		}
 	}
@@ -150,7 +150,7 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 		return
 	}
 	if cached := getLalemDigestCache(locale); cached != nil {
-		c.JSON(http.StatusOK, cached)
+		replyLalemDigest(c, cached)
 		return
 	}
 	adviser, ok := aiService.(lalemAdviser)
@@ -164,6 +164,15 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 		return
 	}
 	setLalemDigestCache(locale, digest)
+	replyLalemDigest(c, digest)
+}
+
+func replyLalemDigest(c *gin.Context, digest *ai.LalemDigest) {
+	if digest == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "lounge digest is not available"})
+		return
+	}
+	digest.Videos = []ai.LalemVideo{}
 	c.JSON(http.StatusOK, digest)
 }
 

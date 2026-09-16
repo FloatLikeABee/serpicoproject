@@ -172,6 +172,26 @@ func TestLalemPapersAndMedicineCatalogs(t *testing.T) {
 	}
 }
 
+func TestLalemDigestNoDBStripsStubVideos(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	stub := &stubLalemAI{}
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	SetupRoutes(r.Group("/api/v1"), nil, stub)
+	w := getJSON(r, "/api/v1/lalem/digest?locale=cn")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	var got ai.LalemDigest
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Videos) != 0 {
+		t.Fatalf("nil-DB digest must strip videos %+v", got.Videos)
+	}
+}
+
 func TestLalemDigestReturnsNoVideos(t *testing.T) {
 	resetLalemLimiter()
 	resetLalemDigestCache()
