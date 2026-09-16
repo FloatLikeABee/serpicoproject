@@ -100,6 +100,28 @@ const digest = {
 function mockLalemFetch() {
   return jest.fn().mockImplementation((url: RequestInfo) => {
     const href = String(url);
+    if (href.includes('/lalem/wiki')) {
+      const wikiUrl = decodeURIComponent((href.split('url=')[1] || '').split('&')[0]);
+      const zh = wikiUrl.includes('zh.wikipedia.org');
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () =>
+          zh
+            ? {
+                title: '公共厕所',
+                extract: '古罗马公共厕所。',
+                lang: 'zh',
+                sourceUrl: wikiUrl,
+              }
+            : {
+                title: 'Latrine',
+                extract: 'A communal latrine.',
+                lang: 'en',
+                sourceUrl: wikiUrl,
+              },
+      });
+    }
     if (href.includes('/lalem/digest')) {
       return Promise.resolve({
         ok: true,
@@ -141,6 +163,13 @@ afterEach(() => {
   Object.defineProperty(document, 'hidden', { configurable: true, value: false });
 });
 
+function cardTitleButton(name: string): HTMLElement {
+  const img = screen.getByRole('img', { name });
+  const btn = img.closest('article')?.querySelector('.ll-card-open');
+  if (!btn) throw new Error(`missing title control for ${name}`);
+  return btn as HTMLElement;
+}
+
 test('fresh visit shows 拉了么 and toilet images, not officer nav', async () => {
   render(<Lalem />);
   expect(screen.getByRole('heading', { name: '拉了么' })).toBeInTheDocument();
@@ -163,23 +192,36 @@ test('language toggle switches chrome to English', async () => {
   expect(screen.getByText(/You’re already here|already here/i)).toBeInTheDocument();
 });
 
-test('toilet image is a Wikipedia link; title opens the sheet', async () => {
+test('toilet image opens in-app wiki reader; title still opens the sheet', async () => {
   render(<Lalem />);
   const img = await screen.findByRole('img', { name: '罗马公共厕所' });
-  const link = img.closest('a');
-  expect(link).toHaveAttribute('href', 'https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80');
-  expect(link).toHaveAttribute('target', '_blank');
-  expect(link?.getAttribute('rel') || '').toMatch(/noopener/);
-  await userEvent.click(screen.getByRole('button', { name: /罗马公共厕所/ }));
-  const dialog = await screen.findByRole('dialog', { name: '罗马公共厕所' });
-  expect(within(dialog).getByRole('link', { name: /维基|Wiki|Wikipedia|百科/i })).toHaveAttribute(
-    'href',
-    'https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80'
-  );
-  fireEvent.click(screen.getByRole('button', { name: '关闭' }));
+  expect(img.closest('a')).toBeNull();
+  expect(document.querySelectorAll('a[href*="wikipedia.org"]')).toHaveLength(0);
+  const wikiBtn = img.closest('button');
+  expect(wikiBtn).toHaveClass('ll-card-wiki');
+  expect(wikiBtn).toHaveAttribute('type', 'button');
+  await userEvent.click(wikiBtn as HTMLElement);
+  const wiki = await screen.findByRole('dialog', { name: '公共厕所' });
+  expect(wiki).toHaveClass('ll-wiki');
+  expect(wiki).toHaveTextContent('古罗马公共厕所。');
+  expect(within(wiki).queryByRole('link')).toBeNull();
+  expect(wiki).toHaveTextContent('zh.wikipedia.org');
+  expect(String((global.fetch as jest.Mock).mock.calls.map(String).join('\n'))).toMatch(/\/lalem\/wiki\?url=/);
+  fireEvent.click(within(wiki).getByRole('button', { name: '关闭' }));
+  await userEvent.click(cardTitleButton('罗马公共厕所'));
+  const sheet = await screen.findByRole('dialog', { name: '罗马公共厕所' });
+  expect(within(sheet).queryByRole('link', { name: /维基|Wiki|Wikipedia|百科/i })).toBeNull();
+  await userEvent.click(within(sheet).getByRole('button', { name: /维基|Wiki|Wikipedia|百科/i }));
+  const wikiFromSheet = await screen.findByRole('dialog', { name: '公共厕所' });
+  expect(wikiFromSheet).toHaveTextContent('古罗马公共厕所。');
+  fireEvent.click(within(wikiFromSheet).getByRole('button', { name: '关闭' }));
+  fireEvent.click(within(sheet).getByRole('button', { name: '关闭' }));
   await userEvent.click(screen.getByRole('button', { name: 'EN' }));
   const enImg = await screen.findByRole('img', { name: 'Roman forica' });
-  expect(enImg.closest('a')).toHaveAttribute('href', 'https://en.wikipedia.org/wiki/Latrine');
+  expect(enImg.closest('a')).toBeNull();
+  await userEvent.click(enImg.closest('button') as HTMLElement);
+  const enWiki = await screen.findByRole('dialog', { name: 'Latrine' });
+  expect(enWiki).toHaveTextContent('A communal latrine.');
 });
 
 test('toilet filters use a label column and wrapping chips', async () => {
@@ -214,7 +256,7 @@ test('shape filter hides non-matching toilets', async () => {
 test('tapping a toilet title opens a sheet', async () => {
   render(<Lalem />);
   await screen.findByRole('img', { name: '罗马公共厕所' });
-  await userEvent.click(screen.getByRole('button', { name: /罗马公共厕所/ }));
+  await userEvent.click(cardTitleButton('罗马公共厕所'));
   const dialog = await screen.findByRole('dialog', { name: '罗马公共厕所' });
   expect(within(dialog).getByText(/坐成一排/)).toBeInTheDocument();
 });
@@ -232,16 +274,24 @@ test('厕纸 and 医典 docks open galleries with sourced detail', async () => {
   render(<Lalem />);
   await userEvent.click(screen.getByRole('button', { name: '厕纸' }));
   const paperImg = await screen.findByRole('img', { name: '海绵棒' });
-  expect(paperImg.closest('a')).toHaveAttribute('href', expect.stringContaining('wikipedia.org'));
-  await userEvent.click(screen.getByRole('button', { name: /海绵棒/ }));
+  expect(paperImg.closest('a')).toBeNull();
+  expect(paperImg.closest('button')).toHaveClass('ll-card-wiki');
+  await userEvent.click(cardTitleButton('海绵棒'));
   expect(await screen.findByRole('dialog', { name: '海绵棒' })).toHaveTextContent(/海绵棒/);
   fireEvent.click(screen.getByRole('button', { name: '关闭' }));
   await userEvent.click(screen.getByRole('button', { name: '医典' }));
   await userEvent.click(await screen.findByRole('button', { name: /蹲还是坐/ }));
   const lore = await screen.findByRole('dialog', { name: /蹲还是坐/ });
   expect(lore).toHaveTextContent(/不能替代医疗|not medical/i);
-  expect(within(lore).getByRole('link', { name: /Wikipedia/i })).toHaveAttribute('href', expect.stringContaining('wikipedia.org'));
-  expect(within(lore).getByRole('link', { name: 'NHS' })).toHaveAttribute('href', 'https://www.nhs.uk/conditions/constipation/');
+  expect(within(lore).queryByRole('link', { name: /Wikipedia/i })).toBeNull();
+  expect(within(lore).getByRole('link', { name: 'NHS' })).toHaveAttribute(
+    'href',
+    'https://www.nhs.uk/conditions/constipation/'
+  );
+  await userEvent.click(within(lore).getByRole('button', { name: /Wikipedia/i }));
+  const wiki = await screen.findByRole('dialog', { name: '公共厕所' });
+  expect(within(wiki).queryByRole('link')).toBeNull();
+  expect(document.querySelectorAll('a[href*="wikipedia.org"]')).toHaveLength(0);
 });
 
 test('热榜 has no video; trends open encyclopedia or lounge copy', async () => {
@@ -249,6 +299,10 @@ test('热榜 has no video; trends open encyclopedia or lounge copy', async () =>
   await userEvent.click(screen.getByRole('button', { name: '热榜' }));
   await screen.findByText('今日新色');
   expect(document.querySelector('video')).toBeNull();
+  expect(document.querySelector('.ll-trend img')).toBeNull();
+  const tags = [...document.querySelectorAll('.ll-trend-tag')].map((el) => el.textContent || '');
+  expect(tags.some((t) => /时尚|Fashion/.test(t))).toBe(true);
+  expect(tags.some((t) => /娱乐|Entertainment/.test(t))).toBe(true);
   expect(screen.getByText('今日新色')).toBeInTheDocument();
   const trendTitles = screen.getAllByRole('heading', { level: 2 }).map((el) => el.textContent);
   expect(trendTitles.indexOf('今日新色')).toBeLessThan(trendTitles.indexOf('昨日综艺'));
@@ -258,6 +312,7 @@ test('热榜 has no video; trends open encyclopedia or lounge copy', async () =>
   fireEvent.click(screen.getByRole('button', { name: '关闭' }));
   await userEvent.click(screen.getByRole('button', { name: /今日新色/ }));
   const lounge = await screen.findByRole('dialog', { name: '今日新色' });
+  expect(lounge.querySelector('img')).toBeNull();
   expect(lounge).toHaveTextContent(/玩笑|lounge|不是新闻/i);
   fireEvent.click(screen.getByRole('button', { name: '关闭' }));
   await userEvent.click(screen.getByRole('button', { name: '有用' }));

@@ -2,8 +2,10 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -59,6 +61,163 @@ func (s *stubLalemAI) AdviseLalemDigest(in ai.LalemDigestInput) (*ai.LalemDigest
 		},
 		Useful: []string{"别蹲太久", "洗手"},
 	}, nil
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestLalemWikiAllowlistedReturnsSummary(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	stub := &stubLalemAI{}
+	var hits int
+	prev := lalemWikiClient
+	lalemWikiClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		hits++
+		if r.Header.Get("User-Agent") == "" {
+			t.Error("missing User-Agent")
+		}
+		if r.URL.Host != "zh.wikipedia.org" {
+			t.Errorf("host %s", r.URL.Host)
+		}
+		if !strings.Contains(r.URL.Path, "/api/rest_v1/page/summary/") {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		body := `{"title":"公共厕所","extract":"古罗马公共厕所。","lang":"zh"}`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Request:    r,
+		}, nil
+	})}
+	t.Cleanup(func() { lalemWikiClient = prev })
+	r := fridgeRaidTestRouter(t, stub)
+	wiki := "https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80"
+	w := getJSON(r, "/api/v1/lalem/wiki?url="+url.QueryEscape(wiki))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if hits != 1 {
+		t.Fatalf("upstream hits=%d", hits)
+	}
+	if stub.digestCalls != 0 {
+		t.Fatalf("wiki GET must not call the live model, calls=%d", stub.digestCalls)
+	}
+	var got struct {
+		Title     string `json:"title"`
+		Extract   string `json:"extract"`
+		Lang      string `json:"lang"`
+		SourceURL string `json:"sourceUrl"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Title != "公共厕所" || got.Extract != "古罗马公共厕所。" {
+		t.Fatalf("summary %+v", got)
+	}
+	if got.SourceURL != wiki {
+		t.Fatalf("sourceUrl %q", got.SourceURL)
+	}
+}
+
+func TestLalemWikiEnglishAllowlist(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	prev := lalemWikiClient
+	lalemWikiClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "en.wikipedia.org" || !strings.Contains(r.URL.Path, "/Latrine") {
+			t.Errorf("unexpected %s", r.URL.String())
+		}
+		body := `{"title":"Latrine","extract":"A communal latrine.","lang":"en"}`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Request:    r,
+		}, nil
+	})}
+	t.Cleanup(func() { lalemWikiClient = prev })
+	r := fridgeRaidTestRouter(t, &stubLalemAI{})
+	w := getJSON(r, "/api/v1/lalem/wiki?url="+url.QueryEscape("https://en.wikipedia.org/wiki/Latrine"))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"extract":"A communal latrine."`) {
+		t.Fatalf("body %s", w.Body.String())
+	}
+}
+
+func TestLalemWikiRejectsOffHostWithoutUpstream(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	stub := &stubLalemAI{}
+	var hits int
+	prev := lalemWikiClient
+	lalemWikiClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		hits++
+		return nil, errString("should not fetch")
+	})}
+	t.Cleanup(func() { lalemWikiClient = prev })
+	r := fridgeRaidTestRouter(t, stub)
+	cases := []string{
+		"https://example.com/",
+		"http://zh.wikipedia.org/wiki/Latrine",
+		"https://zh.wikipedia.org/wiki/",
+		"https://zh.wikipedia.org/",
+		"",
+	}
+	for _, raw := range cases {
+		path := "/api/v1/lalem/wiki"
+		if raw != "" {
+			path += "?url=" + url.QueryEscape(raw)
+		}
+		w := getJSON(r, path)
+		if w.Code < 400 || w.Code >= 500 {
+			t.Fatalf("%q status %d %s", raw, w.Code, w.Body.String())
+		}
+		if w.Code == http.StatusNotFound {
+			t.Fatalf("%q must be handled, not missing route: %d", raw, w.Code)
+		}
+	}
+	if hits != 0 {
+		t.Fatalf("rejected URLs must not hit Wikipedia, hits=%d", hits)
+	}
+	if stub.digestCalls != 0 {
+		t.Fatalf("wiki reject must not call the live model, calls=%d", stub.digestCalls)
+	}
+}
+
+func TestLalemWikiBlocksOffHostRedirect(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	var hosts []string
+	prev := lalemWikiClient
+	lalemWikiClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		hosts = append(hosts, r.URL.Host)
+		if r.URL.Host == "zh.wikipedia.org" {
+			return &http.Response{
+				StatusCode: http.StatusFound,
+				Header:     http.Header{"Location": []string{"https://example.com/owned"}},
+				Body:       io.NopCloser(strings.NewReader("")),
+				Request:    r,
+			}, nil
+		}
+		t.Errorf("followed redirect to %s", r.URL.String())
+		return nil, errString("should not follow")
+	})}
+	t.Cleanup(func() { lalemWikiClient = prev })
+	r := fridgeRaidTestRouter(t, &stubLalemAI{})
+	w := getJSON(r, "/api/v1/lalem/wiki?url="+url.QueryEscape("https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80"))
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	for _, host := range hosts {
+		if host == "example.com" {
+			t.Fatal("must not fetch redirect host")
+		}
+	}
 }
 
 func getJSON(r http.Handler, path string) *httptest.ResponseRecorder {

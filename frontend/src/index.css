@@ -646,6 +646,12 @@ html.ll-world.synth-world {
   --ll-accent: #8ec5c0;
   --ll-line: rgba(230, 235, 242, 0.14);
   --ll-gutter: 1rem;
+  --ll-px-ink: #12161c;
+  --ll-px-teal: #8ec5c0;
+  --ll-px-clay: #d47b6a;
+  --ll-px-leaf: #7a9e6e;
+  --ll-px-sand: #e8d5a3;
+  --ll-px-steel: #6b8cae;
   color-scheme: dark;
   height: 100%;
   height: 100dvh;
@@ -783,7 +789,17 @@ html.ll-world.synth-world #root {
   color: inherit;
   padding: 0;
 }
-.ll-card-wiki { display: block; grid-row: 1; }
+.ll-card-wiki {
+  display: block;
+  grid-row: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+}
 .ll-card > img { grid-row: 1; }
 .ll-card-open {
   display: grid;
@@ -814,13 +830,21 @@ html.ll-world.synth-world #root {
   border-radius: 0.9rem;
   font-weight: 700;
 }
-.ll-card img,
-.ll-sheet img {
+.ll-card img {
   width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
   display: block;
   background: #151a22;
+  image-rendering: pixelated;
+}
+.ll-sheet img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  display: block;
+  background: #151a22;
+  image-rendering: pixelated;
 }
 .ll-card-title {
   font-weight: 700;
@@ -841,7 +865,82 @@ html.ll-world.synth-world #root {
   margin: 0;
 }
 .ll-trend { cursor: pointer; }
-.ll-trend h2 { margin: 0; }
+.ll-trend h2 { margin: 0; padding: 0; }
+.ll-trend-list {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.ll-card.ll-trend {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.12rem 0.7rem;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.9rem;
+}
+.ll-trend-tag {
+  grid-row: 1 / 3;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ll-bg);
+  background: var(--ll-accent);
+  border-radius: 999px;
+  padding: 0.22rem 0.5rem;
+  white-space: nowrap;
+}
+.ll-wiki-open {
+  min-height: 2.5rem;
+  border: 1px solid var(--ll-line);
+  background: var(--ll-surface);
+  color: var(--ll-accent);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.ll-wiki-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(8, 10, 14, 0.78);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.ll-wiki {
+  width: min(40rem, 100%);
+  margin: 0 auto;
+  max-height: min(80vh, 36rem);
+  overflow-y: auto;
+  background: var(--ll-surface);
+  color: var(--ll-text);
+  border-radius: 1.25rem 1.25rem 0 0;
+  padding-block: 1rem 1.4rem;
+  padding-inline: var(--ll-gutter);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--ll-line);
+}
+.ll-wiki-extract {
+  margin: 0.4rem 0 0.85rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.ll-wiki-source {
+  margin: 0;
+  color: var(--ll-muted);
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+@media (min-width: 640px) {
+  .ll-wiki-backdrop { align-items: center; padding: 1.5rem; }
+  .ll-wiki { border-radius: 1.25rem; }
+}
 
 .ll-videos { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1rem; }
 .ll-video {

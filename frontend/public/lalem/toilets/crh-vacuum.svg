@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img">
-  <rect width="640" height="400" rx="28" fill="#1e1b4b"/>
-  <g fill="#38bdf8" stroke="#1f140c" stroke-width="3"><rect x="40" y="120" width="560" height="160"/><polygon points="320,140 280,260 360,260"/><circle cx="80" cy="200" r="18"/></g>
-  <text x="320" y="372" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="700" fill="#1f140c">CRH</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges"><rect x="0" y="0" width="32" height="32" fill="#12161c"/><rect x="2" y="4" width="28" height="24" fill="#6b8cae"/><rect x="4" y="6" width="10" height="8" fill="#8ec5c0"/><rect x="16" y="12" width="12" height="12" fill="#d47b6a"/><rect x="19" y="16" width="6" height="6" fill="#12161c"/><rect x="6" y="18" width="6" height="6" fill="#e8d5a3"/></svg>

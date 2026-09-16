@@ -76,6 +76,11 @@ type OpenSheet =
   | { kind: 'medicine'; item: LalemMedicine }
   | { kind: 'trend'; item: LalemTrend };
 
+type WikiReader =
+  | { status: 'loading'; url: string }
+  | { status: 'ok'; title: string; extract: string; sourceUrl: string }
+  | { status: 'error'; url: string };
+
 type SessionSnap = {
   dock?: Dock;
 };
@@ -137,10 +142,21 @@ function sourceAllowed(url: string): boolean {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') return false;
     const host = parsed.hostname.toLowerCase();
-    if (host === 'wikipedia.org' || host.endsWith('.wikipedia.org')) return true;
+    if (host === 'zh.wikipedia.org' || host === 'en.wikipedia.org') return true;
     return ['nhs.uk', 'mayoclinic.org', 'medlineplus.gov', 'clevelandclinic.org', 'who.int'].some(
       (allow) => host === allow || host.endsWith(`.${allow}`)
     );
+  } catch {
+    return false;
+  }
+}
+
+function isWikipediaUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    return host === 'zh.wikipedia.org' || host === 'en.wikipedia.org';
   } catch {
     return false;
   }
@@ -158,6 +174,7 @@ export default function Lalem() {
   const [klass, setKlass] = useState('');
   const [era, setEra] = useState('');
   const [open, setOpen] = useState<OpenSheet | null>(null);
+  const [wiki, setWiki] = useState<WikiReader>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [pageVisible, setPageVisible] = useState(() => (typeof document === 'undefined' ? true : !document.hidden));
   const [sitAlert, setSitAlert] = useState(0);
@@ -165,6 +182,8 @@ export default function Lalem() {
   const started = useRef(Date.now());
   const titleId = useId();
   const sitTitleId = useId();
+  const wikiTitleId = useId();
+  const wikiGen = useRef(0);
   const tx = useCallback((key: string, vars?: Record<string, string | number>) => t(nation, key, vars), [nation]);
 
   useEffect(() => {
@@ -257,10 +276,51 @@ export default function Lalem() {
     setSitAlert(dueSit);
   }, [dueSit, pageVisible, dismissedSit]);
 
+  const openWiki = useCallback((url: string) => {
+    if (!url) return;
+    const gen = ++wikiGen.current;
+    setWiki({ status: 'loading', url });
+    fetch(`${apiV1Base()}/lalem/wiki?url=${encodeURIComponent(url)}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((body: { title?: string; extract?: string; sourceUrl?: string }) => {
+        if (wikiGen.current !== gen) return;
+        const title = String(body.title || '').trim();
+        const extract = String(body.extract || '').trim();
+        if (!title || !extract) {
+          setWiki({ status: 'error', url });
+          return;
+        }
+        setWiki({
+          status: 'ok',
+          title,
+          extract,
+          sourceUrl: String(body.sourceUrl || url),
+        });
+      })
+      .catch(() => {
+        if (wikiGen.current !== gen) return;
+        setWiki({ status: 'error', url });
+      });
+  }, []);
+
+  const closeWiki = useCallback(() => {
+    wikiGen.current += 1;
+    setWiki(null);
+  }, []);
+
   const dismissSit = useCallback(() => {
     setDismissedSit((prev) => Math.max(prev, sitAlert, dueSit));
     setSitAlert(0);
   }, [sitAlert, dueSit]);
+
+  useEffect(() => {
+    if (!wiki) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeWiki();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [wiki, closeWiki]);
 
   useEffect(() => {
     if (!sitAlert) return;
@@ -380,23 +440,23 @@ export default function Lalem() {
               <li key={item.id}>
                 <article className="ll-card">
                   {wikiHref(item, nation) ? (
-                    <a
+                    <button
+                      type="button"
                       className="ll-card-wiki"
-                      href={wikiHref(item, nation)}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      aria-label={`${tx('lalem.wiki')}: ${toiletName(item)}`}
+                      onClick={() => openWiki(wikiHref(item, nation))}
                     >
                       <img
                         src={item.imageUrl}
                         alt={toiletName(item)}
                         width={320}
-                        height={200}
+                        height={320}
                         {...(i === 0 ? { fetchpriority: 'high' } : {})}
                         loading={i === 0 ? 'eager' : 'lazy'}
                       />
-                    </a>
+                    </button>
                   ) : (
-                    <img src={item.imageUrl} alt={toiletName(item)} width={320} height={200} />
+                    <img src={item.imageUrl} alt={toiletName(item)} width={320} height={320} />
                   )}
                   <button type="button" className="ll-card-open" onClick={() => setOpen({ kind: 'toilet', item })}>
                     <span className="ll-card-title" title={toiletName(item)}>
@@ -420,17 +480,22 @@ export default function Lalem() {
               <li key={item.id}>
                 <article className="ll-card">
                   {wikiHref(item, nation) ? (
-                    <a className="ll-card-wiki" href={wikiHref(item, nation)} target="_blank" rel="noopener noreferrer">
+                    <button
+                      type="button"
+                      className="ll-card-wiki"
+                      aria-label={`${tx('lalem.wiki')}: ${paperName(item)}`}
+                      onClick={() => openWiki(wikiHref(item, nation))}
+                    >
                       <img
                         src={item.imageUrl}
                         alt={paperName(item)}
                         width={320}
-                        height={200}
+                        height={320}
                         loading={i === 0 ? 'eager' : 'lazy'}
                       />
-                    </a>
+                    </button>
                   ) : (
-                    <img src={item.imageUrl} alt={paperName(item)} width={320} height={200} />
+                    <img src={item.imageUrl} alt={paperName(item)} width={320} height={320} />
                   )}
                   <button type="button" className="ll-card-open" onClick={() => setOpen({ kind: 'paper', item })}>
                     <span className="ll-card-title" title={paperName(item)}>
@@ -462,17 +527,11 @@ export default function Lalem() {
 
       {dock === 'hot' ? (
         <div className="ll-body">
-          <ul className="ll-gallery">
+          <ul className="ll-trend-list">
             {(digest?.trends || []).map((tr, i) => (
               <li key={`${tr.title}-${i}`}>
                 <button type="button" className="ll-card ll-trend" onClick={() => openTrend(tr)}>
-                  <img
-                    src={tr.imageUrl}
-                    alt=""
-                    width={320}
-                    height={200}
-                    loading={i < 2 ? 'eager' : 'lazy'}
-                  />
+                  <span className="ll-trend-tag">{tx(`lalem.kind.${tr.kind === 'fashion' || tr.kind === 'entertainment' ? tr.kind : 'other'}`)}</span>
                   <h2 className="ll-card-title" title={tr.title}>
                     {tr.title}
                   </h2>
@@ -532,16 +591,16 @@ export default function Lalem() {
             </div>
             {open.kind === 'toilet' ? (
               <>
-                <img src={open.item.imageUrl} alt="" width={480} height={300} />
+                <img src={open.item.imageUrl} alt="" width={320} height={320} />
                 <p className="ll-sheet-meta">
                   {open.item.region} · {tx(`lalem.era.${open.item.era}`)} · {tx(`lalem.shape.${open.item.shape}`)}
                 </p>
                 <p>{toiletBlurb(open.item)}</p>
                 {wikiHref(open.item, nation) ? (
                   <p>
-                    <a href={wikiHref(open.item, nation)} target="_blank" rel="noopener noreferrer">
+                    <button type="button" className="ll-wiki-open" onClick={() => openWiki(wikiHref(open.item, nation))}>
                       {tx('lalem.wiki')}
-                    </a>
+                    </button>
                   </p>
                 ) : null}
                 <p className="ll-credit">
@@ -551,13 +610,13 @@ export default function Lalem() {
             ) : null}
             {open.kind === 'paper' ? (
               <>
-                <img src={open.item.imageUrl} alt="" width={480} height={300} />
+                <img src={open.item.imageUrl} alt="" width={320} height={320} />
                 <p>{paperBlurb(open.item)}</p>
                 {wikiHref(open.item, nation) ? (
                   <p>
-                    <a href={wikiHref(open.item, nation)} target="_blank" rel="noopener noreferrer">
+                    <button type="button" className="ll-wiki-open" onClick={() => openWiki(wikiHref(open.item, nation))}>
                       {tx('lalem.wiki')}
-                    </a>
+                    </button>
                   </p>
                 ) : null}
               </>
@@ -571,9 +630,15 @@ export default function Lalem() {
                     .filter((src) => sourceAllowed(src.url))
                     .map((src) => (
                       <li key={src.url}>
-                        <a href={src.url} target="_blank" rel="noopener noreferrer">
-                          {src.label}
-                        </a>
+                        {isWikipediaUrl(src.url) ? (
+                          <button type="button" className="ll-wiki-open" onClick={() => openWiki(src.url)}>
+                            {src.label}
+                          </button>
+                        ) : (
+                          <a href={src.url} target="_blank" rel="noopener noreferrer">
+                            {src.label}
+                          </a>
+                        )}
                       </li>
                     ))}
                 </ul>
@@ -581,11 +646,33 @@ export default function Lalem() {
             ) : null}
             {open.kind === 'trend' ? (
               <>
-                {open.item.imageUrl ? <img src={open.item.imageUrl} alt="" width={480} height={300} /> : null}
                 <p>{open.item.hook}</p>
                 <p className="ll-disclaimer">{tx('lalem.trend.loungeOnly')}</p>
               </>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {wiki ? (
+        <div className="ll-wiki-backdrop" role="presentation" onClick={closeWiki}>
+          <div
+            className="ll-wiki"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={wikiTitleId}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ll-sheet-head">
+              <h2 id={wikiTitleId}>{wiki.status === 'ok' && wiki.title ? wiki.title : tx('lalem.wiki')}</h2>
+              <button type="button" className="ll-sheet-close" aria-label={tx('lalem.close')} onClick={closeWiki}>
+                ×
+              </button>
+            </div>
+            {wiki.status === 'ok' ? <p className="ll-wiki-extract">{wiki.extract}</p> : null}
+            {wiki.status === 'error' ? <p className="ll-wiki-extract">{tx('lalem.wikiError')}</p> : null}
+            {wiki.status === 'loading' ? <p className="ll-wiki-extract">{tx('lalem.wiki')}</p> : null}
+            <p className="ll-wiki-source">{wiki.status === 'ok' ? wiki.sourceUrl : wiki.url}</p>
           </div>
         </div>
       ) : null}
