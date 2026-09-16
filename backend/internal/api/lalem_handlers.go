@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"serpico/backend/internal/ai"
+	"serpico/backend/internal/database"
 
 	"github.com/gin-gonic/gin"
 )
@@ -75,12 +76,71 @@ type lalemAdviser interface {
 	AdviseLalemDigest(in ai.LalemDigestInput) (*ai.LalemDigest, error)
 }
 
-func handleLalemDigest(c *gin.Context, aiService interface{}) {
+func handleLalemDigest(c *gin.Context, db *database.Database, aiService interface{}) {
+	locale := localeCacheKey(c.DefaultQuery("locale", "cn"))
+	now := time.Now()
+	if db != nil && db.SQLite != nil {
+		_ = database.PruneLalemFeed(db.SQLite, now)
+		if digest := lalemDigestFromStore(db, locale, true); digest != nil {
+			c.JSON(http.StatusOK, digest)
+			return
+		}
+		needSeed, needInc := lalemFeedNeedsGeneration(db, locale, now)
+		if needSeed || needInc {
+			if !lalemAllowed(c.ClientIP()) {
+				c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests. Try again in a few minutes."})
+				return
+			}
+			adviser, ok := aiService.(lalemAdviser)
+			if !ok {
+				if needInc {
+					if fallback := lalemDigestFromStore(db, locale, false); fallback != nil {
+						c.JSON(http.StatusOK, fallback)
+						return
+					}
+				}
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "lounge digest is not available"})
+				return
+			}
+			mode := ""
+			if needInc {
+				mode = "increment"
+			}
+			digest, err := adviser.AdviseLalemDigest(ai.LalemDigestInput{Locale: locale, Mode: mode})
+			if needInc {
+				if err != nil || digest == nil {
+					if fallback := lalemDigestFromStore(db, locale, false); fallback != nil {
+						c.JSON(http.StatusOK, fallback)
+						return
+					}
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "lounge digest increment failed"})
+					return
+				}
+				_ = persistLalemDigest(db, locale, digest, now)
+				if composed := lalemDigestFromStore(db, locale, false); composed != nil {
+					c.JSON(http.StatusOK, composed)
+					return
+				}
+				c.JSON(http.StatusOK, digest)
+				return
+			}
+			if err != nil || digest == nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "lounge digest is not available"})
+				return
+			}
+			_ = persistLalemDigest(db, locale, digest, now)
+			if composed := lalemDigestFromStore(db, locale, false); composed != nil {
+				c.JSON(http.StatusOK, composed)
+				return
+			}
+			c.JSON(http.StatusOK, digest)
+			return
+		}
+	}
 	if !lalemAllowed(c.ClientIP()) {
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests. Try again in a few minutes."})
 		return
 	}
-	locale := c.DefaultQuery("locale", "cn")
 	if cached := getLalemDigestCache(locale); cached != nil {
 		c.JSON(http.StatusOK, cached)
 		return
@@ -97,6 +157,110 @@ func handleLalemDigest(c *gin.Context, aiService interface{}) {
 	}
 	setLalemDigestCache(locale, digest)
 	c.JSON(http.StatusOK, digest)
+}
+
+func lalemFeedNeedsGeneration(db *database.Database, locale string, now time.Time) (needSeed, needInc bool) {
+	if db == nil || db.SQLite == nil {
+		return false, false
+	}
+	trends, err := database.ListLalemTrends(db.SQLite, locale)
+	if err != nil {
+		return false, false
+	}
+	useful, err := database.ListLalemUseful(db.SQLite, locale)
+	if err != nil {
+		return false, false
+	}
+	date, _, ok, err := database.GetLalemFeedMeta(db.SQLite, locale)
+	if err != nil {
+		return false, false
+	}
+	today := database.LalemShanghaiToday(now)
+	if len(trends) == 0 && len(useful) == 0 {
+		return true, false
+	}
+	if !ok || date < today {
+		return false, true
+	}
+	return false, false
+}
+
+func persistLalemDigest(db *database.Database, locale string, digest *ai.LalemDigest, now time.Time) error {
+	if db == nil || db.SQLite == nil || digest == nil {
+		return nil
+	}
+	created := now
+	if t, err := time.Parse(time.RFC3339, digest.GeneratedAt); err == nil {
+		created = t
+	}
+	for _, tr := range digest.Trends {
+		if err := database.InsertLalemTrend(db.SQLite, database.LalemTrendRow{
+			Locale:    locale,
+			Kind:      tr.Kind,
+			Title:     tr.Title,
+			Hook:      tr.Hook,
+			ImageURL:  tr.ImageURL,
+			Chips:     tr.Chips,
+			CreatedAt: created,
+		}); err != nil {
+			return err
+		}
+	}
+	for _, body := range digest.Useful {
+		if err := database.InsertLalemUseful(db.SQLite, database.LalemUsefulRow{
+			Locale:    locale,
+			Body:      body,
+			CreatedAt: created,
+		}); err != nil {
+			return err
+		}
+	}
+	generated := digest.GeneratedAt
+	if generated == "" {
+		generated = now.UTC().Format(time.RFC3339)
+	}
+	return database.SetLalemFeedMeta(db.SQLite, locale, database.LalemShanghaiToday(now), generated)
+}
+
+func lalemDigestFromStore(db *database.Database, locale string, requireToday bool) *ai.LalemDigest {
+	if db == nil || db.SQLite == nil {
+		return nil
+	}
+	date, generated, ok, err := database.GetLalemFeedMeta(db.SQLite, locale)
+	if requireToday {
+		if err != nil || !ok || date != database.LalemShanghaiToday(time.Now()) {
+			return nil
+		}
+	}
+	trendRows, err := database.ListLalemTrends(db.SQLite, locale)
+	if err != nil {
+		return nil
+	}
+	usefulRows, err := database.ListLalemUseful(db.SQLite, locale)
+	if err != nil {
+		return nil
+	}
+	if len(trendRows) == 0 && len(usefulRows) == 0 {
+		return nil
+	}
+	trends := make([]ai.LalemTrend, 0, len(trendRows))
+	for _, row := range trendRows {
+		trends = append(trends, ai.LalemTrend{
+			Kind:     row.Kind,
+			Title:    row.Title,
+			Hook:     row.Hook,
+			ImageURL: row.ImageURL,
+			Chips:    row.Chips,
+		})
+	}
+	useful := make([]string, 0, len(usefulRows))
+	for _, row := range usefulRows {
+		useful = append(useful, row.Body)
+	}
+	if generated == "" && len(trendRows) > 0 && !trendRows[0].CreatedAt.IsZero() {
+		generated = trendRows[0].CreatedAt.UTC().Format(time.RFC3339)
+	}
+	return ai.ComposeStoredLalemDigest(locale, trends, useful, generated)
 }
 
 func getLalemDigestCache(locale string) *ai.LalemDigest {

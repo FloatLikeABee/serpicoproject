@@ -302,6 +302,14 @@ const en: Catalog = {
   'lalem.usefulEmpty': 'A few bathroom notes in a moment.',
   'lalem.disclaimer': 'Bathroom tips, not medical advice.',
   'lalem.credit': 'Credit',
+  'lalem.sitAlert.title': 'Sit alert',
+  'lalem.sitAlert.t1': 'You’ve been sitting {m} minutes. A dramatic pause. Maybe stand?',
+  'lalem.sitAlert.t2': '{m} minutes!! The plot twist is you still have not flushed.',
+  'lalem.sitAlert.t3': '{m} MINUTES. This is an epic sit. Legs are becoming folklore.',
+  'lalem.sitAlert.t4': '{m} MINUTES!! Scroll the hot list — do not weld yourself to the bowl.',
+  'lalem.sitAlert.t5': '{m} MINUTES!!! The curtain is coming down on this stall opera.',
+  'lalem.sitAlert.t6': '{m} MINUTES!!!! Ultimate sit alert. Time to stand, friend.',
+  'lalem.sitAlert.dismiss': 'Still sitting',
 };
 
 const zh: Catalog = {
@@ -603,6 +611,14 @@ const zh: Catalog = {
   'lalem.usefulEmpty': '有用的小纸条马上到。',
   'lalem.disclaimer': '卫生间小贴士，不能替代医疗诊断或治疗。',
   'lalem.credit': '出处',
+  'lalem.sitAlert.title': '久坐警报',
+  'lalem.sitAlert.t1': '来都来了，已经坐了 {m} 分钟。要不要先站一下？',
+  'lalem.sitAlert.t2': '{m} 分钟了！！热搜比你冲得还勤。',
+  'lalem.sitAlert.t3': '{m} 分钟！！这是史诗级久坐，腿要成传说了。',
+  'lalem.sitAlert.t4': '{m} 分钟！！热榜可以刷，人不能焊在马桶上。',
+  'lalem.sitAlert.t5': '{m} 分钟！！！帘子都要给你拉上了。',
+  'lalem.sitAlert.t6': '{m} 分钟！！！！终极久坐警报，该站起来了朋友。',
+  'lalem.sitAlert.dismiss': '再蹲会儿',
 };
 
 const catalogs: Record<Nation, Catalog> = { us: en, cn: zh };

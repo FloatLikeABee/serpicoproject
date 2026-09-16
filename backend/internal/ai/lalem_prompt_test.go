@@ -63,6 +63,59 @@ func TestBuildChatPromptUnchangedNoLalemPrimer(t *testing.T) {
 	}
 }
 
+func TestBuildLalemIncrementPromptTwoTrendsOneUseful(t *testing.T) {
+	day := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	prompt := BuildLalemIncrementPrompt(LalemDigestPromptInput{Locale: "cn", Now: day})
+	needles := []string{
+		"JSON",
+		"exactly two",
+		"exactly one",
+		"娱乐",
+		"时尚",
+		"diagnos",
+		"prescribe",
+		"cure",
+		"imageHint",
+		"2026-09-16",
+		"Simplified Chinese",
+	}
+	lower := strings.ToLower(prompt)
+	for _, n := range needles {
+		if !strings.Contains(prompt, n) && !strings.Contains(lower, strings.ToLower(n)) {
+			t.Errorf("increment prompt missing %q", n)
+		}
+	}
+	if strings.Contains(prompt, "at most 8 trends") {
+		t.Error("increment prompt should not use the seed 8-trend cap")
+	}
+}
+
+func TestParseLalemIncrementCapsTwoTrendsAndOneUseful(t *testing.T) {
+	raw := `{
+		"locale":"cn",
+		"disclaimer":"不是医疗建议。",
+		"trends":[
+			{"kind":"entertainment","title":"综艺甲","hook":"一"},
+			{"kind":"fashion","title":"口红乙","hook":"二"},
+			{"kind":"entertainment","title":"短剧丙","hook":"三"}
+		],
+		"useful":["别蹲太久","洗手","别用力"]
+	}`
+	got, err := ParseLalemIncrement(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Trends) != 2 {
+		t.Fatalf("trends=%d want 2", len(got.Trends))
+	}
+	if got.Trends[0].Title != "综艺甲" || got.Trends[1].Title != "口红乙" {
+		t.Fatalf("kept %+v", got.Trends)
+	}
+	if len(got.Useful) != 1 || got.Useful[0] != "别蹲太久" {
+		t.Fatalf("useful %+v want first only", got.Useful)
+	}
+}
+
 func TestParseLalemDigestCoercesChipsAndUseful(t *testing.T) {
 	raw := `{
 		"locale":"cn",

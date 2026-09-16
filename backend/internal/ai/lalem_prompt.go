@@ -22,26 +22,61 @@ JSON keys: trends[{kind,title,hook,imageHint,chips}], useful, disclaimer, locale
 JSON types: chips and useful are JSON arrays of strings.
 `
 
+const lalemIncrementSystemPrompt = `You are 拉了么, a playful bathroom lounge digest writer.
+
+OUTPUT:
+- Return JSON only matching the lalem digest schema. No markdown essay.
+- Add exactly two new 娱乐/时尚 trend cards (entertainment then fashion). No extra trends.
+- Add exactly one new useful bathroom note.
+- Do not invent image URLs. Put a short imageHint instead (the server maps it to our pack).
+- useful[]: one short bathroom tip (hygiene, etiquette, don’t strain, sitting-too-long). Everyday language.
+- Include a short not-medical-advice disclaimer.
+- Never diagnose disease, prescribe treatment, or claim to cure conditions.
+
+JSON keys: trends[{kind,title,hook,imageHint,chips}], useful, disclaimer, locale.
+JSON types: chips and useful are JSON arrays of strings.
+`
+
 type LalemDigestPromptInput struct {
 	Locale string
 	Now    time.Time
+}
+
+func lalemPromptLocaleDate(in LalemDigestPromptInput) (locale string, dateLine string) {
+	locale = lalemLocale(in.Locale)
+	now := in.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	return locale, fmt.Sprintf("Today's date: %s\n", now.UTC().Format("2006-01-02"))
+}
+
+func appendLalemLocale(b *strings.Builder, locale string) {
+	if locale == "cn" {
+		b.WriteString("Reply locale: Simplified Chinese only (locale=cn).\n")
+	} else {
+		b.WriteString("Reply locale: English only (locale=en).\n")
+	}
 }
 
 func BuildLalemDigestPrompt(in LalemDigestPromptInput) string {
 	var b strings.Builder
 	b.WriteString(lalemDigestSystemPrompt)
 	b.WriteString("\n")
-	locale := lalemLocale(in.Locale)
-	if locale == "cn" {
-		b.WriteString("Reply locale: Simplified Chinese only (locale=cn).\n")
-	} else {
-		b.WriteString("Reply locale: English only (locale=en).\n")
-	}
-	now := in.Now
-	if now.IsZero() {
-		now = time.Now().UTC()
-	}
-	b.WriteString(fmt.Sprintf("Today's date: %s\n", now.UTC().Format("2006-01-02")))
+	locale, dateLine := lalemPromptLocaleDate(in)
+	appendLalemLocale(&b, locale)
+	b.WriteString(dateLine)
+	b.WriteString("Return JSON now.\n")
+	return b.String()
+}
+
+func BuildLalemIncrementPrompt(in LalemDigestPromptInput) string {
+	var b strings.Builder
+	b.WriteString(lalemIncrementSystemPrompt)
+	b.WriteString("\n")
+	locale, dateLine := lalemPromptLocaleDate(in)
+	appendLalemLocale(&b, locale)
+	b.WriteString(dateLine)
 	b.WriteString("Return JSON now.\n")
 	return b.String()
 }
@@ -51,4 +86,20 @@ func lalemDisclaimer(locale string) string {
 		return "卫生间小贴士，不能替代医疗诊断或治疗。"
 	}
 	return "Bathroom tips, not medical advice."
+}
+
+// ComposeStoredLalemDigest builds a public digest from kept SQLite rows plus curated videos.
+func ComposeStoredLalemDigest(locale string, trends []LalemTrend, useful []string, generatedAt string) *LalemDigest {
+	locale = lalemLocale(locale)
+	if strings.TrimSpace(generatedAt) == "" {
+		generatedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	return &LalemDigest{
+		GeneratedAt: generatedAt,
+		Locale:      locale,
+		Disclaimer:  lalemDisclaimer(locale),
+		Trends:      trends,
+		Useful:      useful,
+		Videos:      localizeLalemVideos(locale),
+	}
 }

@@ -56,6 +56,20 @@ func ParseLalemDigest(raw string) (*LalemDigest, error) {
 	return &digest, nil
 }
 
+func ParseLalemIncrement(raw string) (*LalemDigest, error) {
+	got, err := ParseLalemDigest(raw)
+	if err != nil {
+		return nil, err
+	}
+	if len(got.Trends) > 2 {
+		got.Trends = got.Trends[:2]
+	}
+	if len(got.Useful) > 1 {
+		got.Useful = got.Useful[:1]
+	}
+	return got, nil
+}
+
 func parseLalemTrends(raw json.RawMessage) []LalemTrend {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil
