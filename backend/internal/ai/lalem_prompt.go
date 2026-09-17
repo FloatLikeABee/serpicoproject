@@ -88,7 +88,7 @@ func lalemDisclaimer(locale string) string {
 	return "Bathroom tips, not medical advice."
 }
 
-// ComposeStoredLalemDigest builds a public digest from kept SQLite rows. Videos stay off 热榜.
+// ComposeStoredLalemDigest builds a public digest from kept SQLite rows. Videos stay off 拉榜.
 func ComposeStoredLalemDigest(locale string, trends []LalemTrend, useful []string, generatedAt string) *LalemDigest {
 	locale = lalemLocale(locale)
 	if strings.TrimSpace(generatedAt) == "" {
@@ -98,6 +98,7 @@ func ComposeStoredLalemDigest(locale string, trends []LalemTrend, useful []strin
 	copy(mapped, trends)
 	for i := range mapped {
 		mapped[i].TopicID = MapLalemTrendTopic(mapped[i].Title, mapped[i].Hook, mapped[i].TopicID)
+		mapped[i].ImageURL = RewriteLalemTrendImage(mapped[i].ImageURL)
 	}
 	return &LalemDigest{
 		GeneratedAt: generatedAt,

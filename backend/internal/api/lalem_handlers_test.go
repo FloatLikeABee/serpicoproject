@@ -504,6 +504,9 @@ func TestLalemDigestReadsWarmStoreWithoutAdvise(t *testing.T) {
 	if got.Trends[0].ImageURL == "" {
 		t.Fatal("trend missing image")
 	}
+	if !strings.HasSuffix(got.Trends[0].ImageURL, ".jpg") {
+		t.Fatalf("legacy svg should rewrite to jpg, got %s", got.Trends[0].ImageURL)
+	}
 	if len(got.Useful) != 1 || got.Useful[0] != "别蹲太久" {
 		t.Fatalf("useful %+v", got.Useful)
 	}

@@ -18,7 +18,7 @@ const toilets = {
       class: 'public',
       era: 'roman',
       region: 'Rome',
-      imageUrl: '/lalem/toilets/roman-forica.svg',
+      imageUrl: '/lalem/toilets/roman-forica.jpg',
       wikiUrlZh: 'https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80',
       wikiUrlEn: 'https://en.wikipedia.org/wiki/Latrine',
       credit: '拉了么原创插画',
@@ -34,7 +34,7 @@ const toilets = {
       class: 'home',
       era: 'modern',
       region: 'Tokyo',
-      imageUrl: '/lalem/toilets/japan-washlet.svg',
+      imageUrl: '/lalem/toilets/japan-washlet.jpg',
       wikiUrlZh: 'https://zh.wikipedia.org/wiki/%E6%B8%85%E6%B4%97%E9%A9%AC%E6%A1%B6%E7%9B%96',
       wikiUrlEn: 'https://en.wikipedia.org/wiki/Washlet',
       credit: '拉了么原创插画',
@@ -51,7 +51,7 @@ const papers = {
       blurb: '古罗马公共厕所里传来传去的海绵棒。',
       blurbEn: 'A communal sponge-stick.',
       era: 'roman',
-      imageUrl: '/lalem/papers/xylospongium.svg',
+      imageUrl: '/lalem/papers/xylospongium.jpg',
       wikiUrlZh: 'https://zh.wikipedia.org/wiki/%E6%B5%B7%E7%BB%B5',
       wikiUrlEn: 'https://en.wikipedia.org/wiki/Xylospongium',
       credit: '拉了么原创插画',
@@ -83,13 +83,13 @@ const digest = {
       kind: 'fashion',
       title: '今日新色',
       hook: '今天的热搜。',
-      imageUrl: '/lalem/trends/fashion-1.svg',
+      imageUrl: '/lalem/trends/fashion-1.jpg',
     },
     {
       kind: 'entertainment',
       title: '昨日综艺',
       hook: '昨天还在聊蹲姿。',
-      imageUrl: '/lalem/trends/entertainment-1.svg',
+      imageUrl: '/lalem/trends/entertainment-1.jpg',
       topicId: 'medicine:posture-squat-sit',
     },
   ],
@@ -176,7 +176,7 @@ test('fresh visit shows 拉了么 and toilet images, not officer nav', async () 
   expect(screen.getByText('来都来了')).toBeInTheDocument();
   expect(screen.getByText(/已坐/)).toBeInTheDocument();
   const img = await screen.findByRole('img', { name: '罗马公共厕所' });
-  expect(img).toHaveAttribute('src', '/lalem/toilets/roman-forica.svg');
+  expect(img).toHaveAttribute('src', '/lalem/toilets/roman-forica.jpg');
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   expect(document.querySelectorAll('.ll-dock button')).toHaveLength(5);
   expect(document.querySelector('.synth-grid-bg')).toBeNull();
@@ -190,6 +190,7 @@ test('language toggle switches chrome to English', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'EN' }));
   expect(screen.getByRole('heading', { name: 'La le me' })).toBeInTheDocument();
   expect(screen.getByText(/You’re already here|already here/i)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'La bang' })).toBeInTheDocument();
 });
 
 test('toilet image opens in-app wiki reader; title still opens the sheet', async () => {
@@ -294,12 +295,14 @@ test('厕纸 and 医典 docks open galleries with sourced detail', async () => {
   expect(document.querySelectorAll('a[href*="wikipedia.org"]')).toHaveLength(0);
 });
 
-test('热榜 has no video; trends open encyclopedia or lounge copy', async () => {
+test('拉榜 has no video; trends open encyclopedia or lounge copy', async () => {
   render(<Lalem />);
-  await userEvent.click(screen.getByRole('button', { name: '热榜' }));
+  await userEvent.click(screen.getByRole('button', { name: '拉榜' }));
   await screen.findByText('今日新色');
   expect(document.querySelector('video')).toBeNull();
-  expect(document.querySelector('.ll-trend img')).toBeNull();
+  const thumbs = document.querySelectorAll('.ll-trend img');
+  expect(thumbs.length).toBeGreaterThan(0);
+  expect(thumbs[0]).toHaveAttribute('src', '/lalem/trends/fashion-1.jpg');
   const tags = [...document.querySelectorAll('.ll-trend-tag')].map((el) => el.textContent || '');
   expect(tags.some((t) => /时尚|Fashion/.test(t))).toBe(true);
   expect(tags.some((t) => /娱乐|Entertainment/.test(t))).toBe(true);

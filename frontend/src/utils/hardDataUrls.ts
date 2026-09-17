@@ -1,4 +1,4 @@
-// Rebuild stamp 2026-09-16T23:12Z — path-filtered Render frontend deploy.
+// Rebuild stamp 2026-09-17T02:40Z — 拉榜 photos + fun-dark lounge.
 export const PROD_FRONTEND = 'https://serpico.onrender.com';
 export const PROD_BACKEND = 'https://serpicoproject.onrender.com';
 export const PROD_API_V1 = `${PROD_BACKEND}/api/v1`;

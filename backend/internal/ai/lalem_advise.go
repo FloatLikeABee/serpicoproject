@@ -163,7 +163,7 @@ func mapLalemTrendImages(in []LalemTrend) []LalemTrend {
 			pick = pool[oi%len(pool)]
 			oi++
 		}
-		tr.ImageURL = pick
+		tr.ImageURL = RewriteLalemTrendImage(pick)
 		out = append(out, tr)
 	}
 	return out

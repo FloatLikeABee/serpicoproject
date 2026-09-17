@@ -67,11 +67,13 @@ test('lounge chrome uses calm dark tokens, one gutter, and no candy gold/pink', 
   const sit = cssRule(lounge, '.ll-sit-alert');
   const sitDismiss = cssRule(lounge, '.ll-sit-alert-dismiss');
 
-  expect(lounge).toMatch(/--ll-bg:\s*#12161c\b/i);
-  expect(lounge).toMatch(/--ll-surface:\s*#1b212b\b/i);
-  expect(lounge).toMatch(/--ll-text:\s*#e6ebf2\b/i);
-  expect(lounge).toMatch(/--ll-muted:\s*#9aa8b8\b/i);
-  expect(lounge).toMatch(/--ll-accent:\s*#8ec5c0\b/i);
+  expect(lounge).toMatch(/--ll-bg:\s*#22183a\b/i);
+  expect(lounge).toMatch(/--ll-surface:\s*#33285a\b/i);
+  expect(lounge).toMatch(/--ll-text:\s*#fff4e8\b/i);
+  expect(lounge).toMatch(/--ll-muted:\s*#c9b8e0\b/i);
+  expect(lounge).toMatch(/--ll-accent:\s*#3ee0c4\b/i);
+  expect(lounge).toMatch(/--ll-pop:\s*#ff9a62\b/i);
+  expect(lounge).not.toMatch(/--ll-bg:\s*#12161c\b/i);
   expect(lounge).toMatch(/--ll-line:/);
   expect(lounge).toMatch(/--ll-gutter:\s*1rem\b/);
 
@@ -100,12 +102,17 @@ test('lounge chrome uses calm dark tokens, one gutter, and no candy gold/pink', 
   expect(sitDismiss).not.toMatch(/#ffd36a/i);
 });
 
-test('lounge cards are pixel sprites; 热榜 is a tag; wiki reader sits under sit-alert', () => {
+test('lounge cards are photos; 拉榜 thumbs are compact; wiki reader sits under sit-alert', () => {
   const lounge = loungeCss();
   const cardImg = cssRule(lounge, '.ll-card img');
-  expect(cardImg).toMatch(/image-rendering:\s*pixelated/);
+  expect(cardImg).toMatch(/object-fit:\s*cover/);
+  expect(cardImg).not.toMatch(/image-rendering:\s*pixelated/);
   expect(cardImg).toMatch(/aspect-ratio:\s*1\s*\/\s*1/);
+  const trendImg = cssRule(lounge, '.ll-trend img');
+  expect(trendImg).toMatch(/3\.5rem/);
+  expect(trendImg).toMatch(/object-fit:\s*cover/);
   expect(lounge).toMatch(/\.ll-trend-tag\s*\{/);
+  expect(cssRule(lounge, '.ll-trend-tag')).toMatch(/var\(--ll-pop\)/);
   expect(cssRule(lounge, '.ll-wiki-backdrop')).toMatch(/z-index:\s*30/);
   expect(lounge).not.toMatch(/#c6a56a/i);
   expect(lounge).not.toMatch(/ll-chip-track/);
