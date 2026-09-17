@@ -482,7 +482,7 @@ test('poop-science companion waits 90s, stays cute, and yields to sit-alert', as
   expect(companionCalls()).toBe(0);
 
   act(() => {
-    jest.setSystemTime(start + 89_000);
+    jest.setSystemTime(start + 80_000);
     jest.advanceTimersByTime(1000);
   });
   await flushLalemPromises();

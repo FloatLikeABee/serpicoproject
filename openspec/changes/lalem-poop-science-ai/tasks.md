@@ -11,7 +11,7 @@
 
 ## 3. Lounge bubble
 
-- [ ] 3.1 Render `.ll-companion` on `/lalem`: fetch companion GET at 90s visible sit time, then every 480s; pause while hidden; dismiss until next slot; sit-alert remains the blocking overlay. i18n dismiss control. Verify 1.1 RTL passes and 拉榜/马桶/厕纸/医典 tests still pass
+- [x] 3.1 Render `.ll-companion` on `/lalem`: fetch companion GET at 90s visible sit time, then every 480s; pause while hidden; dismiss until next slot; sit-alert remains the blocking overlay. i18n dismiss control. Verify 1.1 RTL passes and 拉榜/马桶/厕纸/医典 tests still pass
 
 ## 4. Isolation
 
