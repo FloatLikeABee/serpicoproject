@@ -1,4 +1,4 @@
-// Rebuild stamp 2026-09-17T05:15Z — 拉了么 poop-science chat + colorful sheets.
+// Rebuild stamp 2026-09-17T13:40Z — 睡了么 bedtime lounge.
 export const PROD_FRONTEND = 'https://serpico.onrender.com';
 export const PROD_BACKEND = 'https://serpicoproject.onrender.com';
 export const PROD_API_V1 = `${PROD_BACKEND}/api/v1`;

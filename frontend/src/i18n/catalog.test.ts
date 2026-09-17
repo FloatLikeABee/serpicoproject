@@ -138,6 +138,23 @@ describe('i18n catalog', () => {
     expect(t('cn', 'lalem.langEn')).toBe('EN');
   });
 
+  it('returns 睡了么 chrome in Simplified Chinese by default keys', () => {
+    expect(t('cn', 'shuileme.title')).toBe('睡了么');
+    expect(t('cn', 'shuileme.kicker')).toBe('睡吧');
+    expect(t('cn', 'shuileme.dock.beds')).toBe('床');
+    expect(t('cn', 'shuileme.dock.rooms')).toBe('卧');
+    expect(t('cn', 'shuileme.dock.lore')).toBe('典');
+    expect(t('cn', 'shuileme.dock.sound')).toBe('声');
+    expect(t('cn', 'shuileme.dock.rest')).toBe('息');
+    expect(t('cn', 'shuileme.light.blackout')).toBe('全黑');
+    expect(t('cn', 'shuileme.sound.brown')).toBe('褐噪');
+    expect(t('us', 'shuileme.title')).not.toBe('睡了么');
+    expect(t('us', 'shuileme.dock.beds')).toBe('Beds');
+    expect(t('us', 'shuileme.sound.brown')).toBe('Brown');
+    expect(t('cn', 'shuileme.disclaimer')).toMatch(/不能替代医疗/);
+    expect(t('us', 'shuileme.disclaimer')).toMatch(/not medical/i);
+  });
+
   it('returns escalating 拉了么 sit-alert copy that names the minutes and is not medical', () => {
     const cn = [1, 2, 3, 4, 5, 6].map((tier, i) => t('cn', `lalem.sitAlert.t${tier}`, { m: (i + 1) * 5 }));
     const en = [1, 2, 3, 4, 5, 6].map((tier, i) => t('us', `lalem.sitAlert.t${tier}`, { m: (i + 1) * 5 }));

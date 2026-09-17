@@ -1,0 +1,212 @@
+{
+  "articles": [
+    {
+      "id": "circadian-clock",
+      "title": "生物钟",
+      "titleEn": "Circadian clock",
+      "body": "身体里有大约一天的节奏。亮和暗会拨它。这是百科描述，不是诊断。实验室常用核心体温和褪黑素作为标记，不等于给某个人下结论。",
+      "bodyEn": "The body keeps a roughly daily rhythm. Light and dark nudge it. Encyclopedia copy, not a diagnosis. Labs often mark it with core temperature and melatonin. That is a method, not a verdict about a visitor.",
+      "imageUrl": "/shuileme/lore/circadian-clock.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://zh.wikipedia.org/wiki/%E7%94%9F%E7%89%A9%E9%90%98" },
+        { "label": "Cleveland Clinic", "url": "https://my.clevelandclinic.org/health/articles/circadian-rhythm" }
+      ]
+    },
+    {
+      "id": "caffeine-half-life",
+      "title": "咖啡因半衰期",
+      "titleEn": "Caffeine half-life",
+      "body": "咖啡因会在身体里停留数小时。半衰期因人和剂量而异。百科把它写成药理学，不写成谁必须戒。傍晚还醒着，常常是咖啡还没走完。",
+      "bodyEn": "Caffeine can linger for hours. Half-life varies by person and dose. Encyclopedias write pharmacology, not an order to quit. A late evening that still feels bright is often leftover caffeine, not a character flaw.",
+      "imageUrl": "/shuileme/lore/caffeine-half-life.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://zh.wikipedia.org/wiki/%E5%92%96%E5%95%A1%E5%9B%A0" },
+        { "label": "MedlinePlus", "url": "https://medlineplus.gov/caffeine.html" }
+      ]
+    },
+    {
+      "id": "stimulus-control",
+      "title": "刺激控制",
+      "titleEn": "Stimulus control",
+      "body": "刺激控制是一套把床和睡眠重新配对的做法。词条写的是行为实验史，不是处方。床如果长期用来刷屏，大脑会把床当成舞台。",
+      "bodyEn": "Stimulus control is a set of practices that re-pair bed with sleep. Entries record a history of behavior experiments, not a prescription. If a bed is used for scrolling for a long time, the brain may treat it as a stage.",
+      "imageUrl": "/shuileme/lore/stimulus-control.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://en.wikipedia.org/wiki/Stimulus_control" },
+        { "label": "NHS", "url": "https://www.nhs.uk/live-well/sleep-and-tiredness/" }
+      ]
+    },
+    {
+      "id": "bedroom-temperature",
+      "title": "卧室温度",
+      "titleEn": "Bedroom temperature",
+      "body": "很多睡眠指南把卧室写得略凉。核心体温在夜里会下降一点。这是环境说明，不是给某间房发合格证。太热会让人翻身，太冷会让人缩。",
+      "bodyEn": "Many sleep guides describe a slightly cool bedroom. Core temperature dips a little at night. This is environment copy, not a certificate for a particular room. Heat can increase tossing. Cold can increase curling.",
+      "imageUrl": "/shuileme/lore/bedroom-temperature.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://zh.wikipedia.org/wiki/%E7%9D%A1%E7%9C%A0" },
+        { "label": "NHS", "url": "https://www.nhs.uk/live-well/sleep-and-tiredness/how-to-get-to-sleep/" }
+      ]
+    },
+    {
+      "id": "blue-light",
+      "title": "蓝光",
+      "titleEn": "Blue light",
+      "body": "短波长的光更容易告诉大脑现在是白天。屏幕会发出这类光。百科讨论的是光照与节律，不是让谁砸掉手机。夜间把亮度调低，是常见的折中。",
+      "bodyEn": "Shorter wavelengths more readily signal daytime to the brain. Screens emit this kind of light. Encyclopedias discuss light and rhythm, not an order to smash a phone. Lowering brightness at night is a common compromise.",
+      "imageUrl": "/shuileme/lore/blue-light.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://zh.wikipedia.org/wiki/%E8%93%9D%E5%85%89" },
+        { "label": "NHS", "url": "https://www.nhs.uk/live-well/sleep-and-tiredness/how-to-get-to-sleep/" }
+      ]
+    },
+    {
+      "id": "naps",
+      "title": "小睡",
+      "titleEn": "Naps",
+      "body": "短睡可以补一点清醒。太长或太晚，有时会挤掉夜里的困意。词条写的是时间分配，不是谁被禁止午睡。子午前后的休息，在很多文化里很普通。",
+      "bodyEn": "A short nap can restore a little alertness. A long or late nap can sometimes spend the sleepiness needed at night. Entries describe timing, not a ban. Rest around midday is ordinary in many cultures.",
+      "imageUrl": "/shuileme/lore/naps.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://zh.wikipedia.org/wiki/%E5%8D%88%E7%9D%A1" },
+        { "label": "Mayo Clinic", "url": "https://www.mayoclinic.org/healthy-lifestyle/adult-health/in-depth/napping/art-20044955" }
+      ]
+    },
+    {
+      "id": "ziwu-nap",
+      "title": "子午觉",
+      "titleEn": "Ziwu rest",
+      "body": "子午觉是把子时与午时写成休息窗口的说法。它来自时辰与养生文献，不是现代睡眠实验室的诊断名。把它当成文化词条读，比当成医嘱更合适。",
+      "bodyEn": "Ziwu rest names a window around midnight and midday in older hour-and-health writing. It is a cultural term, not a modern laboratory diagnosis. Read it as encyclopedia history rather than a medical order.",
+      "imageUrl": "/shuileme/lore/ziwu-nap.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://zh.wikipedia.org/wiki/%E5%AD%90%E6%97%B6" },
+        { "label": "WHO", "url": "https://www.who.int/news-room/fact-sheets/detail/mental-health-strengthening-our-response" }
+      ]
+    },
+    {
+      "id": "insomnia-word",
+      "title": "失眠这个词",
+      "titleEn": "The word insomnia",
+      "body": "失眠是人们用来描述入睡难、易醒或醒得太早的日常词。医学分类另有一套标准。本页只解释这个词怎么被使用，不宣布谁符合哪一条。感觉持续困扰时，去找合格的医护，而不是一张卡片。",
+      "bodyEn": "Insomnia is an everyday word people use for trouble falling asleep, waking often, or waking too early. Clinical classifications use a different checklist. This page explains the word. It does not declare that a visitor meets a criterion. Ongoing distress belongs with qualified care, not a card.",
+      "imageUrl": "/shuileme/lore/insomnia-word.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://zh.wikipedia.org/wiki/%E5%A4%B1%E7%9C%A0" },
+        { "label": "NHS", "url": "https://www.nhs.uk/conditions/insomnia/" }
+      ]
+    },
+    {
+      "id": "sleep-hygiene",
+      "title": "睡眠卫生",
+      "titleEn": "Sleep hygiene",
+      "body": "睡眠卫生是一组常见建议的总称：规律作息、少把床当办公桌、夜里少把房间开得很亮。它是科普清单，不是保证入睡的合同。各人生活不同，清单需要自己剪裁。",
+      "bodyEn": "Sleep hygiene is a bundle of common suggestions: steadier hours, less office work in bed, less bright rooms at night. It is a popular list, not a contract that sleep will arrive. Lives differ, so the list needs trimming.",
+      "imageUrl": "/shuileme/lore/sleep-hygiene.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://en.wikipedia.org/wiki/Sleep_hygiene" },
+        { "label": "MedlinePlus", "url": "https://medlineplus.gov/ency/article/003211.htm" }
+      ]
+    },
+    {
+      "id": "melatonin-dark",
+      "title": "褪黑素与黑暗",
+      "titleEn": "Melatonin and darkness",
+      "body": "黑暗会让松果体增加褪黑素信号。这是内源性化学的百科说明。外源补充剂是另一件事，剂量和时机因人而异，本页不写吃多少。把灯调暗，是在谈环境，不是在开药。",
+      "bodyEn": "Darkness can increase the pineal melatonin signal. That is endogenous chemistry in encyclopedia form. Supplements are a separate topic; dose and timing vary, and this page does not write how much to swallow. Dimming lamps is environment talk, not a prescription.",
+      "imageUrl": "/shuileme/lore/melatonin-dark.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://zh.wikipedia.org/wiki/%E8%A4%B6%E9%BB%91%E6%BF%80%E7%B4%A0" },
+        { "label": "Mayo Clinic", "url": "https://www.mayoclinic.org/drugs-supplements-melatonin/art-20364671" }
+      ]
+    },
+    {
+      "id": "wind-down-routine",
+      "title": "睡前收束",
+      "titleEn": "Wind-down routine",
+      "body": "许多人会在睡前把刺激降下来：少吵、少亮、少做决定。神经还在值班时，身体很难立刻切换。收束是习惯描述，不是治疗方案。喜欢什么仪式，由自己选。",
+      "bodyEn": "Many people lower stimulation before bed: less noise, less brightness, fewer decisions. While the nerves are still on duty, the body rarely switches at once. A wind-down is a habit description, not a treatment plan. The ritual is the sleeper's to choose.",
+      "imageUrl": "/shuileme/lore/wind-down-routine.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://en.wikipedia.org/wiki/Sleep_hygiene" },
+        { "label": "NHS", "url": "https://www.nhs.uk/live-well/sleep-and-tiredness/how-to-get-to-sleep/" }
+      ]
+    },
+    {
+      "id": "noise-sleep",
+      "title": "声音与睡眠",
+      "titleEn": "Noise and sleep",
+      "body": "突然的噪声更容易把人从浅睡里拉出来。稳定的背景声有时会盖住那些尖刺。这是声学观察，不是让谁必须开风扇。有人要静，有人要雨声。",
+      "bodyEn": "Sudden noise more readily pulls a person out of light sleep. A steady background can sometimes mask those spikes. This is an acoustics note, not an order to run a fan. Some people want quiet. Some people want rain.",
+      "imageUrl": "/shuileme/lore/noise-sleep.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://en.wikipedia.org/wiki/Noise_and_health" },
+        { "label": "WHO", "url": "https://www.who.int/tools/compendium-on-health-and-environment/environmental-noise" }
+      ]
+    },
+    {
+      "id": "mattress-firmness",
+      "title": "床垫软硬",
+      "titleEn": "Mattress firmness",
+      "body": "床垫把体重分散到更大的面积。软硬没有全世界统一的黄金值。腰背感受、温度和翻身习惯都会说话。换床垫是家具决定，不是医学结论。",
+      "bodyEn": "A mattress spreads weight over a larger area. There is no single worldwide gold firmness. Back feel, temperature, and turning habits all speak. Changing a mattress is a furniture decision, not a medical conclusion.",
+      "imageUrl": "/shuileme/lore/mattress-firmness.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://zh.wikipedia.org/wiki/%E5%BA%8A%E5%9E%AB" },
+        { "label": "MedlinePlus", "url": "https://medlineplus.gov/guidetogoodsleep.html" }
+      ]
+    },
+    {
+      "id": "alcohol-sleep",
+      "title": "酒精与睡眠",
+      "titleEn": "Alcohol and sleep",
+      "body": "酒精可能让人更快倒下，后半夜的睡眠结构却常常变碎。这是物质对睡眠阶段的说明。本页不鼓励喝，也不把酒写成安眠药。清醒的选择比口号有用。",
+      "bodyEn": "Alcohol may help a person fall down faster, while the second half of the night often becomes more broken. That is a note about sleep stages and a substance. This page does not cheer drinking, and it does not write alcohol as a sleeping pill. A clear choice is more useful than a slogan.",
+      "imageUrl": "/shuileme/lore/alcohol-sleep.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://en.wikipedia.org/wiki/Sleep_and_alcohol" },
+        { "label": "NHS", "url": "https://www.nhs.uk/live-well/alcohol-advice/the-risks-of-drinking-too-much/" }
+      ]
+    },
+    {
+      "id": "exercise-evening",
+      "title": "傍晚运动",
+      "titleEn": "Evening movement",
+      "body": "白天活动往往有助于夜里更困。非常剧烈且紧贴上床的训练，有时会让心率还停在白天。文献并不把所有晚练都写成禁忌。强度和时间，需要自己观察。",
+      "bodyEn": "Daytime movement often helps night sleepiness. Very hard training squeezed against bedtime can leave the heart still in daytime mode. The literature does not ban every evening session. Intensity and clock time need personal watching.",
+      "imageUrl": "/shuileme/lore/exercise-evening.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://en.wikipedia.org/wiki/Exercise_and_sleep" },
+        { "label": "Mayo Clinic", "url": "https://www.mayoclinic.org/healthy-lifestyle/adult-health/in-depth/sleep/art-20048379" }
+      ]
+    },
+    {
+      "id": "sleep-pressure",
+      "title": "睡眠压力",
+      "titleEn": "Sleep pressure",
+      "body": "醒着的时间越长，所谓睡眠压力往往越高。小睡和咖啡因会改写这条曲线的形状。这是过程 S 的通俗说法，不是对某个人的病理点名。困意来了就躺，是观察，不是命令。",
+      "bodyEn": "The longer a person stays awake, the higher so-called sleep pressure often climbs. Naps and caffeine can reshape that curve. This is a plain-language Process S, not a pathology label for a visitor. Lying down when sleepiness arrives is an observation, not an order.",
+      "imageUrl": "/shuileme/lore/sleep-pressure.jpg",
+      "credit": "睡了么媒体包",
+      "sources": [
+        { "label": "Wikipedia", "url": "https://en.wikipedia.org/wiki/Process_S" },
+        { "label": "NHS", "url": "https://www.nhs.uk/live-well/sleep-and-tiredness/" }
+      ]
+    }
+  ]
+}

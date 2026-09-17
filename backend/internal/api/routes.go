@@ -97,6 +97,15 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		lalem.POST("/chat", func(c *gin.Context) { handleLalemChat(c, aiService) })
 	}
 
+	// 睡了么 bedtime lounge (public, unlisted sibling of 拉了么)
+	shuileme := r.Group("/shuileme")
+	{
+		shuileme.GET("/beds", handleShuilemeBeds)
+		shuileme.GET("/bedrooms", handleShuilemeBedrooms)
+		shuileme.GET("/lore", handleShuilemeLore)
+		shuileme.GET("/wiki", handleShuilemeWiki)
+	}
+
 	// Chase Game routes
 	chaseGame := r.Group("/chase-game")
 	{
