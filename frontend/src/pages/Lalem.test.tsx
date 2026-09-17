@@ -60,39 +60,65 @@ const papers = {
 };
 
 const medicine = {
-  articles: [
-    {
-      id: 'posture-squat-sit',
-      title: '蹲还是坐：排便姿势',
-      titleEn: 'Squat or sit: defecation posture',
-      body: '坐便器把髋关节放得比较直。蹲坑让膝盖高于髋。这是解剖描述。',
-      bodyEn: 'A sit toilet keeps the hips more open. A squat pan puts the knees above the hips.',
-      sources: [
-        { label: 'Wikipedia', url: 'https://zh.wikipedia.org/wiki/%E6%8E%92%E4%BE%BF' },
-        { label: 'NHS', url: 'https://www.nhs.uk/conditions/constipation/' },
-      ],
-    },
-  ],
+  articles: Array.from({ length: 50 }, (_, i) =>
+    i === 0
+      ? {
+          id: 'posture-squat-sit',
+          title: '蹲还是坐：排便姿势',
+          titleEn: 'Squat or sit: defecation posture',
+          body: '坐便器把髋关节放得比较直。蹲坑让膝盖高于髋。这是解剖描述。',
+          bodyEn: 'A sit toilet keeps the hips more open. A squat pan puts the knees above the hips.',
+          imageUrl: '/lalem/medicine/posture-squat-sit.jpg',
+          credit: '拉了么媒体包',
+          sources: [
+            { label: 'Wikipedia', url: 'https://zh.wikipedia.org/wiki/%E6%8E%92%E4%BE%BF' },
+            { label: 'NHS', url: 'https://www.nhs.uk/conditions/constipation/' },
+          ],
+        }
+      : {
+          id: `lore-pad-${i}`,
+          title: `词条${i}`,
+          titleEn: `Article ${i}`,
+          body: '坐便器把髋关节放得比较直。蹲坑让膝盖高于髋。这是解剖描述。',
+          bodyEn: 'A sit toilet keeps the hips more open. A squat pan puts the knees above the hips.',
+          imageUrl: `/lalem/medicine/lore-pad-${i}.jpg`,
+          credit: '拉了么媒体包',
+          sources: [
+            { label: 'Wikipedia', url: 'https://zh.wikipedia.org/wiki/%E6%8E%92%E4%BE%BF' },
+            { label: 'NHS', url: 'https://www.nhs.uk/conditions/constipation/' },
+          ],
+        }
+  ),
 };
 
 const digest = {
   locale: 'cn',
   disclaimer: '卫生间小贴士，不能替代医疗诊断或治疗。',
-  trends: [
-    {
-      kind: 'fashion',
-      title: '今日新色',
+  trends: Array.from({ length: 50 }, (_, i) => {
+    if (i === 0) {
+      return {
+        kind: 'fashion',
+        title: '今日新色',
+        hook: '今天的热搜。',
+        imageUrl: '/lalem/trends/fashion-1.jpg',
+      };
+    }
+    if (i === 1) {
+      return {
+        kind: 'entertainment',
+        title: '昨日综艺',
+        hook: '昨天还在聊蹲姿。',
+        imageUrl: '/lalem/trends/entertainment-1.jpg',
+        topicId: 'medicine:posture-squat-sit',
+      };
+    }
+    return {
+      kind: i % 2 === 0 ? 'fashion' : 'entertainment',
+      title: `热搜${i}`,
       hook: '今天的热搜。',
-      imageUrl: '/lalem/trends/fashion-1.jpg',
-    },
-    {
-      kind: 'entertainment',
-      title: '昨日综艺',
-      hook: '昨天还在聊蹲姿。',
-      imageUrl: '/lalem/trends/entertainment-1.jpg',
-      topicId: 'medicine:posture-squat-sit',
-    },
-  ],
+      imageUrl: i % 2 === 0 ? '/lalem/trends/fashion-1.jpg' : '/lalem/trends/entertainment-1.jpg',
+    };
+  }),
   videos: [],
   useful: ['今日贴士：别蹲太久', '昨日贴士：洗手到泡沫'],
 };
@@ -281,8 +307,26 @@ test('厕纸 and 医典 docks open galleries with sourced detail', async () => {
   expect(await screen.findByRole('dialog', { name: '海绵棒' })).toHaveTextContent(/海绵棒/);
   fireEvent.click(screen.getByRole('button', { name: '关闭' }));
   await userEvent.click(screen.getByRole('button', { name: '医典' }));
-  await userEvent.click(await screen.findByRole('button', { name: /蹲还是坐/ }));
+  const loreImg = await screen.findByRole('img', { name: /蹲还是坐/ });
+  expect(loreImg).toHaveAttribute('src', '/lalem/medicine/posture-squat-sit.jpg');
+  expect(loreImg.closest('a')).toBeNull();
+  expect(loreImg.closest('.ll-card-open')).toBeNull();
+  expect(loreImg.closest('button')).toHaveClass('ll-card-wiki');
+  const loreThumbs = document.querySelectorAll('.ll-body .ll-card img');
+  expect(loreThumbs.length).toBeGreaterThanOrEqual(50);
+  Array.from(loreThumbs).forEach((img) => {
+    expect(img.getAttribute('src') || '').toMatch(/^\/lalem\/medicine\/.+\.jpg$/);
+  });
+  expect(document.querySelector('video')).toBeNull();
+  expect(document.querySelectorAll('a[href*="wikipedia.org"]')).toHaveLength(0);
+  await userEvent.click(loreImg.closest('button') as HTMLElement);
+  const wikiFromImg = await screen.findByRole('dialog', { name: '公共厕所' });
+  expect(within(wikiFromImg).queryByRole('link')).toBeNull();
+  expect(String((global.fetch as jest.Mock).mock.calls.map(String).join('\n'))).toMatch(/\/lalem\/wiki\?url=/);
+  fireEvent.click(within(wikiFromImg).getByRole('button', { name: '关闭' }));
+  await userEvent.click(cardTitleButton('蹲还是坐：排便姿势'));
   const lore = await screen.findByRole('dialog', { name: /蹲还是坐/ });
+  expect(lore.querySelector('img')).toHaveAttribute('src', '/lalem/medicine/posture-squat-sit.jpg');
   expect(lore).toHaveTextContent(/不能替代医疗|not medical/i);
   expect(within(lore).queryByRole('link', { name: /Wikipedia/i })).toBeNull();
   expect(within(lore).getByRole('link', { name: 'NHS' })).toHaveAttribute(
@@ -301,7 +345,7 @@ test('拉榜 has no video; trends open encyclopedia or lounge copy', async () =>
   await screen.findByText('今日新色');
   expect(document.querySelector('video')).toBeNull();
   const thumbs = document.querySelectorAll('.ll-trend img');
-  expect(thumbs.length).toBeGreaterThan(0);
+  expect(thumbs.length).toBeGreaterThanOrEqual(50);
   expect(thumbs[0]).toHaveAttribute('src', '/lalem/trends/fashion-1.jpg');
   const tags = Array.from(document.querySelectorAll('.ll-trend-tag')).map(
     (el) => el.textContent || ''

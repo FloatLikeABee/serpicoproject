@@ -201,11 +201,16 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 	now := time.Now()
 	if db != nil && db.SQLite != nil {
 		_ = database.PruneLalemFeed(db.SQLite, now)
-		if digest := lalemDigestFromStore(db, locale, true); digest != nil {
-			replyLalemDigest(c, digest)
-			return
-		}
 		needSeed, needInc := lalemFeedNeedsGeneration(db, locale, now)
+		if !needSeed {
+			_ = ensureLalemTrendFloor(db, locale, now)
+		}
+		if digest := lalemDigestFromStore(db, locale, true); digest != nil {
+			if lalemUniqueTrendCount(digest) >= ai.LalemTrendFloor && !needInc {
+				replyLalemDigest(c, digest)
+				return
+			}
+		}
 		if needSeed || needInc {
 			if !lalemAllowed(c.ClientIP()) {
 				c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests. Try again in a few minutes."})
@@ -214,6 +219,7 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 			adviser, ok := aiService.(lalemAdviser)
 			if !ok {
 				if needInc {
+					_ = ensureLalemTrendFloor(db, locale, now)
 					if fallback := lalemDigestFromStore(db, locale, false); fallback != nil {
 						replyLalemDigest(c, fallback)
 						return
@@ -237,6 +243,7 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 					return
 				}
 				_ = persistLalemDigest(db, locale, digest, now)
+				_ = ensureLalemTrendFloor(db, locale, now)
 				if composed := lalemDigestFromStore(db, locale, false); composed != nil {
 					replyLalemDigest(c, composed)
 					return
@@ -248,11 +255,17 @@ func handleLalemDigest(c *gin.Context, db *database.Database, aiService interfac
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "lounge digest is not available"})
 				return
 			}
+			digest.Trends = ai.PadLalemTrendsToFloor(digest.Trends, locale, ai.LalemTrendFloor)
 			_ = persistLalemDigest(db, locale, digest, now)
+			_ = ensureLalemTrendFloor(db, locale, now)
 			if composed := lalemDigestFromStore(db, locale, false); composed != nil {
 				replyLalemDigest(c, composed)
 				return
 			}
+			replyLalemDigest(c, digest)
+			return
+		}
+		if digest := lalemDigestFromStore(db, locale, false); digest != nil {
 			replyLalemDigest(c, digest)
 			return
 		}
@@ -312,6 +325,69 @@ func lalemFeedNeedsGeneration(db *database.Database, locale string, now time.Tim
 		return false, true
 	}
 	return false, false
+}
+
+func lalemUniqueTrendCount(digest *ai.LalemDigest) int {
+	if digest == nil {
+		return 0
+	}
+	seen := map[string]struct{}{}
+	for _, tr := range digest.Trends {
+		title := strings.TrimSpace(tr.Title)
+		if title == "" {
+			continue
+		}
+		seen[title] = struct{}{}
+	}
+	return len(seen)
+}
+
+func ensureLalemTrendFloor(db *database.Database, locale string, now time.Time) error {
+	if db == nil || db.SQLite == nil {
+		return nil
+	}
+	rows, err := database.ListLalemTrends(db.SQLite, locale)
+	if err != nil {
+		return err
+	}
+	existing := make([]ai.LalemTrend, 0, len(rows))
+	have := map[string]struct{}{}
+	for _, row := range rows {
+		title := strings.TrimSpace(row.Title)
+		existing = append(existing, ai.LalemTrend{
+			Kind:     row.Kind,
+			Title:    title,
+			Hook:     row.Hook,
+			ImageURL: row.ImageURL,
+			Chips:    row.Chips,
+		})
+		if title != "" {
+			have[title] = struct{}{}
+		}
+	}
+	padded := ai.PadLalemTrendsToFloor(existing, locale, ai.LalemTrendFloor)
+	for _, tr := range padded {
+		title := strings.TrimSpace(tr.Title)
+		if title == "" {
+			continue
+		}
+		if _, ok := have[title]; ok {
+			continue
+		}
+		if err := database.InsertLalemTrend(db.SQLite, database.LalemTrendRow{
+			Locale:    locale,
+			Kind:      tr.Kind,
+			Title:     tr.Title,
+			Hook:      tr.Hook,
+			ImageURL:  tr.ImageURL,
+			Chips:     tr.Chips,
+			CreatedAt: now,
+		}); err != nil {
+			return err
+		}
+		have[title] = struct{}{}
+	}
+	return nil
 }
 
 func persistLalemDigest(db *database.Database, locale string, digest *ai.LalemDigest, now time.Time) error {
