@@ -303,7 +303,9 @@ test('拉榜 has no video; trends open encyclopedia or lounge copy', async () =>
   const thumbs = document.querySelectorAll('.ll-trend img');
   expect(thumbs.length).toBeGreaterThan(0);
   expect(thumbs[0]).toHaveAttribute('src', '/lalem/trends/fashion-1.jpg');
-  const tags = [...document.querySelectorAll('.ll-trend-tag')].map((el) => el.textContent || '');
+  const tags = Array.from(document.querySelectorAll('.ll-trend-tag')).map(
+    (el) => el.textContent || ''
+  );
   expect(tags.some((t) => /时尚|Fashion/.test(t))).toBe(true);
   expect(tags.some((t) => /娱乐|Entertainment/.test(t))).toBe(true);
   expect(screen.getByText('今日新色')).toBeInTheDocument();
