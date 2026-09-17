@@ -178,6 +178,16 @@ func (s *AIService) AdviseLalemDigest(in LalemDigestInput) (*LalemDigest, error)
 	return adv.AdviseLalemDigest(in)
 }
 
+func (s *AIService) AdviseLalemCompanion(in LalemCompanionInput) (*LalemCompanion, error) {
+	adv := &LalemAdvisor{}
+	if s != nil && s.qwen != nil && s.qwen.Enabled() {
+		adv.CompleteFn = func(prompt string) (string, error) {
+			return s.generateWithLiveModel("", prompt)
+		}
+	}
+	return adv.AdviseLalemCompanion(in)
+}
+
 func (s *AIService) AdviseFridgeRaidDetail(in FridgeRaidDetailInput) (*FridgeRaidDishDetail, error) {
 	if s == nil || s.qwen == nil || !s.qwen.Enabled() {
 		return nil, fmt.Errorf("live model is not configured (set SILICONFLOW_API_KEY)")

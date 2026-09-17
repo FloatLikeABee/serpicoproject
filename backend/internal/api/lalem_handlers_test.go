@@ -849,6 +849,7 @@ func TestLalemDigestIncrementFailureKeepsPriorRows(t *testing.T) {
 func TestLalemCompanionGetReturnsLocaleLine(t *testing.T) {
 	resetLalemLimiter()
 	resetLalemDigestCache()
+	resetLalemCompanionLimiter()
 	r := fridgeRaidTestRouter(t, &ai.LalemAdvisor{})
 	for _, loc := range []string{"cn", "en"} {
 		w := getJSON(r, "/api/v1/lalem/companion?locale="+loc)
@@ -883,9 +884,50 @@ func TestLalemCompanionGetReturnsLocaleLine(t *testing.T) {
 	}
 }
 
+func TestLalemCompanionLimiterIndependentOfDigest(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	resetLalemCompanionLimiter()
+	for _, ip := range []string{"", "unknown", "192.0.2.1", "127.0.0.1"} {
+		for i := 0; i < lalemMaxAttempts+2; i++ {
+			_ = lalemAllowed(ip)
+		}
+	}
+	calls := 0
+	adv := &ai.LalemAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			calls++
+			return `{"text":"Roman latrines were chatty stone benches.","angle":"historical"}`, nil
+		},
+	}
+	r := fridgeRaidTestRouter(t, adv)
+	w := getJSON(r, "/api/v1/lalem/companion?locale=en")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	var got ai.LalemCompanion
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Text != "Roman latrines were chatty stone benches." {
+		t.Fatalf("exhausted digest limiter must not block companion live line: %q", got.Text)
+	}
+	if calls != 1 {
+		t.Fatalf("live calls=%d", calls)
+	}
+	w2 := getJSON(r, "/api/v1/lalem/companion?locale=en")
+	if w2.Code != http.StatusOK {
+		t.Fatalf("second status %d: %s", w2.Code, w2.Body.String())
+	}
+	if calls != 1 {
+		t.Fatalf("second GET must use canned, live calls=%d", calls)
+	}
+}
+
 func TestLalemCompanionGetDoesNotCallDigest(t *testing.T) {
 	resetLalemLimiter()
 	resetLalemDigestCache()
+	resetLalemCompanionLimiter()
 	stub := &stubLalemAI{}
 	r := fridgeRaidTestRouter(t, stub)
 	w := getJSON(r, "/api/v1/lalem/companion?locale=cn")

@@ -63,6 +63,31 @@ func TestBuildChatPromptUnchangedNoLalemPrimer(t *testing.T) {
 	}
 }
 
+func TestBuildLalemCompanionPromptCuteFourAngles(t *testing.T) {
+	day := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
+	prompt := BuildLalemCompanionPrompt(LalemCompanionPromptInput{Locale: "cn", Now: day})
+	needles := []string{
+		"cute",
+		"medical",
+		"biological",
+		"social",
+		"historical",
+		"you have",
+		"你患有",
+		"JSON",
+		"2026-09-17",
+	}
+	lower := strings.ToLower(prompt)
+	for _, n := range needles {
+		if !strings.Contains(prompt, n) && !strings.Contains(lower, strings.ToLower(n)) {
+			t.Errorf("companion prompt missing %q", n)
+		}
+	}
+	if strings.Contains(prompt, "Officer Serpico") || strings.Contains(prompt, "翻冰箱") {
+		t.Fatal("companion prompt must not inject officer/fridge primer")
+	}
+}
+
 func TestBuildLalemIncrementPromptTwoTrendsOneUseful(t *testing.T) {
 	day := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	prompt := BuildLalemIncrementPrompt(LalemDigestPromptInput{Locale: "cn", Now: day})

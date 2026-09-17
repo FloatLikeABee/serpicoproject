@@ -197,6 +197,27 @@ func TestAdviseLalemIncrementMissingLiveModelDoesNotCallVision(t *testing.T) {
 	}
 }
 
+func TestAdviseLalemCompanionLiveJSON(t *testing.T) {
+	adv := &LalemAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			if !strings.Contains(prompt, "historical") || !strings.Contains(prompt, "biological") {
+				t.Errorf("prompt missing angles, got %s", prompt)
+			}
+			return `{"text":"Roman latrines were chatty stone benches.","angle":"historical"}`, nil
+		},
+	}
+	got, err := adv.AdviseLalemCompanion(LalemCompanionInput{Locale: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Text != "Roman latrines were chatty stone benches." {
+		t.Fatalf("text %q", got.Text)
+	}
+	if got.Angle != "historical" {
+		t.Fatalf("angle %q", got.Angle)
+	}
+}
+
 func TestAdviseLalemCompanionCannedWhenNoCompleteFn(t *testing.T) {
 	adv := &LalemAdvisor{CompleteFn: nil}
 	got, err := adv.AdviseLalemCompanion(LalemCompanionInput{Locale: "cn"})

@@ -22,6 +22,11 @@ var (
 	lalemMu          sync.Mutex
 	lalemHits        = map[string][]time.Time{}
 
+	lalemCompMax    = 1
+	lalemCompWindow = 8 * time.Minute
+	lalemCompMu     sync.Mutex
+	lalemCompHits   = map[string][]time.Time{}
+
 	lalemCacheTTL  = time.Hour
 	lalemCacheMu   sync.Mutex
 	lalemDigestMem = map[string]lalemCacheEntry{}
@@ -38,6 +43,12 @@ func resetLalemLimiter() {
 	lalemMu.Lock()
 	defer lalemMu.Unlock()
 	lalemHits = map[string][]time.Time{}
+}
+
+func resetLalemCompanionLimiter() {
+	lalemCompMu.Lock()
+	defer lalemCompMu.Unlock()
+	lalemCompHits = map[string][]time.Time{}
 }
 
 func resetLalemDigestCache() {
@@ -66,6 +77,29 @@ func lalemAllowed(ip string) bool {
 		return false
 	}
 	lalemHits[ip] = append(kept, now)
+	return true
+}
+
+func lalemCompanionLiveAllowed(ip string) bool {
+	if ip == "" {
+		ip = "unknown"
+	}
+	now := time.Now()
+	cutoff := now.Add(-lalemCompWindow)
+	lalemCompMu.Lock()
+	defer lalemCompMu.Unlock()
+	hits := lalemCompHits[ip]
+	kept := hits[:0]
+	for _, t := range hits {
+		if t.After(cutoff) {
+			kept = append(kept, t)
+		}
+	}
+	if len(kept) >= lalemCompMax {
+		lalemCompHits[ip] = kept
+		return false
+	}
+	lalemCompHits[ip] = append(kept, now)
 	return true
 }
 
@@ -194,6 +228,40 @@ func lalemWikiCheckRedirect(req *http.Request, via []*http.Request) error {
 
 type lalemAdviser interface {
 	AdviseLalemDigest(in ai.LalemDigestInput) (*ai.LalemDigest, error)
+}
+
+type lalemCompanionAdviser interface {
+	AdviseLalemCompanion(in ai.LalemCompanionInput) (*ai.LalemCompanion, error)
+}
+
+func handleLalemCompanion(c *gin.Context, aiService interface{}) {
+	locale := localeCacheKey(c.DefaultQuery("locale", "cn"))
+	liveOK := lalemCompanionLiveAllowed(c.ClientIP())
+	if liveOK {
+		if adviser, ok := aiService.(lalemCompanionAdviser); ok {
+			line, err := adviser.AdviseLalemCompanion(ai.LalemCompanionInput{Locale: locale})
+			if err == nil && line != nil && strings.TrimSpace(line.Text) != "" {
+				replyLalemCompanion(c, line)
+				return
+			}
+		}
+	}
+	line, err := (&ai.LalemAdvisor{}).AdviseLalemCompanion(ai.LalemCompanionInput{Locale: locale})
+	if err != nil || line == nil {
+		line = &ai.LalemCompanion{Text: "Wash with soap. Cute reminder, not a diagnosis.", Angle: "medical"}
+		if locale == "cn" {
+			line = &ai.LalemCompanion{Text: "洗手泡沫要盖住手心手背，这是便便科普，不是诊断。", Angle: "medical"}
+		}
+	}
+	replyLalemCompanion(c, line)
+}
+
+func replyLalemCompanion(c *gin.Context, line *ai.LalemCompanion) {
+	if line == nil {
+		c.JSON(http.StatusOK, ai.LalemCompanion{Text: "Wash with soap. Cute reminder, not a diagnosis.", Angle: "medical"})
+		return
+	}
+	c.JSON(http.StatusOK, line)
 }
 
 func handleLalemDigest(c *gin.Context, db *database.Database, aiService interface{}) {
