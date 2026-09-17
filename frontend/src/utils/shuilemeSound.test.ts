@@ -35,6 +35,13 @@ test('startShuilemeSound resumes context; stop closes it; hidden does not stop',
     }),
   }));
   (window as unknown as { AudioContext: unknown }).AudioContext = FakeCtx;
+  const pending = startShuilemeSound('brown');
+  stopShuilemeSound();
+  await pending;
+  expect(resume).toHaveBeenCalled();
+  expect(close).toHaveBeenCalled();
+  resume.mockClear();
+  close.mockClear();
   await startShuilemeSound('brown');
   expect(resume).toHaveBeenCalled();
   document.dispatchEvent(new Event('visibilitychange'));

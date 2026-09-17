@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../i18n/catalog';
 import { detectFridgeRaidLang, saveFridgeRaidLang } from '../utils/fridgeRaidLang';
 import { compressFridgeJpeg } from '../utils/fridgeRaidImage';
+import { enterLoungeWorld, leaveLoungeWorld } from '../utils/loungeWorld';
 import { apiV1Base } from '../utils/hardDataUrls';
 import type { Nation } from '../utils/nation';
 
@@ -138,13 +139,11 @@ const FridgeRaid: React.FC = () => {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.add('fr-world');
-    root.classList.remove('synth-world');
+    enterLoungeWorld('fr-world');
     root.lang = nation === 'cn' ? 'zh-CN' : 'en';
     saveFridgeRaidLang(nation);
     return () => {
-      root.classList.remove('fr-world');
-      root.classList.add('synth-world');
+      leaveLoungeWorld();
     };
   }, [nation]);
 

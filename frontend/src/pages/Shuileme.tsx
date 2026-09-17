@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { t } from '../i18n/catalog';
 import { detectShuilemeLang, saveShuilemeLang } from '../utils/shuilemeLang';
 import { startShuilemeSound, stopShuilemeSound, SHUILEME_SCENES } from '../utils/shuilemeSound';
+import { enterLoungeWorld, leaveLoungeWorld } from '../utils/loungeWorld';
 import { apiV1Base } from '../utils/hardDataUrls';
 import type { Nation } from '../utils/nation';
 
@@ -181,13 +182,11 @@ export default function Shuileme() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.add('sm-world');
-    root.classList.remove('synth-world', 'fr-world');
+    enterLoungeWorld('sm-world');
     root.lang = nation === 'cn' ? 'zh-CN' : 'en';
     saveShuilemeLang(nation);
     return () => {
-      root.classList.remove('sm-world');
-      root.classList.add('synth-world');
+      leaveLoungeWorld();
     };
   }, [nation]);
 

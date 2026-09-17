@@ -233,15 +233,18 @@ test('sound dock tap resumes audio; first paint is silent', async () => {
     }),
   }));
   (window as unknown as { AudioContext: unknown }).AudioContext = FakeCtx;
-  render(<Shuileme />);
+  const { unmount } = render(<Shuileme />);
   await userEvent.click(screen.getByRole('button', { name: '声' }));
   expect(resume).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole('button', { name: /褐噪|Brown/ }));
   expect(resume).toHaveBeenCalled();
   expect(document.querySelector('video')).toBeNull();
+  unmount();
+  expect(close).toHaveBeenCalled();
 });
 
 test('wind-down is a static field when reduced motion is on', async () => {
+  const prev = window.matchMedia;
   window.matchMedia = jest.fn().mockImplementation((query: string) => ({
     matches: String(query).includes('prefers-reduced-motion'),
     media: query,
@@ -254,6 +257,7 @@ test('wind-down is a static field when reduced motion is on', async () => {
   expect(breathe).not.toBeNull();
   expect(breathe).toHaveClass('sm-breathe--static');
   expect(document.querySelector('video')).toBeNull();
+  window.matchMedia = prev;
 });
 
 test('Shuileme source does not use Notification or video', () => {

@@ -1341,7 +1341,7 @@ html.sm-world.synth-world #root {
   cursor: pointer;
 }
 .sm-chip-wrap button {
-  min-height: 2.25rem;
+  min-height: 2.75rem;
 }
 .sm-lang button.is-on,
 .sm-chip-wrap button.is-on,

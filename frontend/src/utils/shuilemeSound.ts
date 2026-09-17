@@ -5,6 +5,7 @@ type AudioCtx = AudioContext;
 
 let ctx: AudioCtx | null = null;
 let source: AudioBufferSourceNode | null = null;
+let generation = 0;
 
 function audioCtor(): { new (): AudioCtx } | undefined {
   const w = window as unknown as {
@@ -54,37 +55,68 @@ function fillScene(data: Float32Array, scene: ShuilemeScene): void {
   }
 }
 
+function closeCtx(open: AudioCtx | null) {
+  try {
+    open?.close();
+  } catch {
+    /* already closed */
+  }
+}
+
 export async function startShuilemeSound(scene: ShuilemeScene | string): Promise<void> {
   const name = (SHUILEME_SCENES as readonly string[]).includes(scene) ? (scene as ShuilemeScene) : 'brown';
   stopShuilemeSound();
   const Ctor = audioCtor();
   if (!Ctor) return;
+  const my = generation;
   const next = new Ctor();
   ctx = next;
-  if (typeof next.resume === 'function') {
-    await next.resume();
+  try {
+    if (typeof next.resume === 'function') {
+      await next.resume();
+    }
+    if (my !== generation || ctx !== next) {
+      closeCtx(next);
+      return;
+    }
+    const seconds = 2;
+    const rate = next.sampleRate || 44100;
+    const length = Math.max(1024, Math.floor(rate * seconds));
+    const buffer = next.createBuffer(1, length, rate);
+    fillScene(buffer.getChannelData(0), name);
+    const src = next.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+    const filter = next.createBiquadFilter();
+    filter.type = name === 'rain' ? 'highpass' : 'lowpass';
+    filter.frequency.value = name === 'rain' ? 900 : name === 'fan' ? 280 : 800;
+    const gain = next.createGain();
+    gain.gain.value = 0.28;
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(next.destination);
+    src.start();
+    if (my !== generation || ctx !== next) {
+      try {
+        src.stop();
+      } catch {
+        /* already stopped */
+      }
+      closeCtx(next);
+      return;
+    }
+    source = src;
+  } catch {
+    if (ctx === next) {
+      stopShuilemeSound();
+    } else {
+      closeCtx(next);
+    }
   }
-  const seconds = 2;
-  const rate = next.sampleRate || 44100;
-  const length = Math.max(1024, Math.floor(rate * seconds));
-  const buffer = next.createBuffer(1, length, rate);
-  fillScene(buffer.getChannelData(0), name);
-  const src = next.createBufferSource();
-  src.buffer = buffer;
-  src.loop = true;
-  const filter = next.createBiquadFilter();
-  filter.type = name === 'rain' ? 'highpass' : 'lowpass';
-  filter.frequency.value = name === 'rain' ? 900 : name === 'fan' ? 280 : 800;
-  const gain = next.createGain();
-  gain.gain.value = 0.28;
-  src.connect(filter);
-  filter.connect(gain);
-  gain.connect(next.destination);
-  src.start();
-  source = src;
 }
 
 export function stopShuilemeSound(): void {
+  generation += 1;
   const playing = source;
   const open = ctx;
   source = null;
@@ -94,9 +126,5 @@ export function stopShuilemeSound(): void {
   } catch {
     /* already stopped */
   }
-  try {
-    open?.close();
-  } catch {
-    /* already closed */
-  }
+  closeCtx(open);
 }
