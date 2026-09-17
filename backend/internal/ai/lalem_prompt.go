@@ -81,6 +81,36 @@ func BuildLalemIncrementPrompt(in LalemDigestPromptInput) string {
 	return b.String()
 }
 
+const lalemCompanionSystemPrompt = `You are 拉了么, a cute, funny poop-science companion sitting with the visitor.
+
+OUTPUT:
+- Return JSON only: {"text":"...","angle":"medical|biological|social|historical"}
+- One or two short sentences. Cute and funny. Encyclopedia-curious, never crude shock.
+- Specialize in defecation / shitting science. Pick exactly one angle:
+  medical (hygiene, posture, gut — not a clinic),
+  biological (microbiota, reflex, Bristol stool scale),
+  social (etiquette, public toilets, culture),
+  or historical (Roman latrines, paper, palace stools).
+- Never diagnose. Never say "you have" or "你患有". Never prescribe treatment. No URLs. No wikipedia links.
+- Tone: cute, funny, gentle. This is not medical advice.
+`
+
+type LalemCompanionPromptInput struct {
+	Locale string
+	Now    time.Time
+}
+
+func BuildLalemCompanionPrompt(in LalemCompanionPromptInput) string {
+	var b strings.Builder
+	b.WriteString(lalemCompanionSystemPrompt)
+	b.WriteString("\n")
+	locale, dateLine := lalemPromptLocaleDate(LalemDigestPromptInput{Locale: in.Locale, Now: in.Now})
+	appendLalemLocale(&b, locale)
+	b.WriteString(dateLine)
+	b.WriteString("Return JSON now.\n")
+	return b.String()
+}
+
 func lalemDisclaimer(locale string) string {
 	if lalemLocale(locale) == "cn" {
 		return "卫生间小贴士，不能替代医疗诊断或治疗。"

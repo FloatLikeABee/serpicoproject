@@ -148,6 +148,16 @@ function mockLalemFetch() {
               },
       });
     }
+    if (href.includes('/lalem/companion')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          text: 'Bristol’s cute rainbow: type 4 is a smooth little sausage.',
+          angle: 'biological',
+        }),
+      });
+    }
     if (href.includes('/lalem/digest')) {
       return Promise.resolve({
         ok: true,
@@ -194,6 +204,27 @@ function cardTitleButton(name: string): HTMLElement {
   const btn = img.closest('article')?.querySelector('.ll-card-open');
   if (!btn) throw new Error(`missing title control for ${name}`);
   return btn as HTMLElement;
+}
+
+function cssZIndex(selector: string): number {
+  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const body = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+  const z = /z-index:\s*(\d+)/.exec(body);
+  return z ? Number(z[1]) : Number.NaN;
+}
+
+async function flushLalemPromises() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+function companionCalls(): number {
+  return (global.fetch as jest.Mock).mock.calls.filter((call) =>
+    String(call[0]).includes('/lalem/companion')
+  ).length;
 }
 
 test('fresh visit shows 拉了么 and toilet images, not officer nav', async () => {
@@ -435,4 +466,159 @@ test('Lalem source does not use the Notification API', () => {
   expect(src).not.toMatch(/requestPermission/);
   expect(src).not.toMatch(/<video/);
   expect(src).not.toMatch(/youtube|douyin|tiktok/i);
+});
+
+test('poop-science companion waits 90s, stays cute, and yields to sit-alert', async () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  render(<Lalem />);
+  await flushLalemPromises();
+  expect(screen.getByRole('img', { name: '罗马公共厕所' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '医典' }));
+  await flushLalemPromises();
+  expect(screen.getByRole('img', { name: /蹲还是坐/ })).toBeInTheDocument();
+  expect(document.querySelector('.ll-companion')).toBeNull();
+  expect(companionCalls()).toBe(0);
+
+  act(() => {
+    jest.setSystemTime(start + 80_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).toBeNull();
+
+  act(() => {
+    jest.setSystemTime(start + 90_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  const bubble = document.querySelector('.ll-companion');
+  expect(bubble).not.toBeNull();
+  expect(bubble).toHaveTextContent(/Bristol|sausage|rainbow/i);
+  expect(bubble?.querySelector('textarea')).toBeNull();
+  expect(bubble).not.toHaveAttribute('aria-modal', 'true');
+  expect(document.querySelector('video')).toBeNull();
+  expect(document.querySelectorAll('a[href*="wikipedia.org"]')).toHaveLength(0);
+  expect(companionCalls()).toBe(1);
+
+  act(() => {
+    jest.setSystemTime(start + 5 * 60 * 1000);
+    jest.advanceTimersByTime(1000);
+  });
+  const sit = screen.getByRole('dialog', { name: '久坐警报' });
+  expect(sit).toHaveClass('ll-sit-alert');
+  expect(document.querySelector('.ll-companion')).not.toBeNull();
+  expect(cssZIndex('.ll-sit-alert-backdrop')).toBeGreaterThan(cssZIndex('.ll-companion'));
+  expect(screen.getAllByRole('dialog', { name: '久坐警报' })).toHaveLength(1);
+  expect(document.querySelector('video')).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: '再蹲会儿' }));
+  fireEvent.click(document.querySelector('.ll-companion-dismiss') as HTMLElement);
+  expect(document.querySelector('.ll-companion')).toBeNull();
+
+  act(() => {
+    jest.setSystemTime(start + 90_000 + 7 * 60 * 1000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).toBeNull();
+  expect(companionCalls()).toBe(1);
+
+  act(() => {
+    jest.setSystemTime(start + 90_000 + 8 * 60 * 1000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).not.toBeNull();
+  expect(companionCalls()).toBe(2);
+  jest.useRealTimers();
+});
+
+test('poop-science companion counts visible sit time only', async () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  let hidden = true;
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+  render(<Lalem />);
+  await flushLalemPromises();
+  expect(screen.getByRole('img', { name: '罗马公共厕所' })).toBeInTheDocument();
+  act(() => {
+    jest.setSystemTime(start + 90_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).toBeNull();
+  hidden = false;
+  act(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).toBeNull();
+  act(() => {
+    jest.setSystemTime(start + 180_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).not.toBeNull();
+  jest.useRealTimers();
+});
+
+test('poop-science companion retries if the first GET fails', async () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  let companionHits = 0;
+  const inner = mockLalemFetch();
+  global.fetch = jest.fn().mockImplementation((url: RequestInfo) => {
+    const href = String(url);
+    if (href.includes('/lalem/companion')) {
+      companionHits += 1;
+      if (companionHits === 1) {
+        return Promise.resolve({ ok: false, status: 503, json: async () => ({}) });
+      }
+    }
+    return inner(url);
+  }) as jest.Mock;
+  render(<Lalem />);
+  await flushLalemPromises();
+  act(() => {
+    jest.setSystemTime(start + 90_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).toBeNull();
+  act(() => {
+    jest.setSystemTime(start + 92_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).not.toBeNull();
+  jest.useRealTimers();
+});
+
+test('poop-science companion waits under an open card sheet', async () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  render(<Lalem />);
+  await flushLalemPromises();
+  fireEvent.click(cardTitleButton('罗马公共厕所'));
+  expect(screen.getByRole('dialog', { name: '罗马公共厕所' })).toBeInTheDocument();
+  act(() => {
+    jest.setSystemTime(start + 90_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '关闭' }));
+  act(() => {
+    jest.setSystemTime(start + 92_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).not.toBeNull();
+  jest.useRealTimers();
 });

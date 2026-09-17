@@ -197,6 +197,140 @@ func TestAdviseLalemIncrementMissingLiveModelDoesNotCallVision(t *testing.T) {
 	}
 }
 
+func TestAdviseLalemCompanionInvalidJSONUsesCanned(t *testing.T) {
+	adv := &LalemAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			return "```json\n{not-json\n```", nil
+		},
+	}
+	got, err := adv.AdviseLalemCompanion(LalemCompanionInput{Locale: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || strings.TrimSpace(got.Text) == "" {
+		t.Fatal("expected canned fallback")
+	}
+	if strings.Contains(got.Text, "{") || strings.Contains(got.Text, "not-json") {
+		t.Fatalf("json debris leaked: %q", got.Text)
+	}
+}
+
+func TestAdviseLalemCompanionLiveJSON(t *testing.T) {
+	adv := &LalemAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			if !strings.Contains(prompt, "historical") || !strings.Contains(prompt, "biological") {
+				t.Errorf("prompt missing angles, got %s", prompt)
+			}
+			return `{"text":"Roman latrines were chatty stone benches.","angle":"historical"}`, nil
+		},
+	}
+	got, err := adv.AdviseLalemCompanion(LalemCompanionInput{Locale: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Text != "Roman latrines were chatty stone benches." {
+		t.Fatalf("text %q", got.Text)
+	}
+	if got.Angle != "historical" {
+		t.Fatalf("angle %q", got.Angle)
+	}
+}
+
+func TestAdviseLalemCompanionCannedWhenNoCompleteFn(t *testing.T) {
+	adv := &LalemAdvisor{CompleteFn: nil}
+	got, err := adv.AdviseLalemCompanion(LalemCompanionInput{Locale: "cn"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || strings.TrimSpace(got.Text) == "" {
+		t.Fatalf("expected canned companion %+v", got)
+	}
+	if !companionAngleOK(got.Angle) {
+		t.Fatalf("angle %q", got.Angle)
+	}
+	if companionLooksDiagnostic(got.Text) {
+		t.Fatalf("canned must not diagnose: %s", got.Text)
+	}
+	en, err := adv.AdviseLalemCompanion(LalemCompanionInput{Locale: "en"})
+	if err != nil || en == nil || strings.TrimSpace(en.Text) == "" {
+		t.Fatalf("en canned %+v %v", en, err)
+	}
+	if companionHasHan(got.Text) == companionHasHan(en.Text) {
+		t.Fatalf("cn and en canned should differ: %q vs %q", got.Text, en.Text)
+	}
+}
+
+func TestAdviseLalemCompanionRejectsDiagnosis(t *testing.T) {
+	adv := &LalemAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			if !strings.Contains(strings.ToLower(prompt), "cute") && !strings.Contains(prompt, "可爱") {
+				t.Errorf("companion prompt should ask for cute tone, got %s", prompt)
+			}
+			return `{"text":"you have IBS and 你患有便秘","angle":"medical"}`, nil
+		},
+	}
+	got, err := adv.AdviseLalemCompanion(LalemCompanionInput{Locale: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || strings.TrimSpace(got.Text) == "" {
+		t.Fatal("expected fallback line")
+	}
+	if companionLooksDiagnostic(got.Text) {
+		t.Fatalf("diagnostic leaked: %s", got.Text)
+	}
+}
+
+func TestCannedLalemCompanionBankCoversFourAngles(t *testing.T) {
+	for _, loc := range []string{"cn", "en"} {
+		lines := cannedLalemCompanionLines(loc)
+		if len(lines) < 8 {
+			t.Fatalf("%s canned=%d want >=8", loc, len(lines))
+		}
+		seen := map[string]int{}
+		for _, line := range lines {
+			if strings.TrimSpace(line.Text) == "" {
+				t.Fatalf("%s empty canned line", loc)
+			}
+			if companionLooksDiagnostic(line.Text) {
+				t.Fatalf("%s diagnostic canned %q", loc, line.Text)
+			}
+			if !companionAngleOK(line.Angle) {
+				t.Fatalf("%s angle %q", loc, line.Angle)
+			}
+			seen[line.Angle]++
+		}
+		for _, angle := range []string{"medical", "biological", "social", "historical"} {
+			if seen[angle] == 0 {
+				t.Fatalf("%s missing angle %s", loc, angle)
+			}
+		}
+	}
+}
+
+func companionAngleOK(angle string) bool {
+	switch angle {
+	case "medical", "biological", "social", "historical":
+		return true
+	default:
+		return false
+	}
+}
+
+func companionLooksDiagnostic(s string) bool {
+	low := strings.ToLower(s)
+	return strings.Contains(low, "you have") || strings.Contains(s, "你患有")
+}
+
+func companionHasHan(s string) bool {
+	for _, r := range s {
+		if r >= 0x4e00 && r <= 0x9fff {
+			return true
+		}
+	}
+	return false
+}
+
 var errLalemDown = errString("model down")
 
 type errString string
