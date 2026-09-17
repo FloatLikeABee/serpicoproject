@@ -15,4 +15,4 @@
 
 ## 4. Isolation
 
-- [ ] 4.1 Isolation: no officer Navigation / Fridge Raid / landing restyle, no `Notification` / `requestPermission`, no `<video>`, no `#c6a56a` / `ll-chip-track`, sit-alert 5-minute cadence unchanged, 拉榜 increment unchanged. Bump `hardDataUrls.ts` stamp. Verify `cd frontend && CI=true npx react-scripts test --watchAll=false --testPathPattern='lalem|Lalem|catalog.test'` and `cd backend && go test ./internal/ai ./internal/api ./internal/database -count=1` pass. Confirm `unset CI && cd frontend && npm run build` succeeds (no new iterator-spread TS2802)
+- [x] 4.1 Isolation: no officer Navigation / Fridge Raid / landing restyle, no `Notification` / `requestPermission`, no `<video>`, no `#c6a56a` / `ll-chip-track`, sit-alert 5-minute cadence unchanged, 拉榜 increment unchanged. Bump `hardDataUrls.ts` stamp. Verify `cd frontend && CI=true npx react-scripts test --watchAll=false --testPathPattern='lalem|Lalem|catalog.test'` and `cd backend && go test ./internal/ai ./internal/api ./internal/database -count=1` pass. Confirm `unset CI && cd frontend && npm run build` succeeds (no new iterator-spread TS2802)
