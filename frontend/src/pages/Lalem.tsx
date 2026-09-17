@@ -51,6 +51,8 @@ export type LalemMedicine = {
   titleEn: string;
   body: string;
   bodyEn: string;
+  imageUrl: string;
+  credit: string;
   sources?: LalemMedicineSource[];
 };
 
@@ -135,6 +137,21 @@ function wikiHref(item: { wikiUrlZh?: string; wikiUrlEn?: string }, nation: Nati
     /* ignore invalid */
   }
   return '';
+}
+
+function medicineWikiHref(item: LalemMedicine, nation: Nation): string {
+  const sources = item.sources || [];
+  const want = nation === 'cn' ? 'zh.wikipedia.org' : 'en.wikipedia.org';
+  const wikis = sources.filter((src) => isWikipediaUrl(src.url));
+  const matched = wikis.find((src) => {
+    try {
+      return new URL(src.url).hostname.toLowerCase() === want;
+    } catch {
+      return false;
+    }
+  });
+  if (matched) return matched.url;
+  return wikis.length ? wikis[0].url : '';
 }
 
 function sourceAllowed(url: string): boolean {
@@ -511,14 +528,36 @@ export default function Lalem() {
       ) : null}
 
       {dock === 'medicine' ? (
-        <div className="ll-body ll-useful">
+        <div className="ll-body">
           <p className="ll-disclaimer">{tx('lalem.disclaimer')}</p>
-          <ul className="ll-lore-list">
-            {articles.map((item) => (
+          <ul className="ll-gallery">
+            {articles.map((item, i) => (
               <li key={item.id}>
-                <button type="button" className="ll-lore-open" onClick={() => setOpen({ kind: 'medicine', item })}>
-                  {medName(item)}
-                </button>
+                <article className="ll-card">
+                  {medicineWikiHref(item, nation) ? (
+                    <button
+                      type="button"
+                      className="ll-card-wiki"
+                      aria-label={`${tx('lalem.wiki')}: ${medName(item)}`}
+                      onClick={() => openWiki(medicineWikiHref(item, nation))}
+                    >
+                      <img
+                        src={item.imageUrl}
+                        alt={medName(item)}
+                        width={320}
+                        height={320}
+                        loading={i === 0 ? 'eager' : 'lazy'}
+                      />
+                    </button>
+                  ) : (
+                    <img src={item.imageUrl} alt={medName(item)} width={320} height={320} />
+                  )}
+                  <button type="button" className="ll-card-open" onClick={() => setOpen({ kind: 'medicine', item })}>
+                    <span className="ll-card-title" title={medName(item)}>
+                      {medName(item)}
+                    </span>
+                  </button>
+                </article>
               </li>
             ))}
           </ul>
@@ -624,6 +663,7 @@ export default function Lalem() {
             ) : null}
             {open.kind === 'medicine' ? (
               <>
+                <img src={open.item.imageUrl} alt="" width={320} height={320} />
                 <p className="ll-disclaimer">{tx('lalem.disclaimer')}</p>
                 <p className="ll-lore-body">{medBody(open.item)}</p>
                 <ul className="ll-sources">

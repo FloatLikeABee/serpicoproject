@@ -51,3 +51,53 @@ Closest-analog notes (no sprite substitutes): `toilets/indus-drain.jpg` is the G
 | `trends/fashion-1.jpg` | America (Cattelan) top view.jpg | MossAlbatross | Public domain | https://commons.wikimedia.org/wiki/File:America_%28Cattelan%29_top_view.jpg |
 | `trends/fashion-2.jpg` | Pink Toilet Paper.jpg | Levi Szekeres | Public domain | https://commons.wikimedia.org/wiki/File:Pink_Toilet_Paper.jpg |
 | `trends/fashion-3.jpg` | Stacked rolls of toilet paper, Tunnicliff's Tavern.jpg | Ser Amantio di Nicolao | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Stacked_rolls_of_toilet_paper%2C_Tunnicliff%27s_Tavern.jpg |
+| `medicine/posture-squat-sit.jpg` | Ceramic UDD squatting pan from Ehtiopia - 1 (3308165667).jpg | SuSanA Secretariat | CC BY 2.0 | https://commons.wikimedia.org/wiki/File:Ceramic_UDD_squatting_pan_from_Ehtiopia_-_1_(3308165667).jpg |
+| `medicine/footstool-lean.jpg` | Wooden stool.jpg | Sashatrk | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Wooden_stool.jpg |
+| `medicine/time-on-bowl.jpg` | Hourglass.jpg | Manuel Anastácio | Public domain | https://commons.wikimedia.org/wiki/File:Hourglass.jpg |
+| `medicine/pelvic-floor.jpg` | Illustration of a deformed female pelvis - angular distortion Wellcome L0038229.jpg | Doc James | CC BY 4.0 | https://commons.wikimedia.org/wiki/File:Illustration_of_a_deformed_female_pelvis_-_angular_distortion_Wellcome_L0038229.jpg |
+| `medicine/hemorrhoids.jpg` | Bathroom sink.jpg | Chris McKenna ( Thryduulf ) | Public domain | https://commons.wikimedia.org/wiki/File:Bathroom_sink.jpg |
+| `medicine/constipation.jpg` | Prunes.jpg | Ces photos proviennent de l'école Mohamed Abdou dans le cadre du concours WikiCh | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Prunes.jpg |
+| `medicine/handwashing.jpg` | Hand washing.jpg | VOA | Public domain | https://commons.wikimedia.org/wiki/File:Hand_washing.jpg |
+| `medicine/soap.jpg` | Soap.jpg | Annabelle.Joseph | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Soap.jpg |
+| `medicine/dietary-fiber.jpg` | Whole wheat bread.jpg | E4024 | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Whole_wheat_bread.jpg |
+| `medicine/drinking-water.jpg` | Glass of water.jpg | deavmi | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Glass_of_water.jpg |
+| `medicine/ibs-overview.jpg` | Digestive system diagram mn.png | derivative work Elvonudinium | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Digestive_system_diagram_mn.png |
+| `medicine/gut-microbiota.jpg` | Yogurt.jpg | Orrling | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Yogurt.jpg |
+| `medicine/public-toilet.jpg` | Unisex pictogram.jpg | AxelBoldt ( talk · contribs ) | Public domain | https://commons.wikimedia.org/wiki/File:Unisex_pictogram.jpg |
+| `medicine/sanitation.jpg` | Sanitation.jpg | SSERUNJOGI EMMANUEL | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Sanitation.jpg |
+| `medicine/squat-toilet.jpg` | Ceramic UDD squatting pan from Ehtiopia - 1 (3308995328).jpg | SuSanA Secretariat | CC BY 2.0 | https://commons.wikimedia.org/wiki/File:Ceramic_UDD_squatting_pan_from_Ehtiopia_-_1_(3308995328).jpg |
+| `medicine/flush-toilet.jpg` | Flush toilet.jpg | Kantikkantemirgonov | CC0 | https://commons.wikimedia.org/wiki/File:Flush_toilet.jpg |
+| `medicine/portable-toilet.jpg` | Portable toilet.jpg | No machine-readable author provided. Koeppen~commonswiki assumed (based on copyr | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Portable_toilet.jpg |
+| `medicine/vacuum-toilet.jpg` | AIX 2023, Hamburg (PEW37890).jpg | Matti Blume | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:AIX_2023,_Hamburg_(PEW37890).jpg |
+| `medicine/urinal.jpg` | Urinal.jpg | User Stefan Kühn on de.wikipedia | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Urinal.jpg |
+| `medicine/latrine.jpg` | Latrine.jpg | Dsiculo | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Latrine.jpg |
+| `medicine/septic-tank.jpg` | Septic tank.jpg | BetacommandBot | Public domain | https://commons.wikimedia.org/wiki/File:Septic_tank.jpg |
+| `medicine/sewer.jpg` | Manhole cover.jpg | Daiju Azuma from KOBE, Japan | CC BY-SA 2.0 | https://commons.wikimedia.org/wiki/File:Manhole_cover.jpg |
+| `medicine/hygiene.jpg` | Toothbrush.jpg | Lead holder | CC0 | https://commons.wikimedia.org/wiki/File:Toothbrush.jpg |
+| `medicine/toilet-seat.jpg` | Toilet seat.jpg | Tiia Monto | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Toilet_seat.jpg |
+| `medicine/child-potty.jpg` | AGMA - Child's commoder.jpg | Sharon Mollerus | CC BY 2.0 | https://commons.wikimedia.org/wiki/File:AGMA_-_Child%27s_commoder.jpg |
+| `medicine/accessible-toilet.jpg` | Accessible toilet.jpg | Tiia Monto | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Accessible_toilet.jpg |
+| `medicine/travel-toilet.jpg` | JGSDF Lifesaving System(portable container shelter, toilet) at Camp Shinodayama April 16, 2017.jpg | Hunini | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:JGSDF_Lifesaving_System(portable_container_shelter,_toilet)_at_Camp_Shinodayama_April_16,_2017.jpg |
+| `medicine/airplane-lavatory.jpg` | Econamy class lavatory.jpg | AhmadElq | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Econamy_class_lavatory.jpg |
+| `medicine/train-toilet.jpg` | Compartment 6 toilet of RW19T 554050 (20260118210409).jpg | N509FZ | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Compartment_6_toilet_of_RW19T_554050_(20260118210409).jpg |
+| `medicine/composting-toilet.jpg` | Composting toilet.jpg | Rene Cortin | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Composting_toilet.jpg |
+| `medicine/japanese-toilet.jpg` | Japanese toilet.jpg | Kharvatis | CC0 | https://commons.wikimedia.org/wiki/File:Japanese_toilet.jpg |
+| `medicine/roman-latrine.jpg` | Eastern latrine, the public toilets along the central road, the Greath Baths complex, Ancient Dion (6948378150).jpg | Carole Raddato from FRANKFURT, Germany | CC BY-SA 2.0 | https://commons.wikimedia.org/wiki/File:Eastern_latrine,_the_public_toilets_along_the_central_road,_the_Greath_Baths_complex,_Ancient_Dion_(6948378150).jpg |
+| `medicine/chamber-pot.jpg` | Chamber pot.jpg | Elinnea | Public domain | https://commons.wikimedia.org/wiki/File:Chamber_pot.jpg |
+| `medicine/outhouse.jpg` | Outhouse.jpg | Suisant7 | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Outhouse.jpg |
+| `medicine/bristol-stool-scale.jpg` | BristolStoolChart (cropped).png | Cabot Health, Bristol Stool Chart | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:BristolStoolChart_(cropped).png |
+| `medicine/gastrocolic-reflex.jpg` | Breakfast.jpg | Tom Harpel from Seattle, Washington, United States | CC BY 2.0 | https://commons.wikimedia.org/wiki/File:Breakfast.jpg |
+| `medicine/defecation-reflex.jpg` | Diagram of the Spinal Cord Unlabeled.jpg | Andrewmeyerson | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Diagram_of_the_Spinal_Cord_Unlabeled.jpg |
+| `medicine/colon.jpg` | Human Anatomy (NIH BioArt 519 - 657946).png | Courtesy of NIAID Ryan Kissinger | Public domain | https://commons.wikimedia.org/wiki/File:Human_Anatomy_(NIH_BioArt_519_-_657946).png |
+| `medicine/bidet-hygiene.jpg` | Bidet.jpg | Carla Gratz, | Public domain | https://commons.wikimedia.org/wiki/File:Bidet.jpg |
+| `medicine/toilet-paper.jpg` | Toilet paper roll.jpg | Cmann999 | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Toilet_paper_roll.jpg |
+| `medicine/wet-wipe.jpg` | Baby wipes.jpg | Headlock0225 | CC BY 4.0 | https://commons.wikimedia.org/wiki/File:Baby_wipes.jpg |
+| `medicine/toilet-training.jpg` | A child plays with water in a sink while an adult holds their hand in a home setting during daylight hour.jpg | Shixart1985 | CC BY 2.0 | https://commons.wikimedia.org/wiki/File:A_child_plays_with_water_in_a_sink_while_an_adult_holds_their_hand_in_a_home_setting_during_daylight_hour.jpg |
+| `medicine/restroom-etiquette.jpg` | Restroom sign.jpg | MarkBuckawicki | CC0 | https://commons.wikimedia.org/wiki/File:Restroom_sign.jpg |
+| `medicine/diarrhea-overview.jpg` | Oral rehydration salts - Packet.jpg | Cjp24 | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Oral_rehydration_salts_-_Packet.jpg |
+| `medicine/fecal-incontinence-overview.jpg` | Incontinence pad for men package 2.jpg | Wetfinder | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Incontinence_pad_for_men_package_2.jpg |
+| `medicine/abdominal-pressure.jpg` | Plank.jpg | Jaykayfit | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Plank.jpg |
+| `medicine/straining-valsalva.jpg` | 2020 Sfigmomanometr elektroniczny.jpg | Jacek Halicki | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:2020_Sfigmomanometr_elektroniczny.jpg |
+| `medicine/anus.jpg` | Anatomy of the anal canal.png | Congedo, A.; Mallardi, D.; Danti, G.; De Muzio, F.; Granata, V.; Miele, V. | CC BY 4.0 | https://commons.wikimedia.org/wiki/File:Anatomy_of_the_anal_canal.png |
+| `medicine/rectum.jpg` | Gray1075.png | Henry Vandyke Carter | Public domain | https://commons.wikimedia.org/wiki/File:Gray1075.png |
+| `medicine/toilet-history.jpg` | Medieval Garderobe (toilets) Portchester Castle - geograph.org.uk - 697560.jpg | Colin Babb | CC BY-SA 2.0 | https://commons.wikimedia.org/wiki/File:Medieval_Garderobe_(toilets)_Portchester_Castle_-_geograph.org.uk_-_697560.jpg |

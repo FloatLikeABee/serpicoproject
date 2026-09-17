@@ -68,6 +68,8 @@ const medicine = {
           titleEn: 'Squat or sit: defecation posture',
           body: '坐便器把髋关节放得比较直。蹲坑让膝盖高于髋。这是解剖描述。',
           bodyEn: 'A sit toilet keeps the hips more open. A squat pan puts the knees above the hips.',
+          imageUrl: '/lalem/medicine/posture-squat-sit.jpg',
+          credit: '拉了么媒体包',
           sources: [
             { label: 'Wikipedia', url: 'https://zh.wikipedia.org/wiki/%E6%8E%92%E4%BE%BF' },
             { label: 'NHS', url: 'https://www.nhs.uk/conditions/constipation/' },
@@ -79,6 +81,8 @@ const medicine = {
           titleEn: `Article ${i}`,
           body: '坐便器把髋关节放得比较直。蹲坑让膝盖高于髋。这是解剖描述。',
           bodyEn: 'A sit toilet keeps the hips more open. A squat pan puts the knees above the hips.',
+          imageUrl: `/lalem/medicine/lore-pad-${i}.jpg`,
+          credit: '拉了么媒体包',
           sources: [
             { label: 'Wikipedia', url: 'https://zh.wikipedia.org/wiki/%E6%8E%92%E4%BE%BF' },
             { label: 'NHS', url: 'https://www.nhs.uk/conditions/constipation/' },
@@ -303,11 +307,26 @@ test('厕纸 and 医典 docks open galleries with sourced detail', async () => {
   expect(await screen.findByRole('dialog', { name: '海绵棒' })).toHaveTextContent(/海绵棒/);
   fireEvent.click(screen.getByRole('button', { name: '关闭' }));
   await userEvent.click(screen.getByRole('button', { name: '医典' }));
-  await screen.findByRole('button', { name: /蹲还是坐/ });
-  expect(document.querySelectorAll('.ll-lore-open').length).toBeGreaterThanOrEqual(50);
+  const loreImg = await screen.findByRole('img', { name: /蹲还是坐/ });
+  expect(loreImg).toHaveAttribute('src', '/lalem/medicine/posture-squat-sit.jpg');
+  expect(loreImg.closest('a')).toBeNull();
+  expect(loreImg.closest('.ll-card-open')).toBeNull();
+  expect(loreImg.closest('button')).toHaveClass('ll-card-wiki');
+  const loreThumbs = document.querySelectorAll('.ll-body .ll-card img');
+  expect(loreThumbs.length).toBeGreaterThanOrEqual(50);
+  Array.from(loreThumbs).forEach((img) => {
+    expect(img.getAttribute('src') || '').toMatch(/^\/lalem\/medicine\/.+\.jpg$/);
+  });
+  expect(document.querySelector('video')).toBeNull();
   expect(document.querySelectorAll('a[href*="wikipedia.org"]')).toHaveLength(0);
-  await userEvent.click(await screen.findByRole('button', { name: /蹲还是坐/ }));
+  await userEvent.click(loreImg.closest('button') as HTMLElement);
+  const wikiFromImg = await screen.findByRole('dialog', { name: '公共厕所' });
+  expect(within(wikiFromImg).queryByRole('link')).toBeNull();
+  expect(String((global.fetch as jest.Mock).mock.calls.map(String).join('\n'))).toMatch(/\/lalem\/wiki\?url=/);
+  fireEvent.click(within(wikiFromImg).getByRole('button', { name: '关闭' }));
+  await userEvent.click(cardTitleButton('蹲还是坐：排便姿势'));
   const lore = await screen.findByRole('dialog', { name: /蹲还是坐/ });
+  expect(lore.querySelector('img')).toHaveAttribute('src', '/lalem/medicine/posture-squat-sit.jpg');
   expect(lore).toHaveTextContent(/不能替代医疗|not medical/i);
   expect(within(lore).queryByRole('link', { name: /Wikipedia/i })).toBeNull();
   expect(within(lore).getByRole('link', { name: 'NHS' })).toHaveAttribute(

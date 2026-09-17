@@ -265,6 +265,56 @@ func TestLalemMedicineCatalogIsSourcedEncyclopedia(t *testing.T) {
 	}
 }
 
+func TestLalemMedicineCatalogHasLocalJPEGs(t *testing.T) {
+	articles := LalemMedicineArticles()
+	if len(articles) < 50 {
+		t.Fatalf("articles=%d want >=50", len(articles))
+	}
+	toiletHashes := map[string]string{}
+	for _, item := range LalemToilets() {
+		sum := sha256Hex(assertLalemLocalJPEG(t, item.ImageURL, "/lalem/toilets/"))
+		toiletHashes[sum] = item.ID
+	}
+	paperHashes := map[string]string{}
+	for _, item := range LalemPapers() {
+		sum := sha256Hex(assertLalemLocalJPEG(t, item.ImageURL, "/lalem/papers/"))
+		paperHashes[sum] = item.ID
+	}
+	trendHashes := map[string]string{}
+	for _, url := range LalemTrendImagePool() {
+		sum := sha256Hex(assertLalemLocalJPEG(t, url, "/lalem/trends/"))
+		trendHashes[sum] = url
+	}
+	medHashes := map[string]string{}
+	for _, item := range articles {
+		want := "/lalem/medicine/" + item.ID + ".jpg"
+		if item.ImageURL != want {
+			t.Fatalf("imageUrl %s want %s", item.ImageURL, want)
+		}
+		if strings.TrimSpace(item.Credit) == "" {
+			t.Fatalf("missing credit %s", item.ID)
+		}
+		raw := assertLalemLocalJPEG(t, item.ImageURL, "/lalem/medicine/")
+		sum := sha256Hex(raw)
+		if prev, ok := medHashes[sum]; ok {
+			t.Fatalf("duplicate medicine photo %s and %s", prev, item.ID)
+		}
+		medHashes[sum] = item.ID
+		if id, ok := toiletHashes[sum]; ok {
+			t.Fatalf("medicine %s reused toilet photo %s", item.ID, id)
+		}
+		if id, ok := paperHashes[sum]; ok {
+			t.Fatalf("medicine %s reused paper photo %s", item.ID, id)
+		}
+		if url, ok := trendHashes[sum]; ok {
+			t.Fatalf("medicine %s reused trend photo %s", item.ID, url)
+		}
+	}
+	if len(medHashes) < 50 {
+		t.Fatalf("medicine photos not distinct: %d", len(medHashes))
+	}
+}
+
 func TestCannedLalemTrendsHaveFiftyUniqueTitles(t *testing.T) {
 	for _, locale := range []string{"cn", "en"} {
 		seen := map[string]struct{}{}

@@ -110,12 +110,14 @@ type LalemMedicineSource struct {
 }
 
 type LalemMedicine struct {
-	ID      string                `json:"id"`
-	Title   string                `json:"title"`
-	TitleEn string                `json:"titleEn"`
-	Body    string                `json:"body"`
-	BodyEn  string                `json:"bodyEn"`
-	Sources []LalemMedicineSource `json:"sources"`
+	ID       string                `json:"id"`
+	Title    string                `json:"title"`
+	TitleEn  string                `json:"titleEn"`
+	Body     string                `json:"body"`
+	BodyEn   string                `json:"bodyEn"`
+	ImageURL string                `json:"imageUrl"`
+	Credit   string                `json:"credit"`
+	Sources  []LalemMedicineSource `json:"sources"`
 }
 
 type lalemMedicineFile struct {
