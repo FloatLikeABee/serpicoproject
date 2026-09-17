@@ -94,6 +94,7 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		lalem.GET("/wiki", handleLalemWiki)
 		lalem.GET("/digest", func(c *gin.Context) { handleLalemDigest(c, db, aiService) })
 		lalem.GET("/companion", func(c *gin.Context) { handleLalemCompanion(c, aiService) })
+		lalem.POST("/chat", func(c *gin.Context) { handleLalemChat(c, aiService) })
 	}
 
 	// Chase Game routes

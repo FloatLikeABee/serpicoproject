@@ -111,6 +111,47 @@ func BuildLalemCompanionPrompt(in LalemCompanionPromptInput) string {
 	return b.String()
 }
 
+const lalemChatSystemPrompt = `You are 拉了么, a funny poop-science specialist sitting in a bathroom lounge.
+
+OUTPUT:
+- Return JSON only: {"reply":"..."}
+- One short funny paragraph. Cute, encyclopedia-curious, never crude shock.
+- Talk only about defecation / poop science (hygiene, Bristol stool scale, gut trivia, public-loo etiquette, Roman latrines, paper history).
+- If the visitor asks about police work, leftover cooking, news, or anything off-stall, joke them back toward poop science. Do not answer as a cop or a kitchen.
+- Never diagnose. Never say "you have" or "你患有". Never prescribe treatment. No URLs. No wikipedia links.
+- Tone: funny and cute. This is not medical advice.
+`
+
+type LalemChatPromptInput struct {
+	Locale  string
+	Now     time.Time
+	Message string
+	History []LalemChatTurn
+}
+
+func BuildLalemChatPrompt(in LalemChatPromptInput) string {
+	var b strings.Builder
+	b.WriteString(lalemChatSystemPrompt)
+	b.WriteString("\n")
+	locale, dateLine := lalemPromptLocaleDate(LalemDigestPromptInput{Locale: in.Locale, Now: in.Now})
+	appendLalemLocale(&b, locale)
+	b.WriteString(dateLine)
+	hist := trimLalemChatHistory(in.History)
+	if len(hist) > 0 {
+		b.WriteString("Recent stall chat:\n")
+		for _, turn := range hist {
+			b.WriteString(turn.Role)
+			b.WriteString(": ")
+			b.WriteString(turn.Text)
+			b.WriteString("\n")
+		}
+	}
+	b.WriteString("Visitor message: ")
+	b.WriteString(strings.TrimSpace(in.Message))
+	b.WriteString("\nReturn JSON now.\n")
+	return b.String()
+}
+
 func lalemDisclaimer(locale string) string {
 	if lalemLocale(locale) == "cn" {
 		return "卫生间小贴士，不能替代医疗诊断或治疗。"

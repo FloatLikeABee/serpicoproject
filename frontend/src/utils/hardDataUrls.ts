@@ -1,4 +1,4 @@
-// Rebuild stamp 2026-09-17T04:45Z — 拉了么 poop-science companion bubble.
+// Rebuild stamp 2026-09-17T05:15Z — 拉了么 poop-science chat + colorful sheets.
 export const PROD_FRONTEND = 'https://serpico.onrender.com';
 export const PROD_BACKEND = 'https://serpicoproject.onrender.com';
 export const PROD_API_V1 = `${PROD_BACKEND}/api/v1`;

@@ -11,7 +11,7 @@ const SIZES = ['mini', 'standard', 'long', 'accessible', 'child'] as const;
 const CLASSES = ['home', 'public', 'transit', 'palace', 'lab', 'luxury'] as const;
 const ERAS = ['ancient', 'roman', 'imperial-cn', 'victorian', 'modern', 'space'] as const;
 
-type Dock = 'toilets' | 'paper' | 'medicine' | 'hot' | 'useful';
+type Dock = 'toilets' | 'paper' | 'medicine' | 'hot' | 'useful' | 'chat';
 
 export type LalemToilet = {
   id: string;
@@ -83,6 +83,8 @@ type WikiReader =
   | { status: 'ok'; title: string; extract: string; sourceUrl: string }
   | { status: 'error'; url: string };
 
+type ChatTurn = { role: 'user' | 'assistant'; text: string };
+
 type SessionSnap = {
   dock?: Dock;
 };
@@ -101,7 +103,8 @@ function readDock(): Dock {
       parsed?.dock === 'useful' ||
       parsed?.dock === 'toilets' ||
       parsed?.dock === 'paper' ||
-      parsed?.dock === 'medicine'
+      parsed?.dock === 'medicine' ||
+      parsed?.dock === 'chat'
     ) {
       return parsed.dock;
     }
@@ -198,6 +201,9 @@ export default function Lalem() {
   const [dismissedSit, setDismissedSit] = useState(0);
   const [visibleSitS, setVisibleSitS] = useState(0);
   const [companion, setCompanion] = useState<{ text: string } | null>(null);
+  const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
   const started = useRef(Date.now());
   const visibleAccumRef = useRef(0);
   const lastTickRef = useRef(Date.now());
@@ -404,6 +410,53 @@ export default function Lalem() {
   const paperBlurb = (item: LalemPaper) => (nation === 'cn' ? item.blurb : item.blurbEn);
   const medName = (item: LalemMedicine) => (nation === 'cn' ? item.title : item.titleEn);
   const medBody = (item: LalemMedicine) => (nation === 'cn' ? item.body : item.bodyEn);
+
+  const sendChat = useCallback(() => {
+    const message = chatDraft.trim();
+    if (!message || chatBusy) return;
+    const history = chatTurns.slice(-6).map((turn) => ({ role: turn.role, text: turn.text }));
+    setChatDraft('');
+    setChatTurns((prev) => prev.concat([{ role: 'user', text: message }]));
+    setChatBusy(true);
+    fetch(`${apiV1Base()}/lalem/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale: lalemLocale(nation), message, history }),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((body: { reply?: string }) => {
+        const reply = String(body?.reply || '').trim();
+        if (!reply || /you have|你患有/i.test(reply)) {
+          setChatTurns((prev) =>
+            prev.concat([
+              {
+                role: 'assistant',
+                text:
+                  nation === 'cn'
+                    ? '洗手泡沫要盖住手心手背，这是好笑的便便科普，不是诊断。'
+                    : 'Wash with soap. Funny poop science, not a diagnosis.',
+              },
+            ])
+          );
+          return;
+        }
+        setChatTurns((prev) => prev.concat([{ role: 'assistant', text: reply }]));
+      })
+      .catch(() => {
+        setChatTurns((prev) =>
+          prev.concat([
+            {
+              role: 'assistant',
+              text:
+                nation === 'cn'
+                  ? '隔间信号飘了。先洗手，咱们继续聊便便科普，这不是诊断。'
+                  : 'The stall dropped a bar. Wash with soap and stay on poop science — not a diagnosis.',
+            },
+          ])
+        );
+      })
+      .finally(() => setChatBusy(false));
+  }, [chatBusy, chatDraft, chatTurns, nation]);
 
   const openTrend = (tr: LalemTrend) => {
     const [kind, id] = (tr.topicId || '').split(':');
@@ -636,6 +689,32 @@ export default function Lalem() {
         </div>
       ) : null}
 
+      {dock === 'chat' ? (
+        <div className="ll-body ll-chat">
+          <ul className="ll-chat-log">
+            {chatTurns.map((turn, i) => (
+              <li key={`${turn.role}-${i}`} className={`ll-chat-bubble ll-chat-bubble--${turn.role}`}>
+                {turn.text}
+              </li>
+            ))}
+          </ul>
+          {chatTurns.length === 0 ? <p className="ll-empty">{tx('lalem.chat.empty')}</p> : null}
+          <div className="ll-chat-composer">
+            <textarea
+              aria-label={tx('lalem.chat.composer')}
+              placeholder={tx('lalem.chat.placeholder')}
+              value={chatDraft}
+              rows={2}
+              disabled={chatBusy}
+              onChange={(e) => setChatDraft(e.target.value)}
+            />
+            <button type="button" onClick={sendChat} disabled={chatBusy || !chatDraft.trim()}>
+              {tx('lalem.chat.send')}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="ll-dock">
         <button type="button" className={dock === 'toilets' ? 'is-on' : undefined} onClick={() => setDock('toilets')}>
           {tx('lalem.dock.toilets')}
@@ -651,6 +730,9 @@ export default function Lalem() {
         </button>
         <button type="button" className={dock === 'useful' ? 'is-on' : undefined} onClick={() => setDock('useful')}>
           {tx('lalem.dock.useful')}
+        </button>
+        <button type="button" className={dock === 'chat' ? 'is-on' : undefined} onClick={() => setDock('chat')}>
+          {tx('lalem.dock.chat')}
         </button>
       </div>
 
@@ -671,7 +753,14 @@ export default function Lalem() {
             </div>
             {open.kind === 'toilet' ? (
               <>
-                <img src={open.item.imageUrl} alt="" width={320} height={320} />
+                {open.item.imageUrl ? (
+                  <img className="ll-sheet-hero" src={open.item.imageUrl} alt="" width={640} height={400} />
+                ) : null}
+                <ul className="ll-sheet-chips">
+                  <li className="ll-sheet-chip">{tx(`lalem.shape.${open.item.shape}`)}</li>
+                  <li className="ll-sheet-chip">{tx(`lalem.era.${open.item.era}`)}</li>
+                  <li className="ll-sheet-chip">{open.item.region}</li>
+                </ul>
                 <p className="ll-sheet-meta">
                   {open.item.region} · {tx(`lalem.era.${open.item.era}`)} · {tx(`lalem.shape.${open.item.shape}`)}
                 </p>
@@ -690,7 +779,12 @@ export default function Lalem() {
             ) : null}
             {open.kind === 'paper' ? (
               <>
-                <img src={open.item.imageUrl} alt="" width={320} height={320} />
+                {open.item.imageUrl ? (
+                  <img className="ll-sheet-hero" src={open.item.imageUrl} alt="" width={640} height={400} />
+                ) : null}
+                <ul className="ll-sheet-chips">
+                  <li className="ll-sheet-chip">{tx(`lalem.era.${open.item.era}`)}</li>
+                </ul>
                 <p>{paperBlurb(open.item)}</p>
                 {wikiHref(open.item, nation) ? (
                   <p>
@@ -703,7 +797,9 @@ export default function Lalem() {
             ) : null}
             {open.kind === 'medicine' ? (
               <>
-                <img src={open.item.imageUrl} alt="" width={320} height={320} />
+                {open.item.imageUrl ? (
+                  <img className="ll-sheet-hero" src={open.item.imageUrl} alt="" width={640} height={400} />
+                ) : null}
                 <p className="ll-disclaimer">{tx('lalem.disclaimer')}</p>
                 <p className="ll-lore-body">{medBody(open.item)}</p>
                 <ul className="ll-sources">
@@ -727,6 +823,19 @@ export default function Lalem() {
             ) : null}
             {open.kind === 'trend' ? (
               <>
+                {open.item.imageUrl ? (
+                  <img className="ll-sheet-hero" src={open.item.imageUrl} alt="" width={640} height={400} />
+                ) : null}
+                <ul className="ll-sheet-chips">
+                  <li className="ll-sheet-chip">
+                    {tx(`lalem.kind.${open.item.kind === 'fashion' || open.item.kind === 'entertainment' ? open.item.kind : 'other'}`)}
+                  </li>
+                  {(open.item.chips || []).map((chip) => (
+                    <li key={chip} className="ll-sheet-chip">
+                      {chip}
+                    </li>
+                  ))}
+                </ul>
                 <p>{open.item.hook}</p>
                 <p className="ll-disclaimer">{tx('lalem.trend.loungeOnly')}</p>
               </>

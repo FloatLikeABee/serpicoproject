@@ -148,6 +148,15 @@ function mockLalemFetch() {
               },
       });
     }
+    if (href.includes('/lalem/chat')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          reply: 'Bristol type 4 is a smooth little sausage. Not a diagnosis — just funny poop science.',
+        }),
+      });
+    }
     if (href.includes('/lalem/companion')) {
       return Promise.resolve({
         ok: true,
@@ -235,7 +244,7 @@ test('fresh visit shows 拉了么 and toilet images, not officer nav', async () 
   const img = await screen.findByRole('img', { name: '罗马公共厕所' });
   expect(img).toHaveAttribute('src', '/lalem/toilets/roman-forica.jpg');
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
-  expect(document.querySelectorAll('.ll-dock button')).toHaveLength(5);
+  expect(document.querySelectorAll('.ll-dock button')).toHaveLength(6);
   expect(document.querySelector('.synth-grid-bg')).toBeNull();
   expect(document.querySelector('.fr-page')).toBeNull();
   expect(document.documentElement).toHaveClass('ll-world');
@@ -296,7 +305,7 @@ test('toilet filters use a label column and wrapping chips', async () => {
     expect(label?.nextElementSibling).toBe(wrap);
     expect(row.querySelector(':scope > button')).toBeNull();
   });
-  expect(document.querySelectorAll('.ll-dock button')).toHaveLength(5);
+  expect(document.querySelectorAll('.ll-dock button')).toHaveLength(6);
   const title = document.querySelector('.ll-card-title');
   expect(title).toHaveAttribute('title');
   expect(document.querySelector('video')).toBeNull();
@@ -317,6 +326,11 @@ test('tapping a toilet title opens a sheet', async () => {
   await userEvent.click(cardTitleButton('罗马公共厕所'));
   const dialog = await screen.findByRole('dialog', { name: '罗马公共厕所' });
   expect(within(dialog).getByText(/坐成一排/)).toBeInTheDocument();
+  const hero = dialog.querySelector('img.ll-sheet-hero');
+  expect(hero).toHaveAttribute('src', '/lalem/toilets/roman-forica.jpg');
+  expect(dialog.querySelectorAll('.ll-sheet-chip').length).toBeGreaterThan(0);
+  expect(document.querySelector('video')).toBeNull();
+  expect(document.querySelectorAll('a[href*="wikipedia.org"]')).toHaveLength(0);
 });
 
 test('厕纸 dock persists across remount', async () => {
@@ -335,7 +349,10 @@ test('厕纸 and 医典 docks open galleries with sourced detail', async () => {
   expect(paperImg.closest('a')).toBeNull();
   expect(paperImg.closest('button')).toHaveClass('ll-card-wiki');
   await userEvent.click(cardTitleButton('海绵棒'));
-  expect(await screen.findByRole('dialog', { name: '海绵棒' })).toHaveTextContent(/海绵棒/);
+  const paperSheet = await screen.findByRole('dialog', { name: '海绵棒' });
+  expect(paperSheet).toHaveTextContent(/海绵棒/);
+  expect(paperSheet.querySelector('img.ll-sheet-hero')).toHaveAttribute('src', '/lalem/papers/xylospongium.jpg');
+  expect(paperSheet.querySelectorAll('.ll-sheet-chip').length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole('button', { name: '关闭' }));
   await userEvent.click(screen.getByRole('button', { name: '医典' }));
   const loreImg = await screen.findByRole('img', { name: /蹲还是坐/ });
@@ -357,7 +374,7 @@ test('厕纸 and 医典 docks open galleries with sourced detail', async () => {
   fireEvent.click(within(wikiFromImg).getByRole('button', { name: '关闭' }));
   await userEvent.click(cardTitleButton('蹲还是坐：排便姿势'));
   const lore = await screen.findByRole('dialog', { name: /蹲还是坐/ });
-  expect(lore.querySelector('img')).toHaveAttribute('src', '/lalem/medicine/posture-squat-sit.jpg');
+  expect(lore.querySelector('img.ll-sheet-hero')).toHaveAttribute('src', '/lalem/medicine/posture-squat-sit.jpg');
   expect(lore).toHaveTextContent(/不能替代医疗|not medical/i);
   expect(within(lore).queryByRole('link', { name: /Wikipedia/i })).toBeNull();
   expect(within(lore).getByRole('link', { name: 'NHS' })).toHaveAttribute(
@@ -392,7 +409,8 @@ test('拉榜 has no video; trends open encyclopedia or lounge copy', async () =>
   fireEvent.click(screen.getByRole('button', { name: '关闭' }));
   await userEvent.click(screen.getByRole('button', { name: /今日新色/ }));
   const lounge = await screen.findByRole('dialog', { name: '今日新色' });
-  expect(lounge.querySelector('img')).toBeNull();
+  expect(lounge.querySelector('img.ll-sheet-hero')).toHaveAttribute('src', '/lalem/trends/fashion-1.jpg');
+  expect(lounge.querySelectorAll('.ll-sheet-chip').length).toBeGreaterThan(0);
   expect(lounge).toHaveTextContent(/玩笑|lounge|不是新闻/i);
   fireEvent.click(screen.getByRole('button', { name: '关闭' }));
   await userEvent.click(screen.getByRole('button', { name: '有用' }));
@@ -620,5 +638,55 @@ test('poop-science companion waits under an open card sheet', async () => {
   });
   await flushLalemPromises();
   expect(document.querySelector('.ll-companion')).not.toBeNull();
+  jest.useRealTimers();
+});
+
+test('sixth dock opens typed poop-science chat and shows a funny reply', async () => {
+  render(<Lalem />);
+  await screen.findByRole('img', { name: '罗马公共厕所' });
+  expect(document.querySelectorAll('.ll-dock button')).toHaveLength(6);
+  await userEvent.click(screen.getByRole('button', { name: '聊' }));
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(document.querySelector('.fr-page')).toBeNull();
+  const box = screen.getByRole('textbox');
+  expect(box.tagName).toBe('TEXTAREA');
+  await userEvent.type(box, 'What is Bristol type 4?');
+  await userEvent.click(screen.getByRole('button', { name: '发送' }));
+  expect(await screen.findByText(/sausage|poop science/i)).toBeInTheDocument();
+  const chatCalls = (global.fetch as jest.Mock).mock.calls.filter((call) =>
+    String(call[0]).includes('/lalem/chat')
+  );
+  expect(chatCalls.length).toBeGreaterThan(0);
+  expect(String(chatCalls[0][1]?.method || '')).toMatch(/POST/i);
+  expect(document.querySelector('video')).toBeNull();
+  expect(document.querySelectorAll('a[href*="wikipedia.org"]')).toHaveLength(0);
+});
+
+test('off-topic chat still steers back to poop science', async () => {
+  render(<Lalem />);
+  await userEvent.click(screen.getByRole('button', { name: '聊' }));
+  await userEvent.type(screen.getByRole('textbox'), 'status of the case file and Fridge Raid leftovers');
+  await userEvent.click(screen.getByRole('button', { name: '发送' }));
+  const reply = await screen.findByText(/sausage|poop science/i);
+  expect(reply.textContent || '').not.toMatch(/Officer Serpico|case file/i);
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+});
+
+test('sit-alert still wins while chat is open', () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  render(<Lalem />);
+  fireEvent.click(screen.getByRole('button', { name: '聊' }));
+  expect(screen.getByRole('textbox')).toBeInTheDocument();
+  act(() => {
+    jest.setSystemTime(start + 5 * 60 * 1000);
+    jest.advanceTimersByTime(1000);
+  });
+  const sit = screen.getByRole('dialog', { name: '久坐警报' });
+  expect(sit).toHaveClass('ll-sit-alert');
+  expect(cssZIndex('.ll-sit-alert-backdrop')).toBeGreaterThan(cssZIndex('.ll-companion'));
+  expect(document.querySelector('video')).toBeNull();
+  expect(screen.getAllByRole('dialog', { name: '久坐警报' })).toHaveLength(1);
   jest.useRealTimers();
 });

@@ -939,6 +939,92 @@ func TestLalemCompanionGetDoesNotCallDigest(t *testing.T) {
 	}
 }
 
+func TestLalemChatPostReturnsLocaleReply(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	resetLalemCompanionLimiter()
+	resetLalemChatLimiter()
+	r := fridgeRaidTestRouter(t, &ai.LalemAdvisor{})
+	for _, loc := range []string{"cn", "en"} {
+		w := postJSON(r, "/api/v1/lalem/chat", `{"locale":"`+loc+`","message":"bristol type 4"}`)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s status %d: %s", loc, w.Code, w.Body.String())
+		}
+		var got struct {
+			Reply string `json:"reply"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		if strings.TrimSpace(got.Reply) == "" {
+			t.Fatalf("%s empty reply %+v", loc, got)
+		}
+		low := strings.ToLower(got.Reply)
+		if strings.Contains(low, "you have") || strings.Contains(got.Reply, "你患有") {
+			t.Fatalf("%s diagnostic %q", loc, got.Reply)
+		}
+		if loc == "cn" && !companionBodyHasHan(got.Reply) {
+			t.Fatalf("cn chat should be Chinese: %q", got.Reply)
+		}
+		if loc == "en" && companionBodyHasHan(got.Reply) {
+			t.Fatalf("en chat should be English: %q", got.Reply)
+		}
+	}
+}
+
+func TestLalemChatLimiterIndependentOfDigestAndCompanion(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	resetLalemCompanionLimiter()
+	resetLalemChatLimiter()
+	for _, ip := range []string{"", "unknown", "192.0.2.1", "127.0.0.1"} {
+		for i := 0; i < lalemMaxAttempts+2; i++ {
+			_ = lalemAllowed(ip)
+		}
+		for i := 0; i < lalemCompMax+2; i++ {
+			_ = lalemCompanionLiveAllowed(ip)
+		}
+	}
+	calls := 0
+	adv := &ai.LalemAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			calls++
+			return `{"reply":"Roman latrines were chatty stone benches. Funny poop history."}`, nil
+		},
+	}
+	r := fridgeRaidTestRouter(t, adv)
+	w := postJSON(r, "/api/v1/lalem/chat", `{"locale":"en","message":"roman toilets"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	var got ai.LalemChat
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got.Reply, "Roman latrines") {
+		t.Fatalf("exhausted digest/companion limiter must not block chat live line: %q", got.Reply)
+	}
+	if calls != 1 {
+		t.Fatalf("live calls=%d", calls)
+	}
+}
+
+func TestLalemChatPostDoesNotCallDigest(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	resetLalemCompanionLimiter()
+	resetLalemChatLimiter()
+	stub := &stubLalemAI{}
+	r := fridgeRaidTestRouter(t, stub)
+	w := postJSON(r, "/api/v1/lalem/chat", `{"locale":"cn","message":"便便"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if stub.digestCalls != 0 {
+		t.Fatalf("chat POST must not increment digest, calls=%d", stub.digestCalls)
+	}
+}
+
 func companionBodyHasHan(s string) bool {
 	for _, r := range s {
 		if r >= 0x4e00 && r <= 0x9fff {

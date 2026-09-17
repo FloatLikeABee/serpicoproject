@@ -128,6 +128,10 @@ describe('i18n catalog', () => {
     expect(t('cn', 'lalem.sitAlert.t4', { m: 20 })).toMatch(/拉榜/);
     expect(t('us', 'lalem.sitAlert.t4', { m: 20 })).toMatch(/La bang/);
     expect(t('cn', 'lalem.dock.useful')).toBe('有用');
+    expect(t('cn', 'lalem.dock.chat')).toBe('聊');
+    expect(t('us', 'lalem.dock.chat')).toBe('Chat');
+    expect(t('cn', 'lalem.chat.send')).toBe('发送');
+    expect(t('us', 'lalem.chat.send')).toBe('Send');
     expect(t('cn', 'lalem.disclaimer')).toMatch(/医疗|诊断/);
     expect(t('us', 'lalem.title')).not.toBe('拉了么');
     expect(t('us', 'lalem.langEn')).toBe('EN');

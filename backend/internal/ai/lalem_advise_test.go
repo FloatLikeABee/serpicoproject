@@ -281,6 +281,104 @@ func TestAdviseLalemCompanionRejectsDiagnosis(t *testing.T) {
 	}
 }
 
+func TestAdviseLalemChatLiveJSON(t *testing.T) {
+	adv := &LalemAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			if !strings.Contains(strings.ToLower(prompt), "funny") && !strings.Contains(prompt, "好笑") {
+				t.Errorf("chat prompt should ask for funny tone, got %s", prompt)
+			}
+			if strings.Contains(prompt, "Officer Serpico") || strings.Contains(prompt, "翻冰箱") {
+				t.Error("chat prompt must not inject officer/fridge primer")
+			}
+			return `{"reply":"Bristol type 4 is a smooth little sausage. Cute poop science, not a diagnosis."}`, nil
+		},
+	}
+	got, err := adv.AdviseLalemChat(LalemChatInput{Locale: "en", Message: "What is type 4?"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || !strings.Contains(got.Reply, "sausage") {
+		t.Fatalf("reply %+v", got)
+	}
+}
+
+func TestAdviseLalemChatCannedWhenNoCompleteFn(t *testing.T) {
+	adv := &LalemAdvisor{CompleteFn: nil}
+	got, err := adv.AdviseLalemChat(LalemChatInput{Locale: "cn", Message: "便便为什么臭"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || strings.TrimSpace(got.Reply) == "" {
+		t.Fatalf("expected canned chat %+v", got)
+	}
+	if companionLooksDiagnostic(got.Reply) {
+		t.Fatalf("canned must not diagnose: %s", got.Reply)
+	}
+	en, err := adv.AdviseLalemChat(LalemChatInput{Locale: "en", Message: "why does poop smell"})
+	if err != nil || en == nil || strings.TrimSpace(en.Reply) == "" {
+		t.Fatalf("en canned %+v %v", en, err)
+	}
+	if companionHasHan(got.Reply) == companionHasHan(en.Reply) {
+		t.Fatalf("cn and en canned should differ: %q vs %q", got.Reply, en.Reply)
+	}
+}
+
+func TestAdviseLalemChatRejectsDiagnosis(t *testing.T) {
+	adv := &LalemAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			if !strings.Contains(prompt, "you have") || !strings.Contains(prompt, "你患有") {
+				t.Errorf("prompt should forbid diagnosis phrases, got %s", prompt)
+			}
+			return `{"reply":"you have IBS and 你患有便秘"}`, nil
+		},
+	}
+	got, err := adv.AdviseLalemChat(LalemChatInput{Locale: "en", Message: "is this IBS?"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || strings.TrimSpace(got.Reply) == "" {
+		t.Fatal("expected fallback reply")
+	}
+	if companionLooksDiagnostic(got.Reply) {
+		t.Fatalf("diagnostic leaked: %s", got.Reply)
+	}
+}
+
+func TestAdviseLalemChatInvalidJSONUsesCanned(t *testing.T) {
+	adv := &LalemAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			return "```json\n{not-json\n```", nil
+		},
+	}
+	got, err := adv.AdviseLalemChat(LalemChatInput{Locale: "en", Message: "hello"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || strings.TrimSpace(got.Reply) == "" {
+		t.Fatal("expected canned fallback")
+	}
+	if strings.Contains(got.Reply, "{") || strings.Contains(got.Reply, "not-json") {
+		t.Fatalf("json debris leaked: %q", got.Reply)
+	}
+}
+
+func TestCannedLalemChatBankIsFunnyAndLongEnough(t *testing.T) {
+	for _, loc := range []string{"cn", "en"} {
+		lines := cannedLalemChatLines(loc)
+		if len(lines) < 8 {
+			t.Fatalf("%s canned=%d want >=8", loc, len(lines))
+		}
+		for _, line := range lines {
+			if strings.TrimSpace(line) == "" {
+				t.Fatalf("%s empty canned line", loc)
+			}
+			if companionLooksDiagnostic(line) {
+				t.Fatalf("%s diagnostic canned %q", loc, line)
+			}
+		}
+	}
+}
+
 func TestCannedLalemCompanionBankCoversFourAngles(t *testing.T) {
 	for _, loc := range []string{"cn", "en"} {
 		lines := cannedLalemCompanionLines(loc)

@@ -27,6 +27,11 @@ var (
 	lalemCompMu     sync.Mutex
 	lalemCompHits   = map[string][]time.Time{}
 
+	lalemChatMax    = 8
+	lalemChatWindow = 10 * time.Minute
+	lalemChatMu     sync.Mutex
+	lalemChatHits   = map[string][]time.Time{}
+
 	lalemCacheTTL  = time.Hour
 	lalemCacheMu   sync.Mutex
 	lalemDigestMem = map[string]lalemCacheEntry{}
@@ -49,6 +54,12 @@ func resetLalemCompanionLimiter() {
 	lalemCompMu.Lock()
 	defer lalemCompMu.Unlock()
 	lalemCompHits = map[string][]time.Time{}
+}
+
+func resetLalemChatLimiter() {
+	lalemChatMu.Lock()
+	defer lalemChatMu.Unlock()
+	lalemChatHits = map[string][]time.Time{}
 }
 
 func resetLalemDigestCache() {
@@ -77,6 +88,29 @@ func lalemAllowed(ip string) bool {
 		return false
 	}
 	lalemHits[ip] = append(kept, now)
+	return true
+}
+
+func lalemChatLiveAllowed(ip string) bool {
+	if ip == "" {
+		ip = "unknown"
+	}
+	now := time.Now()
+	cutoff := now.Add(-lalemChatWindow)
+	lalemChatMu.Lock()
+	defer lalemChatMu.Unlock()
+	hits := lalemChatHits[ip]
+	kept := hits[:0]
+	for _, t := range hits {
+		if t.After(cutoff) {
+			kept = append(kept, t)
+		}
+	}
+	if len(kept) >= lalemChatMax {
+		lalemChatHits[ip] = kept
+		return false
+	}
+	lalemChatHits[ip] = append(kept, now)
 	return true
 }
 
@@ -232,6 +266,55 @@ type lalemAdviser interface {
 
 type lalemCompanionAdviser interface {
 	AdviseLalemCompanion(in ai.LalemCompanionInput) (*ai.LalemCompanion, error)
+}
+
+type lalemChatAdviser interface {
+	AdviseLalemChat(in ai.LalemChatInput) (*ai.LalemChat, error)
+}
+
+func handleLalemChat(c *gin.Context, aiService interface{}) {
+	var req struct {
+		Locale  string             `json:"locale"`
+		Message string             `json:"message"`
+		History []ai.LalemChatTurn `json:"history"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		locale := localeCacheKey("cn")
+		reply, _ := (&ai.LalemAdvisor{}).AdviseLalemChat(ai.LalemChatInput{Locale: locale})
+		replyLalemChat(c, reply)
+		return
+	}
+	locale := localeCacheKey(req.Locale)
+	in := ai.LalemChatInput{
+		Locale:  locale,
+		Message: strings.TrimSpace(req.Message),
+		History: req.History,
+	}
+	if lalemChatLiveAllowed(c.ClientIP()) {
+		if adviser, ok := aiService.(lalemChatAdviser); ok {
+			reply, err := adviser.AdviseLalemChat(in)
+			if err == nil && reply != nil && strings.TrimSpace(reply.Reply) != "" {
+				replyLalemChat(c, reply)
+				return
+			}
+		}
+	}
+	reply, err := (&ai.LalemAdvisor{}).AdviseLalemChat(in)
+	if err != nil || reply == nil {
+		reply = &ai.LalemChat{Reply: "Wash with soap. Funny poop science, not a diagnosis."}
+		if locale == "cn" {
+			reply = &ai.LalemChat{Reply: "洗手泡沫要盖住手心手背，这是好笑的便便科普，不是诊断。"}
+		}
+	}
+	replyLalemChat(c, reply)
+}
+
+func replyLalemChat(c *gin.Context, reply *ai.LalemChat) {
+	if reply == nil {
+		c.JSON(http.StatusOK, ai.LalemChat{Reply: "Wash with soap. Funny poop science, not a diagnosis."})
+		return
+	}
+	c.JSON(http.StatusOK, reply)
 }
 
 func handleLalemCompanion(c *gin.Context, aiService interface{}) {

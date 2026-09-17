@@ -33,8 +33,15 @@ test('officer Navigation, Login, and landing have no /lalem link; App mounts it 
   expect(lalemPage).not.toMatch(/<video/);
   expect(lalemPage).not.toMatch(/youtube|douyin/i);
   expect(lalemPage).toMatch(/ll-companion/);
+  expect(lalemPage).toMatch(/lalem\.dock\.chat/);
+  expect(lalemPage).toMatch(/\/lalem\/chat/);
+  expect(lalemPage).toMatch(/ll-sheet-hero/);
   const css = readFileSync(join(__dirname, 'index.css'), 'utf8');
   expect(css).not.toMatch(/#c6a56a/);
+  expect(css).toMatch(/--ll-fun-a:\s*#7ee0ff/i);
+  expect(css).toMatch(/--ll-fun-b:\s*#c9f07a/i);
+  expect(css).toMatch(/\.ll-sheet-chip\s*\{/);
+  expect(css).toMatch(/\.ll-sheet-hero\s*\{/);
   expect(lalemPage).not.toMatch(/ll-chip-track/);
   const anchors = Array.from(lalemPage.matchAll(/<a\b[^>]*>/g))
     .map((m) => m[0])
@@ -97,8 +104,13 @@ test('lounge chrome uses calm dark tokens, one gutter, and no candy gold/pink', 
   expect(top).toMatch(/padding-inline:\s*var\(--ll-gutter\)/);
   expect(body).toMatch(/padding-inline:\s*var\(--ll-gutter\)/);
   expect(dock).toMatch(/padding-inline:\s*var\(--ll-gutter\)/);
-  expect(dock).toMatch(/repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  expect(dock).toMatch(/repeat\(6,\s*minmax\(0,\s*1fr\)\)/);
   expect(sheet).toMatch(/padding-inline:\s*var\(--ll-gutter\)/);
+  expect(lounge).toMatch(/--ll-fun-a:\s*#7ee0ff/i);
+  expect(lounge).toMatch(/--ll-fun-b:\s*#c9f07a/i);
+  expect(lounge).not.toMatch(/#c6a56a/i);
+  expect(cssRule(lounge, '.ll-sheet-chip')).toMatch(/--ll-fun-a|--ll-accent|--ll-pop|--ll-fun-b/);
+  expect(cssRule(lounge, '.ll-sheet-hero')).toMatch(/object-fit:\s*cover/);
 
   expect(sit).not.toMatch(/#ffd36a/i);
   expect(sitDismiss).not.toMatch(/#ff4d8d/i);
