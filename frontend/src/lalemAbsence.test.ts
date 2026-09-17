@@ -35,7 +35,9 @@ test('officer Navigation, Login, and landing have no /lalem link; App mounts it 
   const css = readFileSync(join(__dirname, 'index.css'), 'utf8');
   expect(css).not.toMatch(/#c6a56a/);
   expect(lalemPage).not.toMatch(/ll-chip-track/);
-  const anchors = [...lalemPage.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]).join('\n');
+  const anchors = Array.from(lalemPage.matchAll(/<a\b[^>]*>/g))
+    .map((m) => m[0])
+    .join('\n');
   expect(anchors).not.toMatch(/wikipedia\.org|wikiHref/i);
   expect(lalemPage).toMatch(/ll-trend-tag/);
 });

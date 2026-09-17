@@ -174,7 +174,7 @@ export default function Lalem() {
   const [klass, setKlass] = useState('');
   const [era, setEra] = useState('');
   const [open, setOpen] = useState<OpenSheet | null>(null);
-  const [wiki, setWiki] = useState<WikiReader>(null);
+  const [wiki, setWiki] = useState<WikiReader | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [pageVisible, setPageVisible] = useState(() => (typeof document === 'undefined' ? true : !document.hidden));
   const [sitAlert, setSitAlert] = useState(0);
