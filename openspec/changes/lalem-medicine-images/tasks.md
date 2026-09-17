@@ -19,4 +19,4 @@
 
 ## 5. Isolation
 
-- [ ] 5.1 Isolation: no `wikipedia.org` `<a>`, no `<video>`, no `#c6a56a` / `ll-chip-track`, Fridge Raid and officer pages untouched, 拉榜 increment unchanged. Bump `hardDataUrls.ts` stamp. Verify `cd frontend && CI=true npx react-scripts test --watchAll=false --testPathPattern='lalem|Lalem|catalog.test'` and `cd backend && go test ./internal/ai ./internal/api ./internal/database -count=1` pass. Confirm `unset CI && cd frontend && npm run build` succeeds (no new iterator-spread TS2802)
+- [x] 5.1 Isolation: no `wikipedia.org` `<a>`, no `<video>`, no `#c6a56a` / `ll-chip-track`, Fridge Raid and officer pages untouched, 拉榜 increment unchanged. Bump `hardDataUrls.ts` stamp. Verify `cd frontend && CI=true npx react-scripts test --watchAll=false --testPathPattern='lalem|Lalem|catalog.test'` and `cd backend && go test ./internal/ai ./internal/api ./internal/database -count=1` pass. Confirm `unset CI && cd frontend && npm run build` succeeds (no new iterator-spread TS2802)
