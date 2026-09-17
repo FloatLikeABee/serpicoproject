@@ -531,6 +531,7 @@ export default function Lalem() {
             {(digest?.trends || []).map((tr, i) => (
               <li key={`${tr.title}-${i}`}>
                 <button type="button" className="ll-card ll-trend" onClick={() => openTrend(tr)}>
+                  {tr.imageUrl ? <img src={tr.imageUrl} alt="" width={56} height={56} /> : null}
                   <span className="ll-trend-tag">{tx(`lalem.kind.${tr.kind === 'fashion' || tr.kind === 'entertainment' ? tr.kind : 'other'}`)}</span>
                   <h2 className="ll-card-title" title={tr.title}>
                     {tr.title}

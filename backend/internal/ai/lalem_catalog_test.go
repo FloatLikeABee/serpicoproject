@@ -1,10 +1,12 @@
 package ai
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -31,8 +33,8 @@ func TestLalemCatalogHasPicturesAndFilters(t *testing.T) {
 		if strings.HasPrefix(item.ImageURL, "http") || strings.Contains(item.ImageURL, "://") {
 			t.Fatalf("hotlink image %s", item.ImageURL)
 		}
-		if !strings.HasPrefix(item.ImageURL, "/lalem/toilets/") {
-			t.Fatalf("image must be local pack: %s", item.ImageURL)
+		if !strings.HasPrefix(item.ImageURL, "/lalem/toilets/") || !strings.HasSuffix(item.ImageURL, ".jpg") {
+			t.Fatalf("image must be local jpg pack: %s", item.ImageURL)
 		}
 		assertLalemWikiURL(t, item.WikiURLZh, "zh.wikipedia.org")
 		assertLalemWikiURL(t, item.WikiURLEn, "en.wikipedia.org")
@@ -89,34 +91,33 @@ func TestLalemCatalogHasPicturesAndFilters(t *testing.T) {
 }
 
 func TestLalemToiletImagesHaveDistinctGeometry(t *testing.T) {
-	root := LalemPublicRoot()
 	byShape := map[string][]string{}
-	for _, item := range LalemToilets() {
-		rel := strings.TrimPrefix(item.ImageURL, "/")
-		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
-		if err != nil {
-			t.Fatalf("read %s: %v", item.ImageURL, err)
-		}
-		byShape[item.Shape] = append(byShape[item.Shape], normalizeLalemSVG(raw))
-	}
 	seen := map[string]string{}
+	for _, item := range LalemToilets() {
+		raw := assertLalemLocalJPEG(t, item.ImageURL, "/lalem/toilets/")
+		sum := sha256Hex(raw)
+		if prev, ok := seen[sum]; ok {
+			t.Fatalf("duplicate photo %s and %s", prev, item.ID)
+		}
+		seen[sum] = item.ID
+		byShape[item.Shape] = append(byShape[item.Shape], sum)
+	}
 	for _, shape := range []string{"sit", "squat", "urinal", "vacuum", "portable"} {
 		files := byShape[shape]
 		if len(files) == 0 {
 			t.Fatalf("missing shape %s", shape)
 		}
-		if prev, ok := seen[files[0]]; ok {
-			t.Fatalf("shape %s shares geometry with %s after stripping color/text", shape, prev)
-		}
-		seen[files[0]] = shape
-		cousinsDiffer := false
-		for i := 1; i < len(files); i++ {
-			if files[i] != files[0] {
-				cousinsDiffer = true
+		if len(files) > 1 {
+			same := true
+			for i := 1; i < len(files); i++ {
+				if files[i] != files[0] {
+					same = false
+					break
+				}
 			}
-		}
-		if len(files) > 1 && !cousinsDiffer {
-			t.Fatalf("same-shape %s files are identical clones after stripping color/text", shape)
+			if same {
+				t.Fatalf("same-shape %s files are identical clones", shape)
+			}
 		}
 	}
 }
@@ -129,11 +130,52 @@ func assertLalemWikiURL(t *testing.T, raw, host string) {
 	}
 }
 
-func normalizeLalemSVG(raw []byte) string {
-	s := string(raw)
-	s = regexp.MustCompile(`(?i)\s*(fill|stroke|stroke-width|opacity)="[^"]*"`).ReplaceAllString(s, "")
-	s = regexp.MustCompile(`(?s)<text\b[^>]*>.*?</text>`).ReplaceAllString(s, "")
-	return strings.Join(strings.Fields(s), " ")
+func assertLalemLocalJPEG(t *testing.T, imageURL, prefix string) []byte {
+	t.Helper()
+	if strings.Contains(imageURL, "://") || strings.HasPrefix(imageURL, "http") {
+		t.Fatalf("hotlink image %s", imageURL)
+	}
+	if !strings.HasPrefix(imageURL, prefix) || !strings.HasSuffix(imageURL, ".jpg") {
+		t.Fatalf("want local %s*.jpg, got %s", prefix, imageURL)
+	}
+	rel := strings.TrimPrefix(imageURL, "/")
+	raw, err := os.ReadFile(filepath.Join(LalemPublicRoot(), filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatalf("read %s: %v", imageURL, err)
+	}
+	if len(raw) < 8 || raw[0] != 0xff || raw[1] != 0xd8 {
+		t.Fatalf("not JPEG SOI: %s", imageURL)
+	}
+	if bytes.Contains(bytes.ToLower(raw), []byte("<svg")) {
+		t.Fatalf("svg leftover in %s", imageURL)
+	}
+	return raw
+}
+
+func sha256Hex(raw []byte) string {
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
+func TestRewriteLalemTrendImage(t *testing.T) {
+	if got := RewriteLalemTrendImage("/lalem/trends/fashion-1.svg"); got != "/lalem/trends/fashion-1.jpg" {
+		t.Fatalf("svg stem: %s", got)
+	}
+	if got := RewriteLalemTrendImage("/lalem/trends/fashion-1.jpg"); got != "/lalem/trends/fashion-1.jpg" {
+		t.Fatalf("jpg passthrough: %s", got)
+	}
+	fallback := RewriteLalemTrendImage("https://example.com/x.jpg")
+	pool := LalemTrendImagePool()
+	ok := false
+	for _, p := range pool {
+		if fallback == p {
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		t.Fatalf("unknown URL should fall back onto the JPEG pool, got %s", fallback)
+	}
 }
 
 func TestLalemPapersCatalogHasWikiAndImages(t *testing.T) {
@@ -145,52 +187,33 @@ func TestLalemPapersCatalogHasWikiAndImages(t *testing.T) {
 		"xylospongium": true, "newspaper": true, "leaves": true, "chu-chou": true, "corn-cob": true,
 		"roll-paper": true, "wet-wipe": true, "bidet": true, "washlet-water": true, "bum-gun": true,
 	}
-	root := LalemPublicRoot()
-	norms := []string{}
+	paperHashes := map[string]string{}
 	for _, item := range all {
 		delete(need, item.ID)
 		assertLalemWikiURL(t, item.WikiURLZh, "zh.wikipedia.org")
 		assertLalemWikiURL(t, item.WikiURLEn, "en.wikipedia.org")
-		if !strings.HasPrefix(item.ImageURL, "/lalem/papers/") {
-			t.Fatalf("paper image %s", item.ImageURL)
+		raw := assertLalemLocalJPEG(t, item.ImageURL, "/lalem/papers/")
+		sum := sha256Hex(raw)
+		if prev, ok := paperHashes[sum]; ok {
+			t.Fatalf("duplicate paper photo %s and %s", prev, item.ID)
 		}
-		rel := strings.TrimPrefix(item.ImageURL, "/")
-		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
-		if err != nil {
-			t.Fatalf("missing paper image %s: %v", item.ImageURL, err)
-		}
-		norms = append(norms, normalizeLalemSVG(raw))
+		paperHashes[sum] = item.ID
 	}
 	if len(need) > 0 {
 		t.Fatalf("missing paper ids %v", need)
 	}
-	uniq := map[string]bool{}
-	for _, n := range norms {
-		uniq[n] = true
+	if len(paperHashes) < 8 {
+		t.Fatalf("paper photos not distinct: %d", len(paperHashes))
 	}
-	if len(uniq) < 8 {
-		t.Fatalf("paper drawings not distinct after color/text strip: %d", len(uniq))
-	}
-	var sitNorm string
 	for _, item := range LalemToilets() {
 		if item.Shape != "sit" {
 			continue
 		}
-		rel := strings.TrimPrefix(item.ImageURL, "/")
-		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
-		if err != nil {
-			t.Fatalf("read sit %s: %v", item.ImageURL, err)
+		sum := sha256Hex(assertLalemLocalJPEG(t, item.ImageURL, "/lalem/toilets/"))
+		if id, ok := paperHashes[sum]; ok {
+			t.Fatalf("paper %s reused sit-toilet photo", id)
 		}
-		sitNorm = normalizeLalemSVG(raw)
 		break
-	}
-	if sitNorm == "" {
-		t.Fatal("missing sit toilet for paper comparison")
-	}
-	for _, n := range norms {
-		if n == sitNorm {
-			t.Fatal("paper drawing reused the sit-toilet ellipse template")
-		}
 	}
 }
 
@@ -269,8 +292,8 @@ func TestLalemDigestVideosAndTrendPoolExistOnDisk(t *testing.T) {
 		t.Fatalf("trend pool too small: %d", len(pool))
 	}
 	for _, url := range pool {
-		if strings.HasPrefix(url, "http") || !strings.HasPrefix(url, "/lalem/trends/") {
-			t.Fatalf("trend image must be local pack: %s", url)
+		if strings.HasPrefix(url, "http") || !strings.HasPrefix(url, "/lalem/trends/") || !strings.HasSuffix(url, ".jpg") {
+			t.Fatalf("trend image must be local jpg pack: %s", url)
 		}
 		rel := strings.TrimPrefix(url, "/")
 		path := filepath.Join(root, filepath.FromSlash(rel))

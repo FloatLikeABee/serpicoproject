@@ -146,13 +146,35 @@ func LalemCuratedVideos() []LalemVideo {
 
 func LalemTrendImagePool() []string {
 	return []string{
-		"/lalem/trends/entertainment-1.svg",
-		"/lalem/trends/entertainment-2.svg",
-		"/lalem/trends/entertainment-3.svg",
-		"/lalem/trends/fashion-1.svg",
-		"/lalem/trends/fashion-2.svg",
-		"/lalem/trends/fashion-3.svg",
+		"/lalem/trends/entertainment-1.jpg",
+		"/lalem/trends/entertainment-2.jpg",
+		"/lalem/trends/entertainment-3.jpg",
+		"/lalem/trends/fashion-1.jpg",
+		"/lalem/trends/fashion-2.jpg",
+		"/lalem/trends/fashion-3.jpg",
 	}
+}
+
+func RewriteLalemTrendImage(url string) string {
+	pool := LalemTrendImagePool()
+	fallback := "/lalem/trends/entertainment-1.jpg"
+	if len(pool) > 0 {
+		fallback = pool[0]
+	}
+	u := strings.TrimSpace(url)
+	if u == "" || strings.Contains(u, "://") || strings.HasPrefix(u, "http") {
+		return fallback
+	}
+	if !strings.HasPrefix(u, "/lalem/trends/") {
+		return fallback
+	}
+	base := filepath.Base(u)
+	ext := filepath.Ext(base)
+	stem := strings.TrimSuffix(base, ext)
+	if stem == "" || stem == "." || strings.Contains(stem, "..") {
+		return fallback
+	}
+	return "/lalem/trends/" + stem + ".jpg"
 }
 
 func LalemPublicRoot() string {

@@ -639,19 +639,14 @@ html.fr-world.synth-world #root {
 /* ─── 拉了么 side app (isolated from officer chrome and fridge-raid kitchen) ─── */
 html.ll-world,
 html.ll-world.synth-world {
-  --ll-bg: #12161c;
-  --ll-surface: #1b212b;
-  --ll-text: #e6ebf2;
-  --ll-muted: #9aa8b8;
-  --ll-accent: #8ec5c0;
-  --ll-line: rgba(230, 235, 242, 0.14);
+  --ll-bg: #22183a;
+  --ll-surface: #33285a;
+  --ll-text: #fff4e8;
+  --ll-muted: #c9b8e0;
+  --ll-accent: #3ee0c4;
+  --ll-pop: #ff9a62;
+  --ll-line: rgba(255, 244, 232, 0.16);
   --ll-gutter: 1rem;
-  --ll-px-ink: #12161c;
-  --ll-px-teal: #8ec5c0;
-  --ll-px-clay: #d47b6a;
-  --ll-px-leaf: #7a9e6e;
-  --ll-px-sand: #e8d5a3;
-  --ll-px-steel: #6b8cae;
   color-scheme: dark;
   height: 100%;
   height: 100dvh;
@@ -729,7 +724,7 @@ html.ll-world.synth-world #root {
 .ll-lang button.is-on,
 .ll-chip-wrap button.is-on,
 .ll-dock button.is-on {
-  background: rgba(142, 197, 192, 0.22);
+  background: rgba(62, 224, 196, 0.22);
   color: var(--ll-text);
   border: 2px solid var(--ll-accent);
   font-weight: 700;
@@ -833,18 +828,16 @@ html.ll-world.synth-world #root {
 .ll-card img {
   width: 100%;
   aspect-ratio: 1 / 1;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
-  background: #151a22;
-  image-rendering: pixelated;
+  background: var(--ll-surface);
 }
 .ll-sheet img {
   width: 100%;
   aspect-ratio: 1 / 1;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
-  background: #151a22;
-  image-rendering: pixelated;
+  background: var(--ll-surface);
 }
 .ll-card-title {
   font-weight: 700;
@@ -876,23 +869,45 @@ html.ll-world.synth-world #root {
 }
 .ll-card.ll-trend {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 3.5rem auto 1fr;
   grid-template-rows: auto auto;
   gap: 0.12rem 0.7rem;
   align-items: center;
   padding: 0.6rem 0.75rem;
   border-radius: 0.9rem;
 }
-.ll-trend-tag {
+.ll-trend img {
+  width: 3.5rem;
+  height: 3.5rem;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 0.55rem;
+  grid-column: 1;
   grid-row: 1 / 3;
+  background: var(--ll-surface);
+}
+.ll-trend-tag {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: start;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--ll-bg);
-  background: var(--ll-accent);
+  background: var(--ll-pop);
   border-radius: 999px;
   padding: 0.22rem 0.5rem;
   white-space: nowrap;
+}
+.ll-trend .ll-card-title {
+  grid-column: 3;
+  grid-row: 1;
+  padding: 0;
+}
+.ll-trend p {
+  grid-column: 2 / 4;
+  grid-row: 2;
+  padding: 0;
 }
 .ll-wiki-open {
   min-height: 2.5rem;
