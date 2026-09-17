@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { detectLalemLang, saveLalemLang } from '../utils/lalemLang';
+import { enterLoungeWorld, leaveLoungeWorld } from '../utils/loungeWorld';
 import { apiV1Base } from '../utils/hardDataUrls';
 import type { Nation } from '../utils/nation';
 
@@ -217,13 +218,11 @@ export default function Lalem() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.add('ll-world');
-    root.classList.remove('synth-world', 'fr-world');
+    enterLoungeWorld('ll-world');
     root.lang = nation === 'cn' ? 'zh-CN' : 'en';
     saveLalemLang(nation);
     return () => {
-      root.classList.remove('ll-world');
-      root.classList.add('synth-world');
+      leaveLoungeWorld();
     };
   }, [nation]);
 
