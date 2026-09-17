@@ -49,12 +49,13 @@ func ParseLalemCompanion(raw string) (*LalemCompanion, error) {
 			Text  string `json:"text"`
 			Angle string `json:"angle"`
 		}
-		if err := json.Unmarshal([]byte(obj), &m); err == nil && strings.TrimSpace(m.Text) != "" {
-			return &LalemCompanion{
-				Text:  trimLalemCompanionText(m.Text),
-				Angle: normalizeLalemCompanionAngle(m.Angle),
-			}, nil
+		if err := json.Unmarshal([]byte(obj), &m); err != nil || strings.TrimSpace(m.Text) == "" {
+			return nil, fmt.Errorf("invalid companion json")
 		}
+		return &LalemCompanion{
+			Text:  trimLalemCompanionText(m.Text),
+			Angle: normalizeLalemCompanionAngle(m.Angle),
+		}, nil
 	}
 	line := firstCompanionLine(s)
 	if line == "" {

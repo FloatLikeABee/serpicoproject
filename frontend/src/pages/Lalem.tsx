@@ -202,6 +202,7 @@ export default function Lalem() {
   const visibleAccumRef = useRef(0);
   const lastTickRef = useRef(Date.now());
   const lastCompanionSlot = useRef(-1);
+  const companionInFlight = useRef(false);
   const titleId = useId();
   const sitTitleId = useId();
   const wikiTitleId = useId();
@@ -308,24 +309,29 @@ export default function Lalem() {
 
   useEffect(() => {
     if (typeof document !== 'undefined' && document.hidden) return;
-    if (sitAlert > 0) return;
+    if (sitAlert > 0 || open || wiki) return;
     if (visibleSitS < 90) return;
     const slot = Math.floor((visibleSitS - 90) / 480);
     if (slot <= lastCompanionSlot.current) return;
-    lastCompanionSlot.current = slot;
+    if (companionInFlight.current) return;
+    companionInFlight.current = true;
     const loc = lalemLocale(nation);
     fetch(`${apiV1Base()}/lalem/companion?locale=${loc}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
       .then((body: { text?: string }) => {
         const text = String(body?.text || '').trim();
-        if (!text) return;
-        if (/you have|你患有/i.test(text)) return;
+        if (!text || /you have|你患有/i.test(text)) {
+          companionInFlight.current = false;
+          return;
+        }
+        lastCompanionSlot.current = slot;
         setCompanion({ text });
+        companionInFlight.current = false;
       })
       .catch(() => {
-        /* keep quiet */
+        companionInFlight.current = false;
       });
-  }, [visibleSitS, sitAlert, nation]);
+  }, [visibleSitS, sitAlert, nation, open, wiki]);
 
   const openWiki = useCallback((url: string) => {
     if (!url) return;
@@ -752,7 +758,7 @@ export default function Lalem() {
         </div>
       ) : null}
 
-      {companion ? (
+      {companion && !open && !wiki ? (
         <aside className="ll-companion" role="status" aria-label={tx('lalem.companion.label')}>
           <p className="ll-companion-text">{companion.text}</p>
           <button type="button" className="ll-companion-dismiss" onClick={() => setCompanion(null)}>

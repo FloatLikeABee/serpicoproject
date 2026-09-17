@@ -197,6 +197,24 @@ func TestAdviseLalemIncrementMissingLiveModelDoesNotCallVision(t *testing.T) {
 	}
 }
 
+func TestAdviseLalemCompanionInvalidJSONUsesCanned(t *testing.T) {
+	adv := &LalemAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			return "```json\n{not-json\n```", nil
+		},
+	}
+	got, err := adv.AdviseLalemCompanion(LalemCompanionInput{Locale: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || strings.TrimSpace(got.Text) == "" {
+		t.Fatal("expected canned fallback")
+	}
+	if strings.Contains(got.Text, "{") || strings.Contains(got.Text, "not-json") {
+		t.Fatalf("json debris leaked: %q", got.Text)
+	}
+}
+
 func TestAdviseLalemCompanionLiveJSON(t *testing.T) {
 	adv := &LalemAdvisor{
 		CompleteFn: func(prompt string) (string, error) {

@@ -565,3 +565,60 @@ test('poop-science companion counts visible sit time only', async () => {
   expect(document.querySelector('.ll-companion')).not.toBeNull();
   jest.useRealTimers();
 });
+
+test('poop-science companion retries if the first GET fails', async () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  let companionHits = 0;
+  const inner = mockLalemFetch();
+  global.fetch = jest.fn().mockImplementation((url: RequestInfo) => {
+    const href = String(url);
+    if (href.includes('/lalem/companion')) {
+      companionHits += 1;
+      if (companionHits === 1) {
+        return Promise.resolve({ ok: false, status: 503, json: async () => ({}) });
+      }
+    }
+    return inner(url);
+  }) as jest.Mock;
+  render(<Lalem />);
+  await flushLalemPromises();
+  act(() => {
+    jest.setSystemTime(start + 90_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).toBeNull();
+  act(() => {
+    jest.setSystemTime(start + 92_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).not.toBeNull();
+  jest.useRealTimers();
+});
+
+test('poop-science companion waits under an open card sheet', async () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  render(<Lalem />);
+  await flushLalemPromises();
+  fireEvent.click(cardTitleButton('罗马公共厕所'));
+  expect(screen.getByRole('dialog', { name: '罗马公共厕所' })).toBeInTheDocument();
+  act(() => {
+    jest.setSystemTime(start + 90_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '关闭' }));
+  act(() => {
+    jest.setSystemTime(start + 92_000);
+    jest.advanceTimersByTime(1000);
+  });
+  await flushLalemPromises();
+  expect(document.querySelector('.ll-companion')).not.toBeNull();
+  jest.useRealTimers();
+});
