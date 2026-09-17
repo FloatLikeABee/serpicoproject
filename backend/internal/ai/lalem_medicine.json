@@ -5,7 +5,7 @@
       "title": "蹲还是坐：排便姿势",
       "titleEn": "Squat or sit: defecation posture",
       "body": "坐便器把髋关节放得比较直，直肠会有一个弯。很多人会往前倾、垫高脚，让角度更接近蹲。蹲坑让膝盖高于髋，腹压更容易帮忙。这是解剖描述，不是要你改厕所。哪种姿势适合你，取决于关节、平衡和你家里的器具。",
-        "bodyEn": "A sit toilet keeps the hips more open, so the rectum stays angled. Many people lean forward or raise the feet to get closer to a squat. A squat pan puts the knees above the hips so abdominal pressure can help. This is anatomy, not an order to remodel your bathroom. Joints, balance, and the fixture in the room decide what is available.",
+      "bodyEn": "A sit toilet keeps the hips more open, so the rectum stays angled. Many people lean forward or raise the feet to get closer to a squat. A squat pan puts the knees above the hips so abdominal pressure can help. This is anatomy, not an order to remodel your bathroom. Joints, balance, and the fixture in the room decide what is available.",
       "sources": [
         {
           "label": "Wikipedia",
@@ -25,7 +25,7 @@
       "id": "footstool-lean",
       "title": "脚凳和前倾",
       "titleEn": "Footstool and forward lean",
-        "body": "如果只有坐便，把脚垫高、身体微微前倾，是常见的折中。目的是让耻骨直肠肌放松一点，而不是用上半身硬扛。脚凳高度因人而异，膝盖不舒服就放下。不要在湿滑地面玩杂技。这只是姿势说明，不是让你去买某品牌凳子。",
+      "body": "如果只有坐便，把脚垫高、身体微微前倾，是常见的折中。目的是让耻骨直肠肌放松一点，而不是用上半身硬扛。脚凳高度因人而异，膝盖不舒服就放下。不要在湿滑地面玩杂技。这只是姿势说明，不是让你去买某品牌凳子。",
       "bodyEn": "If you only have a sit toilet, raising the feet and leaning a little forward is a common compromise. The idea is to ease the puborectalis, not to muscle the stool out with your shoulders. Stool height is personal; stop if the knees complain. Do not attempt circus balance on a wet floor.",
       "sources": [
         {
@@ -110,7 +110,7 @@
       "title": "痔：百科里怎么说",
       "titleEn": "Hemorrhoids in the encyclopedia",
       "body": "痔是肛管附近的血管垫变得明显。百科和医院站点会谈到用力、久坐、便秘等关联因素，也会列出需要就医的警示信号。拉了么不判断你有没有痔，也不开药方。若出血、剧痛或突然肿块，去看医生，不要问一个厕所博物馆。",
-        "bodyEn": "Hemorrhoids are vascular cushions near the anal canal that become noticeable. Encyclopedias and clinic sites discuss straining, long sitting, and constipation as associated factors, and they list warning signs. 拉了么 does not diagnose piles for a visitor and does not prescribe. Bleeding, severe pain, or a sudden lump belongs with a clinician, not a toilet museum.",
+      "bodyEn": "Hemorrhoids are vascular cushions near the anal canal that become noticeable. Encyclopedias and clinic sites discuss straining, long sitting, and constipation as associated factors, and they list warning signs. 拉了么 does not diagnose piles for a visitor and does not prescribe. Bleeding, severe pain, or a sudden lump belongs with a clinician, not a toilet museum.",
       "sources": [
         {
           "label": "Wikipedia",
@@ -140,6 +140,909 @@
         {
           "label": "Wikipedia EN",
           "url": "https://en.wikipedia.org/wiki/Constipation"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "handwashing",
+      "title": "洗手：水和泡沫",
+      "titleEn": "Handwashing: water and foam",
+      "body": "洗手是把病原体从皮肤表面带走的机械过程。百科强调流水、肥皂、覆盖手心手背和指缝。公共卫生页面把它写成习惯，不是诊断。拉了么只提醒：冲完再摸门把。",
+      "bodyEn": "Handwashing is a mechanical way to move microbes off skin. Encyclopedias stress running water, soap, palms, backs, and finger gaps. Public-health pages treat it as a habit, not a diagnosis. The lounge only notes: wash after the flush before the latch.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E6%B4%97%E6%89%8B"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Hand_washing"
+        },
+        {
+          "label": "WHO hand hygiene",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/hand-hygiene-for-all-initiative"
+        }
+      ]
+    },
+    {
+      "id": "soap",
+      "title": "肥皂在干什么",
+      "titleEn": "What soap is doing",
+      "body": "肥皂分子两端分别亲近油脂和水，能把皮肤上的油膜拆开带走。这是化学课，不是药方。医院站点会谈到洗手时打出泡沫、再冲干净。别把洗手液当成消毒比赛。",
+      "bodyEn": "Soap molecules like both grease and water, so they lift an oily film off skin. That is chemistry class, not a prescription. Clinic pages talk about foam, then a rinse. Hand gel is not a sport.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%A5%E7%9A%82"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Soap"
+        },
+        {
+          "label": "Mayo hand-washing",
+          "url": "https://www.mayoclinic.org/healthy-lifestyle/adult-health/in-depth/hand-washing/art-20046253"
+        }
+      ]
+    },
+    {
+      "id": "dietary-fiber",
+      "title": "膳食纤维：百科词条",
+      "titleEn": "Dietary fibre in the encyclopedia",
+      "body": "膳食纤维是植物里人体消化酶不太拆得开的部分。词条常分成可溶与不可溶，并谈到粪便体积和肠道运转。医院站点把它放进饮食说明，不替个人开菜单。这里只介绍这个词存在。",
+      "bodyEn": "Dietary fibre is the plant material human enzymes barely break. Entries split soluble and insoluble types and mention stool bulk and transit. Clinic pages file it under diet, not a personal menu. This lounge only names the term.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%86%B3%E9%A3%9F%E7%BA%A4%E7%BB%B4"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Dietary_fiber"
+        },
+        {
+          "label": "MedlinePlus fiber",
+          "url": "https://medlineplus.gov/ency/article/002032.htm"
+        }
+      ]
+    },
+    {
+      "id": "drinking-water",
+      "title": "饮水与排便的背景",
+      "titleEn": "Drinking water as background",
+      "body": "粪便里大部分是水。百科把饮水、气候和活动放在一起讲，不把某瓶水写成处方。世界卫生组织还从安全供水谈卫生。口渴了就喝，这不是疗程。",
+      "bodyEn": "Stool is mostly water. Encyclopedias group drinking, climate, and activity; they do not turn a bottle into a prescription. WHO also talks about safe supply. Thirst is a cue, not a course of treatment.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E9%A5%AE%E7%94%A8%E6%B0%B4"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Drinking_water"
+        },
+        {
+          "label": "WHO drinking-water",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/drinking-water"
+        }
+      ]
+    },
+    {
+      "id": "ibs-overview",
+      "title": "肠易激综合征：词条门口",
+      "titleEn": "IBS: the encyclopedia doorway",
+      "body": "肠易激综合征是消化科词条里一组以腹痛和排便习惯改变为主的描述。百科和医院站点列出常见说法与就医线索，明确这不是拉了么能判断的事。这里不给诊断，也不给饮食处方。",
+      "bodyEn": "Irritable bowel syndrome is a digestive-encyclopedia cluster around belly pain and changed bowel habit. Clinic pages list common language and when to see a clinician. This lounge does not diagnose and does not prescribe a diet.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%A0%E6%98%93%E6%BF%80%E7%BB%BC%E5%90%88%E5%BE%81"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Irritable_bowel_syndrome"
+        },
+        {
+          "label": "NHS IBS",
+          "url": "https://www.nhs.uk/conditions/irritable-bowel-syndrome-ibs/"
+        }
+      ]
+    },
+    {
+      "id": "gut-microbiota",
+      "title": "肠道菌群：住客简介",
+      "titleEn": "Gut microbiota: a guest list",
+      "body": "肠道里住着大量微生物，百科称之为微生物群。它们参与发酵和屏障，研究还在进行。医院站点会提醒：菌群因人而异，补剂不是通行证。这里只介绍有这么一群住客。",
+      "bodyEn": "The gut hosts a dense microbial community. Encyclopedias call it the microbiota: fermentation, barrier talk, unfinished science. Clinic pages note it varies by person; a supplement is not a passport. This lounge only mentions the guests.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%A0%E9%81%93%E8%8F%8C%E7%BE%A4"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Gut_microbiota"
+        },
+        {
+          "label": "Cleveland gut microbiome",
+          "url": "https://my.clevelandclinic.org/health/body/25201-gut-microbiome"
+        }
+      ]
+    },
+    {
+      "id": "public-toilet",
+      "title": "公共厕所作为设施",
+      "titleEn": "The public toilet as infrastructure",
+      "body": "公共厕所是给陌生人轮流使用的卫生设施。百科会写到冲水、隔间、无障碍和排队。卫生组织从尊严和安全供水谈它。拉了么是博物馆口气，不是物业手册。",
+      "bodyEn": "A public toilet is sanitation hardware shared by strangers. Encyclopedias mention flush, stalls, access, and queues. Health agencies talk dignity and water. This lounge is a museum voice, not a janitor manual.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Public_toilet"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "sanitation",
+      "title": "环境卫生：WHO 怎么写",
+      "titleEn": "Sanitation as WHO writes it",
+      "body": "环境卫生指把人类排泄物安全移走、处理，避免污染饮水。世界卫生组织把它和霍乱、儿童健康放在同一张事实清单里。这是公共系统，不是个人病名。来都来了，也值得知道马桶连着城市。",
+      "bodyEn": "Sanitation means moving and treating human waste so it does not foul drinking water. WHO files it with cholera and child health. It is a public system, not a personal disease name. The stall is plumbed into a city.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E7%8E%AF%E5%A2%83%E5%8D%AB%E7%94%9F"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Sanitation"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "squat-toilet",
+      "title": "蹲便器：器具说明",
+      "titleEn": "The squat toilet as a fixture",
+      "body": "蹲便器是让人蹲着使用的便器，在东亚和南亚很常见。词条谈坑位、冲水和鞋底溅水，不谈谁必须改坐。关节和平衡决定你能不能蹲。这是家具史，不是医嘱。",
+      "bodyEn": "A squat toilet is a pan used in a squat, common across East and South Asia. Entries cover the pan, the flush, and splash. Joints and balance decide whether a squat is available. Furniture history, not an order.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%B9%B2%E5%8E%95"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Squat_toilet"
+        },
+        {
+          "label": "NHS constipation",
+          "url": "https://www.nhs.uk/conditions/constipation/"
+        }
+      ]
+    },
+    {
+      "id": "flush-toilet",
+      "title": "抽水马桶怎么冲",
+      "titleEn": "How a flush toilet clears",
+      "body": "抽水马桶用储水的势能把污物送进存水弯和管道。百科会写到虹吸、冲洗圈和节水键。坏了找水管工，不找医典。这是机械说明。",
+      "bodyEn": "A flush toilet spends stored water to send waste through a trap into pipework. Encyclopedias mention siphons, rims, and dual buttons. A plumber owns the broken ones. This is machinery.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E6%8A%BD%E6%B0%B4%E9%A9%AC%E6%A1%B6"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Flush_toilet"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "portable-toilet",
+      "title": "流动厕所：临时隔间",
+      "titleEn": "Portable toilets as temporary stalls",
+      "body": "流动厕所把便器和储污箱装进可搬运的箱子。音乐节、工地和救灾现场常见。词条谈通风、化学液和清运，不是让你在家仿制。用完关门，是礼貌也是卫生。",
+      "bodyEn": "A portable toilet packs a bowl and a tank into a box that can travel. Festivals, sites, and disaster camps use them. Entries cover vents, chemical charge, and pump-out. Close the door: manners and hygiene.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E6%B5%81%E5%8A%A8%E5%8E%95%E6%89%80"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Portable_toilet"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "vacuum-toilet",
+      "title": "真空厕所：飞机亲戚",
+      "titleEn": "Vacuum toilets, airplane cousins",
+      "body": "真空厕所靠负压把污物吸走，用水量很小。飞机、火车和部分建筑会装。百科谈噪声、密封和收集箱。那一声巨响是物理，不是警报。",
+      "bodyEn": "Vacuum toilets pull waste with negative pressure and very little water. Aircraft, trains, and some buildings use them. Encyclopedias mention noise, seals, and holding tanks. The roar is physics, not an alarm.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E7%9C%9F%E7%A9%BA%E9%A9%AC%E6%A1%B6"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Vacuum_toilet"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "urinal",
+      "title": "小便器：站着的那排",
+      "titleEn": "Urinals: the standing row",
+      "body": "小便器是主要为站立排尿设计的器具，常见于男厕。词条写到隔板、自动冲水和节水。文化讨论比机械更多。这里只说明它是一种便器形状。",
+      "bodyEn": "A urinal is a fixture mainly for standing urination, often in men's rooms. Entries mention screens, auto-flush, and water. Culture talks more than hardware. This lounge only names the shape.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%B0%8F%E4%BE%BF%E6%B1%A0"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Urinal"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "latrine",
+      "title": "茅厕与旱厕",
+      "titleEn": "Latrines and dry pits",
+      "body": "茅厕、旱厕指不接市政污水管、把排泄物落入坑或桶的设施。百科把它和公共卫生运动放在一起。现代化马桶不是唯一形态。这是设施分类，不是乡愁。",
+      "bodyEn": "A latrine is sanitation that does not join a sewer: pit or bucket. Encyclopedias file it with public-health campaigns. A ceramic flush bowl is not the only shape. Classification, not nostalgia.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E6%97%B1%E5%8E%95"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Latrine"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "septic-tank",
+      "title": "化粪池：宅旁处理",
+      "titleEn": "Septic tanks beside the house",
+      "body": "化粪池让污水在地下箱里分层、厌氧分解，再把液体渗进土壤。词条谈清掏和维护。它不是装饰品。坏了找环境工程，不找厕所博物馆开方。",
+      "bodyEn": "A septic tank lets sewage settle and digest underground, then drains liquid to soil. Entries cover pumping and upkeep. It is not yard art. Failures belong with environmental engineering, not a toilet museum.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%8C%96%E7%B2%AA%E6%B1%A0"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Septic_tank"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "sewer",
+      "title": "下水道把污物带走",
+      "titleEn": "Sewers carry it away",
+      "body": "下水道是城市的暗河，把生活污水送到处理厂。百科写到合流制、溢流和检修井。马桶只是入口。堵塞时找市政，不找医典。",
+      "bodyEn": "Sewers are a city's dark river, carrying wastewater to treatment. Encyclopedias mention combined systems, overflows, and manholes. The bowl is only an inlet. Blockages belong with the city, not this catalog.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E4%B8%8B%E6%B0%B4%E9%81%93"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Sanitary_sewer"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "hygiene",
+      "title": "卫生习惯是一组动作",
+      "titleEn": "Hygiene as a set of actions",
+      "body": "卫生在百科里是保持清洁、减少感染途径的做法：洗手、食物、厕所。它描述行为，不给某人贴病名。世界卫生组织把洗手写成全民倡议。来都来了，泡沫还是要打。",
+      "bodyEn": "Hygiene, in encyclopedias, is the set of clean habits that cut infection routes: hands, food, toilets. It describes actions, not a personal label. WHO frames hand hygiene as a public campaign. Foam still matters.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%8D%AB%E7%94%9F"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Hygiene"
+        },
+        {
+          "label": "MedlinePlus hygiene",
+          "url": "https://medlineplus.gov/hygieneandenvironmentalhealth.html"
+        }
+      ]
+    },
+    {
+      "id": "toilet-seat",
+      "title": "马桶座圈：接触面",
+      "titleEn": "The toilet seat as a contact surface",
+      "body": "座圈是坐便器上可掀的圈。词条谈材质、缓降和清洁，也有很多都市传说。皮肤接触冷塑料并不自动等于生病。擦一下是礼貌，不是疗程。",
+      "bodyEn": "The seat is the hinged ring on a sit toilet. Entries cover plastics, slow-close hinges, and cleaning, plus folklore. Cold plastic is not automatically illness. A wipe is courtesy, not a course of care.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E9%A9%AC%E6%A1%B6"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Toilet_seat"
+        },
+        {
+          "label": "NHS live-well",
+          "url": "https://www.nhs.uk/live-well/"
+        }
+      ]
+    },
+    {
+      "id": "child-potty",
+      "title": "儿童便盆：尺寸故事",
+      "titleEn": "Child potties: a size story",
+      "body": "儿童便盆是给幼儿练习如厕的小容器。百科把它放在如厕训练词条附近。高度、稳和害怕落进大马桶，是设计问题。这里不教育儿方案。",
+      "bodyEn": "A child potty is a small bowl for early toilet practice. Encyclopedias park it near toilet training. Height, stability, and fear of the adult bowl are design notes. This lounge does not run a parenting clinic.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%A6%82%E5%8E%95%E8%AE%AD%E7%BB%83"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Potty"
+        },
+        {
+          "label": "NHS live-well",
+          "url": "https://www.nhs.uk/live-well/"
+        }
+      ]
+    },
+    {
+      "id": "accessible-toilet",
+      "title": "无障碍厕所：空间与抓杆",
+      "titleEn": "Accessible toilets: space and grab bars",
+      "body": "无障碍厕所提供更大回转半径、抓杆和应急按钮。词条谈轮椅、护理员和标识。这是权利与建筑规范，不是把人写成病人。设计为人，不为笑话。",
+      "bodyEn": "An accessible toilet offers turning space, grab bars, and an alarm. Entries cover wheelchairs, assistants, and signage. Rights and building codes, not a patient label. Designed for people, not gags.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E7%84%A1%E9%9A%9C%E7%A4%99%E8%A8%AD%E6%96%BD"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Accessible_toilet"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "travel-toilet",
+      "title": "旅途中的厕所",
+      "titleEn": "Toilets while travelling",
+      "body": "车站、服务区和景区厕所是旅行基础设施。百科谈排队、收费和携带纸。陌生冲水按钮值得多看一眼。这不是要你取消行程。",
+      "bodyEn": "Station, service-area, and park toilets are travel infrastructure. Encyclopedias mention queues, fees, and carrying tissue. Unfamiliar flush buttons deserve a second look. Not a reason to cancel the trip.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Public_toilet"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "airplane-lavatory",
+      "title": "飞机卫生间：窄与真空",
+      "titleEn": "Airplane lavatories: narrow and vacuum",
+      "body": "客机卫生间极窄，多用真空抽吸，并有烟雾探测器。词条谈排队、安全带灯和那一声轰。在灯亮时回座位，是航空规则不是医嘱。",
+      "bodyEn": "Cabin lavatories are tiny, often vacuum-flush, and smoke-alarmed. Entries cover queues, the seat-belt sign, and the boom. Returning when the sign is on is aviation rule, not medical advice.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E9%A3%9E%E6%9C%BA%E5%8E%95%E6%89%80"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Aircraft_lavatory"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "train-toilet",
+      "title": "火车厕所：轨道上的罐子",
+      "titleEn": "Train toilets: tanks on rails",
+      "body": "火车厕所从直排到真空收集都有过。现代车组把污物装进罐，到站再抽。百科谈气味、缺水和停用。这是交通史的一部分。",
+      "bodyEn": "Train toilets have ranged from dump-to-track to vacuum tanks emptied at depots. Encyclopedias mention smell, empty tanks, and out-of-order signs. Transport history lives here too.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%88%97%E8%BD%A6%E5%8E%95%E6%89%80"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Train_toilet"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "composting-toilet",
+      "title": "堆肥厕所：不接污水管",
+      "titleEn": "Composting toilets: off the sewer",
+      "body": "堆肥厕所把排泄物与碳料混合，靠时间和微生物变成熟料。词条谈通风、碳氮比和维护。它不是把马桶变成花园的魔术。离网建筑会讨论它。",
+      "bodyEn": "A composting toilet mixes waste with carbon and waits on microbes. Entries cover vents, carbon balance, and upkeep. It is not magic that turns a bowl into a garden. Off-grid buildings discuss it.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%A0%86%E8%82%A5%E5%8E%95%E6%89%80"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Composting_toilet"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "japanese-toilet",
+      "title": "日本厕所：洗净与盖板",
+      "titleEn": "Japanese toilets: wash and lid",
+      "body": "日本公共与家用厕所以洗净、暖座、自动盖和音姬闻名。百科把它放在卫浴文化里。高科技盖板仍是坐便器。说明书比医典更有用。",
+      "bodyEn": "Japanese home and public toilets are known for wash functions, heated seats, auto lids, and sound masks. Encyclopedias file this under bathroom culture. A high-tech lid is still a sit bowl. The manual beats this catalog.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E6%97%A5%E6%9C%AC%E5%8E%95%E6%89%80"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Toilets_in_Japan"
+        },
+        {
+          "label": "NHS live-well",
+          "url": "https://www.nhs.uk/live-well/"
+        }
+      ]
+    },
+    {
+      "id": "roman-latrine",
+      "title": "罗马公共厕所：并排而坐",
+      "titleEn": "Roman latrines: sitting in a row",
+      "body": "罗马公共厕所是长凳上的一排孔，下面流过渠水。百科谈海绵棒、聊天和排水。隐私观念和今天不同。拉了么收藏它当故事，不当施工图。",
+      "bodyEn": "Roman public latrines were bench holes over a channel of water. Encyclopedias mention sponge-sticks, talk, and drains. Privacy meant something else. This lounge keeps the story, not a blueprint.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%8F%A4%E7%BD%97%E9%A9%AC%E5%85%AC%E5%85%B1%E5%8E%95%E6%89%80"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Latrine"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "chamber-pot",
+      "title": "夜壶：室内的应急桶",
+      "titleEn": "Chamber pots: the indoor bucket",
+      "body": "夜壶是放在卧室里的便器，夜里不必穿过院子。词条谈盖子、佣人和倒进粪池。室内管道普及后它退出日常。这是家具史。",
+      "bodyEn": "A chamber pot lived in the bedroom so nobody crossed a yard at night. Entries cover lids, servants, and emptying into a cesspit. Indoor plumbing retired it. Furniture history.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%A4%9C%E5%A3%B6"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Chamber_pot"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "outhouse",
+      "title": "户外茅房：院外小屋",
+      "titleEn": "Outhouses: the yard shed",
+      "body": "户外茅房是院子里的独立小屋，坑在地板下。百科谈季节、气味和翻坑。它仍出现在营地和老照片里。别当度假设施说明书。",
+      "bodyEn": "An outhouse is a shed over a pit in the yard. Encyclopedias mention seasons, smell, and moving the pit. Camps and old photos still show them. Not a holiday brochure.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%8C%85%E6%88%BF"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Outhouse"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "bristol-stool-scale",
+      "title": "布里斯托大便分类法",
+      "titleEn": "The Bristol stool scale",
+      "body": "布里斯托分类法用七种图形描述粪便形状，便于医患用同一套词。百科强调它是描述工具。拉了么展示词条，不替你对号入座，更不解释成疾病名。",
+      "bodyEn": "The Bristol stool scale uses seven pictures so people and clinicians share words for form. Encyclopedias call it a description tool. This lounge shows the entry. It does not match a visitor to a type or a disease name.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%B8%83%E9%87%8C%E6%96%AF%E6%89%98%E5%A4%A7%E4%BE%BF%E5%88%86%E7%B1%BB%E6%B3%95"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Bristol_stool_scale"
+        },
+        {
+          "label": "NHS constipation",
+          "url": "https://www.nhs.uk/conditions/constipation/"
+        }
+      ]
+    },
+    {
+      "id": "gastrocolic-reflex",
+      "title": "胃结肠反射：饭后想去",
+      "titleEn": "The gastrocolic reflex: after a meal",
+      "body": "胃结肠反射指胃被食物撑开后，结肠运动增加，有人会想排便。百科把它写成生理反射。因人而异。这不是命令你餐后立刻冲进卫生间。",
+      "bodyEn": "The gastrocolic reflex is extra colon motion after the stomach fills, so some people feel an urge. Encyclopedias file it as physiology. It varies. Not an order to sprint to the stall after lunch.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%83%83%E7%BB%93%E8%82%A0%E5%8F%8D%E5%B0%84"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Gastrocolic_reflex"
+        },
+        {
+          "label": "Cleveland colon",
+          "url": "https://my.clevelandclinic.org/health/body/22154-colon-large-intestine"
+        }
+      ]
+    },
+    {
+      "id": "defecation-reflex",
+      "title": "排便反射：直肠里的信号",
+      "titleEn": "The defecation reflex: a rectal signal",
+      "body": "粪便进入直肠会牵张肠壁，神经把“满了”传给脊髓和大脑。百科称排便反射。人们可以短暂推迟。机制说明不是训练手册。",
+      "bodyEn": "Stool stretching the rectum sends a fullness signal through spinal and brain paths. Encyclopedias call this the defecation reflex. People can postpone it for a while. Mechanism, not a training manual.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E6%8E%92%E4%BE%BF"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Defecation"
+        },
+        {
+          "label": "Cleveland rectum",
+          "url": "https://my.clevelandclinic.org/health/body/22056-rectum"
+        }
+      ]
+    },
+    {
+      "id": "colon",
+      "title": "结肠：大肠的中段",
+      "titleEn": "The colon: the large intestine's middle",
+      "body": "结肠吸收水分、形成粪便，并住着许多微生物。医院站点用解剖图说明升、横、降、乙状。这里只介绍器官位置。不谈息肉筛查计划。",
+      "bodyEn": "The colon absorbs water, shapes stool, and hosts microbes. Clinic pages diagram ascending, transverse, descending, and sigmoid parts. This lounge only places the organ. It does not schedule screening.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E7%BB%93%E8%82%A0"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Large_intestine"
+        },
+        {
+          "label": "Cleveland colon",
+          "url": "https://my.clevelandclinic.org/health/body/22154-colon-large-intestine"
+        }
+      ]
+    },
+    {
+      "id": "rectum",
+      "title": "直肠：最后一段管道",
+      "titleEn": "The rectum: the last stretch of pipe",
+      "body": "直肠是大肠末端、肛管之前的储存段。百科谈壶腹、感觉和排空。解剖名词不等于病名。细节看医疗机构的图，不看弹幕。",
+      "bodyEn": "The rectum stores stool at the end of the large intestine, before the anal canal. Encyclopedias mention the ampulla, sensation, and emptying. Anatomy is not a diagnosis. Clinic diagrams beat comment threads.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E7%9B%B4%E8%82%A0"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Rectum"
+        },
+        {
+          "label": "Cleveland rectum",
+          "url": "https://my.clevelandclinic.org/health/body/22056-rectum"
+        }
+      ]
+    },
+    {
+      "id": "anus",
+      "title": "肛门：出口的结构",
+      "titleEn": "The anus: the exit anatomy",
+      "body": "肛门是消化道的出口，有内外括约肌控制。百科谈皮肤、黏膜和神经。疼痛或出血属于临床场景。拉了么不检查也不命名你的症状。",
+      "bodyEn": "The anus is the digestive exit, with internal and external sphincters. Encyclopedias mention skin, mucosa, and nerves. Pain or bleeding belongs in a clinic. This lounge does not inspect or name a visitor's symptoms.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%9B%E9%97%A8"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Anus"
+        },
+        {
+          "label": "Cleveland anus",
+          "url": "https://my.clevelandclinic.org/health/body/23965-anus"
+        }
+      ]
+    },
+    {
+      "id": "bidet-hygiene",
+      "title": "净身盆：用水清洁",
+      "titleEn": "Bidets: cleaning with water",
+      "body": "净身盆用一股水清洗肛门或外阴周围。欧洲家用盆和亚洲洗净盖是亲戚。词条谈节水、纸量和文化。用水还是用纸是习惯，不是道德。",
+      "bodyEn": "A bidet aims a stream of water at the anal or vulval area. European basins and East Asian washlet seats are cousins. Entries cover water, paper, and culture. Water versus paper is habit, not virtue.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%87%80%E8%BA%AB%E7%9B%86"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Bidet"
+        },
+        {
+          "label": "NHS live-well",
+          "url": "https://www.nhs.uk/live-well/"
+        }
+      ]
+    },
+    {
+      "id": "toilet-paper",
+      "title": "卫生纸：一次用的那卷",
+      "titleEn": "Toilet paper: the disposable roll",
+      "body": "卫生纸是为擦拭设计的薄纸，抽水马桶时代才普及。百科谈穿孔、层数和可否冲掉。湿纸巾常常不能冲。这是材料史。",
+      "bodyEn": "Toilet paper is thin tissue designed for wiping, popular after flush toilets spread. Encyclopedias mention perforations, plies, and what may be flushed. Wet wipes often must not. Material history.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%8D%AB%E7%94%9F%E7%BA%B8"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Toilet_paper"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "wet-wipe",
+      "title": "湿巾：湿的那包",
+      "titleEn": "Wet wipes: the moist pack",
+      "body": "湿巾是浸了液体的无纺布，有人用来替代干纸。许多市政明确写：不要冲进马桶。百科谈纤维和堵塞。包装说明比热搜可靠。",
+      "bodyEn": "Wet wipes are moist nonwoven sheets some people use instead of dry paper. Many cities say: do not flush them. Encyclopedias mention fibres and clogs. The pack label beats a trending post.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E6%B9%BF%E5%B7%BE"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Wet_wipe"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "toilet-training",
+      "title": "如厕训练：词条门口",
+      "titleEn": "Toilet training: the encyclopedia door",
+      "body": "如厕训练指幼儿从尿布过渡到便器的过程。儿科站点谈准备迹象和节奏，差异很大。拉了么不制定家庭计划，也不评判晚或早。",
+      "bodyEn": "Toilet training is the shift from nappies to a fixture. Pediatric pages discuss readiness and pace; it varies widely. This lounge does not write a household plan or grade late versus early.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%A6%82%E5%8E%95%E8%AE%AD%E7%BB%83"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Toilet_training"
+        },
+        {
+          "label": "NHS live-well",
+          "url": "https://www.nhs.uk/live-well/"
+        }
+      ]
+    },
+    {
+      "id": "restroom-etiquette",
+      "title": "卫生间礼仪：共享空间",
+      "titleEn": "Restroom etiquette: a shared room",
+      "body": "卫生间礼仪是共享隔间的习惯：敲门、锁门、冲水、不盯着别人。百科把它放在礼貌和公共卫生交叉处。没有国际法庭。来都来了，也给下一位留点体面。",
+      "bodyEn": "Restroom etiquette is stall common law: knock, lock, flush, don't stare. Encyclopedias park it between manners and public health. There is no world court. Leave the next person a decent room.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%8E%95%E6%89%80%E7%A4%BC%E4%BB%AA"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Toilet_etiquette"
+        },
+        {
+          "label": "WHO sanitation",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/sanitation"
+        }
+      ]
+    },
+    {
+      "id": "diarrhea-overview",
+      "title": "腹泻：百科概述",
+      "titleEn": "Diarrhoea: encyclopedia overview",
+      "body": "腹泻在词条里通常指粪便变稀、次数变多。世界卫生组织强调脱水风险和清洁饮水。拉了么不判断原因，不给药单。持续或带血要找医生，不要问博物馆。",
+      "bodyEn": "Diarrhoea, in encyclopedia language, means looser stool more often. WHO stresses dehydration risk and clean water. This lounge does not name a cause or a drug list. Lasting or bloody change belongs with a clinician, not a museum.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%85%B9%E6%B3%BB"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Diarrhea"
+        },
+        {
+          "label": "WHO diarrhoeal disease",
+          "url": "https://www.who.int/news-room/fact-sheets/detail/diarrhoeal-disease"
+        }
+      ]
+    },
+    {
+      "id": "fecal-incontinence-overview",
+      "title": "大便失禁：词条门口",
+      "titleEn": "Fecal incontinence: the encyclopedia door",
+      "body": "大便失禁指无法按意愿控制排便。医院站点列出可能相关的因素和就医路径。这里只打开词条。不询问个人经历，也不提供训练计划。",
+      "bodyEn": "Fecal incontinence means bowel contents pass without the intended control. Clinic pages list associated factors and when to seek care. This lounge only opens the entry. It does not take a history or offer a training plan.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%A4%A7%E4%BE%BF%E5%A4%B1%E7%A6%81"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Fecal_incontinence"
+        },
+        {
+          "label": "MedlinePlus bowel incontinence",
+          "url": "https://medlineplus.gov/bowelincontinence.html"
+        }
+      ]
+    },
+    {
+      "id": "abdominal-pressure",
+      "title": "腹压：肚子里的力",
+      "titleEn": "Abdominal pressure: force in the belly",
+      "body": "腹压是腹腔内的压力，咳嗽、举重和排便都会让它升高。百科把它和核心肌群、盆底放在一起。力可以帮忙，也可以让人憋红脸。机制不是比赛规则。",
+      "bodyEn": "Abdominal pressure is the force inside the belly; coughs, lifts, and straining raise it. Encyclopedias group it with core muscles and the pelvic floor. Force can help or turn a face purple. Mechanism, not a contest rule.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%85%B9%E8%85%94%E5%8E%8B"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Intra-abdominal_pressure"
+        },
+        {
+          "label": "NHS pelvic floor",
+          "url": "https://www.nhs.uk/conditions/pelvic-floor-muscles/"
+        }
+      ]
+    },
+    {
+      "id": "toilet-history",
+      "title": "厕所简史：从坑到管道",
+      "titleEn": "A short history of toilets",
+      "body": "人类处理排泄物的方式从坑、渠、夜壶走到抽水马桶和污水处理厂。百科按文明和时间线排列。技术进步不等于某个人更高级。拉了么收藏形状，不排名。",
+      "bodyEn": "Humans moved waste from pits and channels through chamber pots to flush bowls and treatment plants. Encyclopedias line this up by culture and century. Better plumbing is not a personal ranking. This lounge collects shapes, not scores.",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E5%8E%95%E6%89%80%E5%8F%B2"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/History_of_water_supply_and_sanitation"
         },
         {
           "label": "WHO sanitation",

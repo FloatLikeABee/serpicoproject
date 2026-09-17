@@ -121,3 +121,15 @@ test('lounge cards are photos; 拉榜 thumbs are compact; wiki reader sits under
   const lalemPage = readFileSync(join(__dirname, 'pages/Lalem.tsx'), 'utf8');
   expect(lalemPage).not.toMatch(/target="_blank"[\s\S]{0,80}wikiHref|wikiHref[\s\S]{0,80}target="_blank"/);
 });
+
+test('医典 catalog JSON has at least fifty unique sourced articles', () => {
+  const raw = readFileSync(join(__dirname, '../../backend/internal/ai/lalem_medicine.json'), 'utf8');
+  const file = JSON.parse(raw) as {
+    articles: Array<{ id: string; title: string; titleEn: string; body: string; bodyEn: string }>;
+  };
+  const articles = file.articles || [];
+  const ids = Array.from(new Set(articles.map((item) => item.id)));
+  expect(articles.length).toBeGreaterThanOrEqual(50);
+  expect(ids.length).toBe(articles.length);
+  expect(ids.length).toBeGreaterThanOrEqual(50);
+});

@@ -323,8 +323,8 @@ func TestLalemPapersAndMedicineCatalogs(t *testing.T) {
 	if err := json.Unmarshal(w2.Body.Bytes(), &med); err != nil {
 		t.Fatal(err)
 	}
-	if len(med.Articles) < 7 {
-		t.Fatalf("articles=%d", len(med.Articles))
+	if len(med.Articles) < 50 {
+		t.Fatalf("articles=%d want >=50", len(med.Articles))
 	}
 	if stub.digestCalls != 0 {
 		t.Fatal("catalog GETs must not call the live model")
@@ -498,14 +498,22 @@ func TestLalemDigestReadsWarmStoreWithoutAdvise(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Trends) != 1 || got.Trends[0].Title != "昨日综艺" {
-		t.Fatalf("trends %+v", got.Trends)
+	titles := lalemTrendTitles(got.Trends)
+	if len(titles) < 50 || !titles["昨日综艺"] {
+		t.Fatalf("warm short store should keep yesterday and top up, unique=%d titles=%v", len(titles), titles)
 	}
-	if got.Trends[0].ImageURL == "" {
+	var kept *ai.LalemTrend
+	for i := range got.Trends {
+		if got.Trends[i].Title == "昨日综艺" {
+			kept = &got.Trends[i]
+			break
+		}
+	}
+	if kept == nil || kept.ImageURL == "" {
 		t.Fatal("trend missing image")
 	}
-	if !strings.HasSuffix(got.Trends[0].ImageURL, ".jpg") {
-		t.Fatalf("legacy svg should rewrite to jpg, got %s", got.Trends[0].ImageURL)
+	if !strings.HasSuffix(kept.ImageURL, ".jpg") {
+		t.Fatalf("legacy svg should rewrite to jpg, got %s", kept.ImageURL)
 	}
 	if len(got.Useful) != 1 || got.Useful[0] != "别蹲太久" {
 		t.Fatalf("useful %+v", got.Useful)
@@ -516,8 +524,8 @@ func TestLalemDigestReadsWarmStoreWithoutAdvise(t *testing.T) {
 	if len(got.Videos) != 0 {
 		t.Fatalf("videos %+v", got.Videos)
 	}
-	if got.Trends[0].TopicID != "" {
-		t.Fatalf("unmapped store trend should have empty topicId, got %q", got.Trends[0].TopicID)
+	if kept.TopicID != "" {
+		t.Fatalf("unmapped store trend should have empty topicId, got %q", kept.TopicID)
 	}
 }
 
@@ -551,7 +559,18 @@ func TestLalemDigestStoreMapsSquatTrendToMedicine(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Trends) != 1 || got.Trends[0].TopicID != "medicine:posture-squat-sit" {
+	titles := lalemTrendTitles(got.Trends)
+	if len(titles) < 50 || !titles["久蹲热搜"] {
+		t.Fatalf("unique=%d titles=%v", len(titles), titles)
+	}
+	var squat *ai.LalemTrend
+	for i := range got.Trends {
+		if got.Trends[i].Title == "久蹲热搜" {
+			squat = &got.Trends[i]
+			break
+		}
+	}
+	if squat == nil || squat.TopicID != "medicine:posture-squat-sit" {
 		t.Fatalf("topicId %+v", got.Trends)
 	}
 	if len(got.Videos) != 0 {
@@ -578,11 +597,161 @@ func TestLalemDigestStoreKeepsLocalesSeparate(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Trends) != 1 || got.Trends[0].Title != "English only" {
+	titles := lalemTrendTitles(got.Trends)
+	if len(titles) < 50 || !titles["English only"] {
+		t.Fatalf("en trends unique=%d %+v", len(titles), got.Trends)
+	}
+	if titles["中文热搜"] {
 		t.Fatalf("en trends mixed %+v", got.Trends)
 	}
 	if len(got.Useful) != 1 || got.Useful[0] != "Wash hands" {
 		t.Fatalf("en useful mixed %+v", got.Useful)
+	}
+}
+
+func lalemTrendTitles(trends []ai.LalemTrend) map[string]bool {
+	out := map[string]bool{}
+	for _, tr := range trends {
+		out[strings.TrimSpace(tr.Title)] = true
+	}
+	return out
+}
+
+func seedLalemTrends(t *testing.T, db *database.Database, locale string, titles []string, created time.Time) {
+	t.Helper()
+	for i, title := range titles {
+		img := "/lalem/trends/entertainment-1.jpg"
+		if i%2 == 1 {
+			img = "/lalem/trends/fashion-1.jpg"
+		}
+		if err := database.InsertLalemTrend(db.SQLite, database.LalemTrendRow{
+			Locale: locale, Kind: "entertainment", Title: title, Hook: "hook", ImageURL: img, CreatedAt: created,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestLalemDigestEmptyStoreSeedsAtLeastFiftyUnique(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	stub := &stubLalemAI{}
+	r, db := lalemRouterWithDB(t, stub)
+	w := getJSON(r, "/api/v1/lalem/digest?locale=cn")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if stub.digestCalls != 1 || stub.lastMode == "increment" {
+		t.Fatalf("seed calls=%d mode=%q", stub.digestCalls, stub.lastMode)
+	}
+	var got ai.LalemDigest
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	titles := lalemTrendTitles(got.Trends)
+	if len(titles) < 50 {
+		t.Fatalf("unique titles=%d want >=50 got %v", len(titles), titles)
+	}
+	if len(got.Videos) != 0 {
+		t.Fatalf("videos %+v", got.Videos)
+	}
+	stored, err := database.ListLalemTrends(db.SQLite, "cn")
+	if err != nil || len(stored) < 50 {
+		t.Fatalf("persisted trends %d err=%v", len(stored), err)
+	}
+}
+
+func TestLalemDigestWarmEightRowsTopUpKeepsThem(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	stub := &stubLalemAI{}
+	r, db := lalemRouterWithDB(t, stub)
+	now := time.Now()
+	kept := []string{"昨日综艺", "旧色号", "隔间夜话", "马桶红毯", "短剧加更", "卫衣叠穿", "厕所K歌", "镜前刘海"}
+	seedLalemTrends(t, db, "cn", kept, now)
+	if err := database.InsertLalemUseful(db.SQLite, database.LalemUsefulRow{
+		Locale: "cn", Body: "别蹲太久", CreatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	gen := "2026-01-01T00:00:00Z"
+	if err := database.SetLalemFeedMeta(db.SQLite, "cn", database.LalemShanghaiToday(now), gen); err != nil {
+		t.Fatal(err)
+	}
+	w := getJSON(r, "/api/v1/lalem/digest?locale=cn")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if stub.digestCalls != 0 {
+		t.Fatalf("top-up must not call live advise, calls=%d", stub.digestCalls)
+	}
+	var got ai.LalemDigest
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	titles := lalemTrendTitles(got.Trends)
+	if len(titles) < 50 {
+		t.Fatalf("unique titles=%d want >=50", len(titles))
+	}
+	for _, title := range kept {
+		if !titles[title] {
+			t.Fatalf("missing stored title %s in %v", title, titles)
+		}
+	}
+	if len(got.Videos) != 0 {
+		t.Fatalf("videos %+v", got.Videos)
+	}
+	date, generated, ok, err := database.GetLalemFeedMeta(db.SQLite, "cn")
+	if err != nil || !ok || date != database.LalemShanghaiToday(now) || generated != gen {
+		t.Fatalf("top-up bumped meta date=%q gen=%q ok=%v err=%v", date, generated, ok, err)
+	}
+}
+
+func TestLalemDigestNewDayAppendsTwoWithoutDroppingFloor(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	stub := &stubLalemAI{}
+	r, db := lalemRouterWithDB(t, stub)
+	now := time.Now()
+	yesterday := now.Add(-25 * time.Hour)
+	kept := []string{"昨日综艺", "旧色号", "隔间夜话", "马桶红毯", "短剧加更", "卫衣叠穿", "厕所K歌", "镜前刘海"}
+	seedLalemTrends(t, db, "cn", kept, yesterday)
+	if err := database.InsertLalemUseful(db.SQLite, database.LalemUsefulRow{
+		Locale: "cn", Body: "昨日贴士", CreatedAt: yesterday,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SetLalemFeedMeta(db.SQLite, "cn", database.LalemShanghaiToday(yesterday), yesterday.UTC().Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
+	w := getJSON(r, "/api/v1/lalem/digest?locale=cn")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if stub.digestCalls != 1 || stub.lastMode != "increment" {
+		t.Fatalf("increment calls=%d mode=%q", stub.digestCalls, stub.lastMode)
+	}
+	var got ai.LalemDigest
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	titles := lalemTrendTitles(got.Trends)
+	if len(titles) < 50 {
+		t.Fatalf("unique titles=%d want >=50", len(titles))
+	}
+	for _, title := range kept {
+		if !titles[title] {
+			t.Fatalf("missing stored title %s", title)
+		}
+	}
+	if !titles["今日新综"] || !titles["今日新色"] {
+		t.Fatalf("expected increment titles, got %v", titles)
+	}
+	if len(got.Useful) < 2 {
+		t.Fatalf("useful should keep yesterday plus one new, got %+v", got.Useful)
+	}
+	if len(got.Videos) != 0 {
+		t.Fatalf("videos %+v", got.Videos)
 	}
 }
 
@@ -664,8 +833,12 @@ func TestLalemDigestIncrementFailureKeepsPriorRows(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Trends) != 1 || got.Trends[0].Title != "昨日综艺" {
-		t.Fatalf("must keep prior rows %+v", got.Trends)
+	titles := lalemTrendTitles(got.Trends)
+	if len(titles) < 50 || !titles["昨日综艺"] {
+		t.Fatalf("must keep prior rows and floor, unique=%d %+v", len(titles), got.Trends)
+	}
+	if titles["今日新综"] {
+		t.Fatalf("failed increment must not persist live titles %+v", titles)
 	}
 	date, _, ok, err := database.GetLalemFeedMeta(db.SQLite, "cn")
 	if err != nil || !ok || date != database.LalemShanghaiToday(yesterday) {

@@ -219,21 +219,28 @@ func TestLalemPapersCatalogHasWikiAndImages(t *testing.T) {
 
 func TestLalemMedicineCatalogIsSourcedEncyclopedia(t *testing.T) {
 	need := []string{"posture-squat-sit", "footstool-lean", "straining-valsalva", "time-on-bowl", "pelvic-floor", "hemorrhoids", "constipation"}
-	got := map[string]LalemMedicine{}
-	for _, item := range LalemMedicineArticles() {
-		got[item.ID] = item
+	articles := LalemMedicineArticles()
+	if len(articles) < 50 {
+		t.Fatalf("articles=%d want >=50", len(articles))
 	}
-	for _, id := range need {
-		item, ok := got[id]
-		if !ok {
-			t.Fatalf("missing article %s", id)
+	got := map[string]LalemMedicine{}
+	for _, item := range articles {
+		if item.ID == "" || strings.Contains(item.ID, "_") || item.ID != strings.ToLower(item.ID) {
+			t.Fatalf("id must be kebab-case: %q", item.ID)
+		}
+		if _, dup := got[item.ID]; dup {
+			t.Fatalf("duplicate id %s", item.ID)
+		}
+		got[item.ID] = item
+		if strings.TrimSpace(item.Title) == "" || strings.TrimSpace(item.TitleEn) == "" {
+			t.Fatalf("missing title %s", item.ID)
 		}
 		if strings.Count(item.Body, "。") < 2 || strings.Count(item.BodyEn, ".") < 2 {
-			t.Fatalf("body too short %s", id)
+			t.Fatalf("body too short %s", item.ID)
 		}
 		low := strings.ToLower(item.Body + item.BodyEn)
 		if strings.Contains(low, "you have") || strings.Contains(item.Body, "你患有") {
-			t.Fatalf("diagnoses visitor %s", id)
+			t.Fatalf("diagnoses visitor %s", item.ID)
 		}
 		hasWiki, hasOrg := false, false
 		for _, src := range item.Sources {
@@ -245,7 +252,69 @@ func TestLalemMedicineCatalogIsSourcedEncyclopedia(t *testing.T) {
 			}
 		}
 		if !hasWiki || !hasOrg {
-			t.Fatalf("sources wiki=%v org=%v for %s", hasWiki, hasOrg, id)
+			t.Fatalf("sources wiki=%v org=%v for %s", hasWiki, hasOrg, item.ID)
+		}
+	}
+	if len(got) < 50 {
+		t.Fatalf("unique ids=%d want >=50", len(got))
+	}
+	for _, id := range need {
+		if _, ok := got[id]; !ok {
+			t.Fatalf("missing article %s", id)
+		}
+	}
+}
+
+func TestCannedLalemTrendsHaveFiftyUniqueTitles(t *testing.T) {
+	for _, locale := range []string{"cn", "en"} {
+		seen := map[string]struct{}{}
+		for _, tr := range cannedLalemTrends(locale) {
+			title := strings.TrimSpace(tr.Title)
+			if title == "" {
+				t.Fatalf("%s canned empty title", locale)
+			}
+			if _, dup := seen[title]; dup {
+				t.Fatalf("%s duplicate canned title %q", locale, title)
+			}
+			seen[title] = struct{}{}
+		}
+		if len(seen) < 50 {
+			t.Fatalf("%s canned unique titles=%d want >=50", locale, len(seen))
+		}
+	}
+}
+
+func TestPadLalemTrendsToFloorFillsFourLiveTitlesToFifty(t *testing.T) {
+	live := []LalemTrend{
+		{Kind: "entertainment", Title: "综艺还在热聊", Hook: "今晚弹幕比剧情热闹。", ImageURL: "/lalem/trends/entertainment-1.jpg"},
+		{Kind: "fashion", Title: "妆容换季色号", Hook: "口红和外套一起换挡。", ImageURL: "/lalem/trends/fashion-1.jpg"},
+		{Kind: "entertainment", Title: "短剧三分钟", Hook: "反转来得比冲水快。", ImageURL: "/lalem/trends/entertainment-2.jpg"},
+		{Kind: "fashion", Title: "街拍阔腿还在", Hook: "裤型宽松，心情也宽松。", ImageURL: "/lalem/trends/fashion-2.jpg"},
+	}
+	got := PadLalemTrendsToFloor(live, "cn", 50)
+	if len(got) < 50 {
+		t.Fatalf("padded=%d want >=50", len(got))
+	}
+	seen := map[string]struct{}{}
+	for _, tr := range got {
+		title := strings.TrimSpace(tr.Title)
+		if title == "" {
+			t.Fatal("padded empty title")
+		}
+		if _, dup := seen[title]; dup {
+			t.Fatalf("duplicate padded title %q", title)
+		}
+		seen[title] = struct{}{}
+		if !strings.HasPrefix(tr.ImageURL, "/lalem/trends/") || !strings.HasSuffix(tr.ImageURL, ".jpg") {
+			t.Fatalf("padded image must be local jpg, got %s", tr.ImageURL)
+		}
+		if strings.Contains(tr.ImageURL, "://") {
+			t.Fatalf("hotlink image %s", tr.ImageURL)
+		}
+	}
+	for _, title := range []string{"综艺还在热聊", "妆容换季色号", "短剧三分钟", "街拍阔腿还在"} {
+		if _, ok := seen[title]; !ok {
+			t.Fatalf("live title missing after pad: %s", title)
 		}
 	}
 }

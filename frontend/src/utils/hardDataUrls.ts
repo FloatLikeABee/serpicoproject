@@ -1,4 +1,4 @@
-// Rebuild stamp 2026-09-17T02:56Z — unstick CRA typecheck so 拉榜 photos ship.
+// Rebuild stamp 2026-09-17T03:40Z — 医典≥50 sourced articles and 拉榜 floor-plus-daily.
 export const PROD_FRONTEND = 'https://serpico.onrender.com';
 export const PROD_BACKEND = 'https://serpicoproject.onrender.com';
 export const PROD_API_V1 = `${PROD_BACKEND}/api/v1`;
