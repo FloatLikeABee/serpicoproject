@@ -846,6 +846,66 @@ func TestLalemDigestIncrementFailureKeepsPriorRows(t *testing.T) {
 	}
 }
 
+func TestLalemCompanionGetReturnsLocaleLine(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	r := fridgeRaidTestRouter(t, &ai.LalemAdvisor{})
+	for _, loc := range []string{"cn", "en"} {
+		w := getJSON(r, "/api/v1/lalem/companion?locale="+loc)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s status %d: %s", loc, w.Code, w.Body.String())
+		}
+		var got struct {
+			Text  string `json:"text"`
+			Angle string `json:"angle"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		if strings.TrimSpace(got.Text) == "" {
+			t.Fatalf("%s empty text %+v", loc, got)
+		}
+		switch got.Angle {
+		case "medical", "biological", "social", "historical":
+		default:
+			t.Fatalf("%s angle %q", loc, got.Angle)
+		}
+		low := strings.ToLower(got.Text)
+		if strings.Contains(low, "you have") || strings.Contains(got.Text, "你患有") {
+			t.Fatalf("%s diagnostic %q", loc, got.Text)
+		}
+		if loc == "cn" && !companionBodyHasHan(got.Text) {
+			t.Fatalf("cn companion should be Chinese: %q", got.Text)
+		}
+		if loc == "en" && companionBodyHasHan(got.Text) {
+			t.Fatalf("en companion should be English: %q", got.Text)
+		}
+	}
+}
+
+func TestLalemCompanionGetDoesNotCallDigest(t *testing.T) {
+	resetLalemLimiter()
+	resetLalemDigestCache()
+	stub := &stubLalemAI{}
+	r := fridgeRaidTestRouter(t, stub)
+	w := getJSON(r, "/api/v1/lalem/companion?locale=cn")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if stub.digestCalls != 0 {
+		t.Fatalf("companion GET must not increment digest, calls=%d", stub.digestCalls)
+	}
+}
+
+func companionBodyHasHan(s string) bool {
+	for _, r := range s {
+		if r >= 0x4e00 && r <= 0x9fff {
+			return true
+		}
+	}
+	return false
+}
+
 type errString string
 
 func (e errString) Error() string { return string(e) }

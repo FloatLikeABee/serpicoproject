@@ -102,6 +102,12 @@ test('lounge chrome uses calm dark tokens, one gutter, and no candy gold/pink', 
   expect(sit).not.toMatch(/#ffd36a/i);
   expect(sitDismiss).not.toMatch(/#ff4d8d/i);
   expect(sitDismiss).not.toMatch(/#ffd36a/i);
+
+  const companion = cssRule(lounge, '.ll-companion');
+  const sitZ = /z-index:\s*(\d+)/.exec(cssRule(lounge, '.ll-sit-alert-backdrop'));
+  const companionZ = /z-index:\s*(\d+)/.exec(companion);
+  expect(companion).toMatch(/z-index:\s*\d+/);
+  expect(Number(sitZ?.[1])).toBeGreaterThan(Number(companionZ?.[1]));
 });
 
 test('lounge cards are photos; 拉榜 thumbs are compact; wiki reader sits under sit-alert', () => {
