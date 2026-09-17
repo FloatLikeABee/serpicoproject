@@ -318,6 +318,8 @@ const en: Catalog = {
   'lalem.sitAlert.t5': '{m} MINUTES!!! The curtain is coming down on this stall opera.',
   'lalem.sitAlert.t6': '{m} MINUTES!!!! Ultimate sit alert. Time to stand, friend.',
   'lalem.sitAlert.dismiss': 'Still sitting',
+  'lalem.companion.label': 'Poop science',
+  'lalem.companion.dismiss': 'Got it',
 };
 
 const zh: Catalog = {
@@ -635,6 +637,8 @@ const zh: Catalog = {
   'lalem.sitAlert.t5': '{m} 分钟！！！帘子都要给你拉上了。',
   'lalem.sitAlert.t6': '{m} 分钟！！！！终极久坐警报，该站起来了朋友。',
   'lalem.sitAlert.dismiss': '再蹲会儿',
+  'lalem.companion.label': '便便科普',
+  'lalem.companion.dismiss': '知道啦',
 };
 
 const catalogs: Record<Nation, Catalog> = { us: en, cn: zh };

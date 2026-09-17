@@ -196,7 +196,12 @@ export default function Lalem() {
   const [pageVisible, setPageVisible] = useState(() => (typeof document === 'undefined' ? true : !document.hidden));
   const [sitAlert, setSitAlert] = useState(0);
   const [dismissedSit, setDismissedSit] = useState(0);
+  const [visibleSitS, setVisibleSitS] = useState(0);
+  const [companion, setCompanion] = useState<{ text: string } | null>(null);
   const started = useRef(Date.now());
+  const visibleAccumRef = useRef(0);
+  const lastTickRef = useRef(Date.now());
+  const lastCompanionSlot = useRef(-1);
   const titleId = useId();
   const sitTitleId = useId();
   const wikiTitleId = useId();
@@ -216,7 +221,15 @@ export default function Lalem() {
   }, [nation]);
 
   useEffect(() => {
-    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      setNowMs(now);
+      if (!(typeof document !== 'undefined' && document.hidden)) {
+        visibleAccumRef.current += Math.max(0, now - lastTickRef.current) / 1000;
+        setVisibleSitS(Math.floor(visibleAccumRef.current));
+      }
+      lastTickRef.current = now;
+    }, 1000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -292,6 +305,27 @@ export default function Lalem() {
     if (dueSit <= dismissedSit) return;
     setSitAlert(dueSit);
   }, [dueSit, pageVisible, dismissedSit]);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (sitAlert > 0) return;
+    if (visibleSitS < 90) return;
+    const slot = Math.floor((visibleSitS - 90) / 480);
+    if (slot <= lastCompanionSlot.current) return;
+    lastCompanionSlot.current = slot;
+    const loc = lalemLocale(nation);
+    fetch(`${apiV1Base()}/lalem/companion?locale=${loc}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((body: { text?: string }) => {
+        const text = String(body?.text || '').trim();
+        if (!text) return;
+        if (/you have|你患有/i.test(text)) return;
+        setCompanion({ text });
+      })
+      .catch(() => {
+        /* keep quiet */
+      });
+  }, [visibleSitS, sitAlert, nation]);
 
   const openWiki = useCallback((url: string) => {
     if (!url) return;
@@ -716,6 +750,15 @@ export default function Lalem() {
             <p className="ll-wiki-source">{wiki.status === 'ok' ? wiki.sourceUrl : wiki.url}</p>
           </div>
         </div>
+      ) : null}
+
+      {companion ? (
+        <aside className="ll-companion" role="status" aria-label={tx('lalem.companion.label')}>
+          <p className="ll-companion-text">{companion.text}</p>
+          <button type="button" className="ll-companion-dismiss" onClick={() => setCompanion(null)}>
+            {tx('lalem.companion.dismiss')}
+          </button>
+        </aside>
       ) : null}
 
       {sitAlert > 0 ? (

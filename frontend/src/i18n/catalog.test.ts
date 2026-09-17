@@ -149,6 +149,11 @@ describe('i18n catalog', () => {
     const blob = [...cn, ...en, t('cn', 'lalem.sitAlert.dismiss'), t('us', 'lalem.sitAlert.dismiss')].join('\n');
     expect(blob).not.toMatch(/诊断|处方|治疗|Notification|requestPermission|diagnose|prescribe|cure/i);
     expect(t('cn', 'lalem.sitAlert.dismiss')).toMatch(/[\u4e00-\u9fff]/);
+    expect(t('cn', 'lalem.companion.dismiss')).toMatch(/[\u4e00-\u9fff]/);
+    expect(t('cn', 'lalem.companion.label')).toMatch(/[\u4e00-\u9fff]/);
+    expect(t('us', 'lalem.companion.dismiss')).toMatch(/Got it/i);
+    const companionBlob = [t('cn', 'lalem.companion.dismiss'), t('us', 'lalem.companion.dismiss'), t('cn', 'lalem.companion.label'), t('us', 'lalem.companion.label')].join('\n');
+    expect(companionBlob).not.toMatch(/诊断|处方|治疗|diagnose|prescribe|cure/i);
   });
 
   it('returns Simplified Chinese Fleet kind labels used by chips and the pin modal', () => {
