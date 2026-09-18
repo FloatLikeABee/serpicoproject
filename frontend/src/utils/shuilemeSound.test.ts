@@ -34,6 +34,10 @@ function fakeAudioContext() {
   return { FakeCtx, resume, close };
 }
 
+afterEach(() => {
+  stopShuilemeSound();
+});
+
 test('shuileme scenes include brown pink rain fan', () => {
   expect(SHUILEME_SCENES).toEqual(expect.arrayContaining(['brown', 'pink', 'rain', 'fan']));
 });

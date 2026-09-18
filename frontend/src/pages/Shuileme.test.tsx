@@ -1,9 +1,10 @@
 import '@testing-library/jest-dom';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import Shuileme from './Shuileme';
+import { stopShuilemeSound } from '../utils/shuilemeSound';
 
 const beds = {
   beds: [
@@ -169,6 +170,7 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
+  stopShuilemeSound();
 });
 
 test('fresh visit shows 睡了么, not officer nav or 拉了么 world', async () => {
@@ -176,7 +178,8 @@ test('fresh visit shows 睡了么, not officer nav or 拉了么 world', async ()
   expect(screen.getByRole('heading', { name: '睡了么' })).toBeInTheDocument();
   expect(screen.getByText('睡吧')).toBeInTheDocument();
   expect(screen.getByText(/已躺/)).toBeInTheDocument();
-  expect(await screen.findByRole('img', { name: '火炕' })).toHaveAttribute('src', '/shuileme/beds/fire-kang.jpg');
+  const hero = await screen.findByRole('img', { name: '火炕' });
+  await waitFor(() => expect(hero).toHaveAttribute('src', '/shuileme/beds/fire-kang.jpg'));
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   expect(document.querySelectorAll('.sm-dock button')).toHaveLength(6);
   expect(screen.getByRole('button', { name: '床' })).toBeInTheDocument();
@@ -369,9 +372,12 @@ test('醒了 freezes 已躺 and stops sound', async () => {
     }),
   }));
   render(<Shuileme />);
-  await userEvent.click(screen.getByRole('button', { name: '声' }));
-  await userEvent.click(screen.getByRole('button', { name: /褐噪|Brown/ }));
-  await userEvent.click(screen.getByRole('button', { name: '醒了' }));
+  fireEvent.click(screen.getByRole('button', { name: '声' }));
+  fireEvent.click(screen.getByRole('button', { name: /褐噪|Brown/ }));
+  await act(async () => {
+    await Promise.resolve();
+  });
+  fireEvent.click(screen.getByRole('button', { name: '醒了' }));
   const frozen = screen.getByText(/已躺/).textContent;
   act(() => {
     jest.setSystemTime(start + 12 * 1000);

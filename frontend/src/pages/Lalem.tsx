@@ -183,6 +183,14 @@ function isWikipediaUrl(url: string): boolean {
   }
 }
 
+function prefersReducedMotion(): boolean {
+  try {
+    return Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  } catch {
+    return false;
+  }
+}
+
 export default function Lalem() {
   const [nation, setNation] = useState<Nation>(() => detectLalemLang());
   const [dock, setDock] = useState<Dock>(() => readDock());
@@ -205,7 +213,12 @@ export default function Lalem() {
   const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
+  const [sessionOver, setSessionOver] = useState(false);
+  const [restStatic] = useState(() => prefersReducedMotion());
   const started = useRef(Date.now());
+  const frozenElapsed = useRef<number | null>(null);
+  const sessionOverRef = useRef(false);
+  sessionOverRef.current = sessionOver;
   const visibleAccumRef = useRef(0);
   const lastTickRef = useRef(Date.now());
   const lastCompanionSlot = useRef(-1);
@@ -230,7 +243,7 @@ export default function Lalem() {
     const id = window.setInterval(() => {
       const now = Date.now();
       setNowMs(now);
-      if (!(typeof document !== 'undefined' && document.hidden)) {
+      if (!(typeof document !== 'undefined' && document.hidden) && !sessionOverRef.current) {
         visibleAccumRef.current += Math.max(0, now - lastTickRef.current) / 1000;
         setVisibleSitS(Math.floor(visibleAccumRef.current));
       }
@@ -301,18 +314,23 @@ export default function Lalem() {
     };
   }, [dock, nation]);
 
-  const elapsed = Math.max(0, Math.floor((nowMs - started.current) / 1000));
+  const elapsed =
+    sessionOver && frozenElapsed.current !== null
+      ? frozenElapsed.current
+      : Math.max(0, Math.floor((nowMs - started.current) / 1000));
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
   const dueSit = sitMilestone(elapsed);
 
   useEffect(() => {
+    if (sessionOver) return;
     if (dueSit < 1 || !pageVisible) return;
     if (dueSit <= dismissedSit) return;
     setSitAlert(dueSit);
-  }, [dueSit, pageVisible, dismissedSit]);
+  }, [dueSit, pageVisible, dismissedSit, sessionOver]);
 
   useEffect(() => {
+    if (sessionOver) return;
     if (typeof document !== 'undefined' && document.hidden) return;
     if (sitAlert > 0 || open || wiki) return;
     if (visibleSitS < 90) return;
@@ -336,7 +354,7 @@ export default function Lalem() {
       .catch(() => {
         companionInFlight.current = false;
       });
-  }, [visibleSitS, sitAlert, nation, open, wiki]);
+  }, [visibleSitS, sitAlert, nation, open, wiki, sessionOver]);
 
   const openWiki = useCallback((url: string) => {
     if (!url) return;
@@ -457,6 +475,15 @@ export default function Lalem() {
       .finally(() => setChatBusy(false));
   }, [chatBusy, chatDraft, chatTurns, nation]);
 
+  const endSession = () => {
+    if (sessionOver) return;
+    frozenElapsed.current = Math.max(0, Math.floor((Date.now() - started.current) / 1000));
+    sessionOverRef.current = true;
+    setSessionOver(true);
+    setSitAlert(0);
+    setCompanion(null);
+  };
+
   const openTrend = (tr: LalemTrend) => {
     const [kind, id] = (tr.topicId || '').split(':');
     if (kind === 'toilet') {
@@ -503,6 +530,9 @@ export default function Lalem() {
           <p className="ll-timer">{tx('lalem.timer', { m: String(minutes), s: pad2(seconds) })}</p>
         </div>
         <div className="ll-lang">
+          <button type="button" className="ll-stop" onClick={endSession}>
+            {tx('lalem.stop')}
+          </button>
           <button type="button" className={nation === 'us' ? 'is-on' : undefined} onClick={() => setNation('us')}>
             {tx('lalem.langEn')}
           </button>
@@ -690,12 +720,17 @@ export default function Lalem() {
 
       {dock === 'chat' ? (
         <div className="ll-body ll-chat">
-          <ul className="ll-chat-log">
+          <ul className="ll-chat-log" aria-busy={chatBusy}>
             {chatTurns.map((turn, i) => (
               <li key={`${turn.role}-${i}`} className={`ll-chat-bubble ll-chat-bubble--${turn.role}`}>
                 {turn.text}
               </li>
             ))}
+            {chatBusy ? (
+              <li className={`ll-think${restStatic ? ' ll-think--static' : ''}`} role="status" aria-live="polite">
+                {tx('lalem.think')}
+              </li>
+            ) : null}
           </ul>
           {chatTurns.length === 0 ? <p className="ll-empty">{tx('lalem.chat.empty')}</p> : null}
           <div className="ll-chat-composer">

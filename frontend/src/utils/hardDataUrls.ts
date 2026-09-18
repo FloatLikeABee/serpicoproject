@@ -1,4 +1,4 @@
-// Rebuild stamp 2026-09-17T13:40Z — 睡了么 bedtime lounge.
+// Rebuild stamp 2026-09-18T11:20Z — lounge stop, sequential bed photos, sleepy chat.
 export const PROD_FRONTEND = 'https://serpico.onrender.com';
 export const PROD_BACKEND = 'https://serpicoproject.onrender.com';
 export const PROD_API_V1 = `${PROD_BACKEND}/api/v1`;

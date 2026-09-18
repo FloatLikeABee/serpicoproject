@@ -104,6 +104,7 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		shuileme.GET("/bedrooms", handleShuilemeBedrooms)
 		shuileme.GET("/lore", handleShuilemeLore)
 		shuileme.GET("/wiki", handleShuilemeWiki)
+		shuileme.POST("/chat", func(c *gin.Context) { handleShuilemeChat(c, aiService) })
 	}
 
 	// Chase Game routes

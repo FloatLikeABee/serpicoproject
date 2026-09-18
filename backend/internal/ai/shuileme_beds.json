@@ -13,7 +13,7 @@
       "imageUrl": "/shuileme/beds/fire-kang.jpg",
       "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E7%82%BD",
       "wikiUrlEn": "https://en.wikipedia.org/wiki/Kang_bed-stove",
-      "credit": "睡了么插画"
+      "credit": "Wikimedia Commons / Yoshi Canopus"
     },
     {
       "id": "tatami",
@@ -28,7 +28,7 @@
       "imageUrl": "/shuileme/beds/tatami.jpg",
       "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E6%98%8F%E7%94%B0",
       "wikiUrlEn": "https://en.wikipedia.org/wiki/Tatami",
-      "credit": "睡了么插画"
+      "credit": "Wikimedia Commons / No machine-readable author provided. Fg2 assumed (based on copyright claims)."
     },
     {
       "id": "luohan-bed",
@@ -43,7 +43,7 @@
       "imageUrl": "/shuileme/beds/luohan-bed.jpg",
       "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E7%BD%97%E6%B1%89%E5%BA%8A",
       "wikiUrlEn": "https://en.wikipedia.org/wiki/Chinese_furniture",
-      "credit": "睡了么插画"
+      "credit": "Wikimedia Commons / Cangminzho"
     },
     {
       "id": "four-poster",
@@ -58,7 +58,7 @@
       "imageUrl": "/shuileme/beds/four-poster.jpg",
       "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E5%9B%9B%E6%9F%B1%E5%BA%8A",
       "wikiUrlEn": "https://en.wikipedia.org/wiki/Four-poster_bed",
-      "credit": "睡了么插画"
+      "credit": "Wikimedia Commons / Basile Morin"
     },
     {
       "id": "murphy",
@@ -73,7 +73,7 @@
       "imageUrl": "/shuileme/beds/murphy.jpg",
       "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E5%A3%81%E5%BA%8A",
       "wikiUrlEn": "https://en.wikipedia.org/wiki/Murphy_bed",
-      "credit": "睡了么插画"
+      "credit": "Wikimedia Commons / David Boyle"
     },
     {
       "id": "capsule",
@@ -88,7 +88,7 @@
       "imageUrl": "/shuileme/beds/capsule.jpg",
       "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%83%A1%E5%9B%8A%E6%97%85%E9%A6%86",
       "wikiUrlEn": "https://en.wikipedia.org/wiki/Capsule_hotel",
-      "credit": "睡了么插画"
+      "credit": "Wikimedia Commons / Unknown"
     },
     {
       "id": "hammock",
@@ -103,7 +103,7 @@
       "imageUrl": "/shuileme/beds/hammock.jpg",
       "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E5%90%8A%E5%BA%8A",
       "wikiUrlEn": "https://en.wikipedia.org/wiki/Hammock",
-      "credit": "睡了么插画"
+      "credit": "Wikimedia Commons / Personal Creations"
     },
     {
       "id": "water-bed",
@@ -118,7 +118,7 @@
       "imageUrl": "/shuileme/beds/water-bed.jpg",
       "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E6%B0%B4%E5%BA%8A",
       "wikiUrlEn": "https://en.wikipedia.org/wiki/Waterbed",
-      "credit": "睡了么插画"
+      "credit": "Wikimedia Commons / Ciell"
     },
     {
       "id": "train-sleeper",
@@ -133,7 +133,7 @@
       "imageUrl": "/shuileme/beds/train-sleeper.jpg",
       "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E5%8D%A7%E9%93%BA",
       "wikiUrlEn": "https://en.wikipedia.org/wiki/Sleeping_car",
-      "credit": "睡了么插画"
+      "credit": "Wikimedia Commons / Ed Webster"
     },
     {
       "id": "space-bunk",
@@ -148,7 +148,7 @@
       "imageUrl": "/shuileme/beds/space-bunk.jpg",
       "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E5%A4%AA%E7%A9%BA%E7%9D%A1%E7%9C%A0",
       "wikiUrlEn": "https://en.wikipedia.org/wiki/Sleep_in_space",
-      "credit": "睡了么插画"
+      "credit": "Wikimedia Commons / NASA"
     }
   ]
 }

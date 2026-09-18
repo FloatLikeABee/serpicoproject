@@ -5,7 +5,9 @@ type AudioCtx = AudioContext;
 
 let ctx: AudioCtx | null = null;
 let source: AudioBufferSourceNode | null = null;
+let fallback: HTMLAudioElement | null = null;
 let generation = 0;
+let playing = false;
 
 function audioCtor(): { new (): AudioCtx } | undefined {
   const w = window as unknown as {
@@ -63,68 +65,116 @@ function closeCtx(open: AudioCtx | null) {
   }
 }
 
+function stopSourceOnly() {
+  const playingSrc = source;
+  source = null;
+  try {
+    playingSrc?.stop();
+  } catch {
+    /* already stopped */
+  }
+  if (fallback) {
+    try {
+      fallback.pause();
+      fallback.src = '';
+    } catch {
+      /* already stopped */
+    }
+    fallback = null;
+  }
+}
+
+function startFallback(scene: ShuilemeScene): void {
+  stopSourceOnly();
+  try {
+    const el = new Audio(`/shuileme/sounds/${scene}.wav`);
+    el.loop = true;
+    const play = el.play();
+    if (play && typeof play.catch === 'function') {
+      play.catch(() => undefined);
+    }
+    fallback = el;
+    playing = true;
+  } catch {
+    playing = false;
+  }
+}
+
+export function getShuilemeSoundState(): 'idle' | 'playing' {
+  return playing ? 'playing' : 'idle';
+}
+
 export async function startShuilemeSound(scene: ShuilemeScene | string): Promise<void> {
   const name = (SHUILEME_SCENES as readonly string[]).includes(scene) ? (scene as ShuilemeScene) : 'brown';
-  stopShuilemeSound();
+  stopSourceOnly();
+  playing = false;
   const Ctor = audioCtor();
-  if (!Ctor) return;
-  const my = generation;
-  const next = new Ctor();
-  ctx = next;
+  if (!Ctor) {
+    startFallback(name);
+    return;
+  }
+  const mine = generation;
+  if (!ctx) {
+    ctx = new Ctor();
+  }
+  const open = ctx;
   try {
-    if (typeof next.resume === 'function') {
-      await next.resume();
+    if (typeof open.resume === 'function') {
+      const resumed = open.resume();
+      if (resumed && typeof (resumed as Promise<void>).then === 'function') {
+        await resumed;
+      }
     }
-    if (my !== generation || ctx !== next) {
-      closeCtx(next);
+    if (mine !== generation || ctx !== open) {
+      if (ctx !== open) closeCtx(open);
       return;
     }
     const seconds = 2;
-    const rate = next.sampleRate || 44100;
+    const rate = open.sampleRate || 44100;
     const length = Math.max(1024, Math.floor(rate * seconds));
-    const buffer = next.createBuffer(1, length, rate);
+    const buffer = open.createBuffer(1, length, rate);
     fillScene(buffer.getChannelData(0), name);
-    const src = next.createBufferSource();
+    const src = open.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
-    const filter = next.createBiquadFilter();
+    const filter = open.createBiquadFilter();
     filter.type = name === 'rain' ? 'highpass' : 'lowpass';
     filter.frequency.value = name === 'rain' ? 900 : name === 'fan' ? 280 : 800;
-    const gain = next.createGain();
-    gain.gain.value = 0.28;
+    const gain = open.createGain();
+    gain.gain.value = 0.45;
     src.connect(filter);
     filter.connect(gain);
-    gain.connect(next.destination);
+    gain.connect(open.destination);
     src.start();
-    if (my !== generation || ctx !== next) {
+    if (mine !== generation || ctx !== open) {
       try {
         src.stop();
       } catch {
         /* already stopped */
       }
-      closeCtx(next);
+      if (ctx !== open) closeCtx(open);
       return;
     }
     source = src;
+    playing = true;
   } catch {
-    if (ctx === next) {
-      stopShuilemeSound();
-    } else {
-      closeCtx(next);
+    if (mine !== generation) {
+      if (ctx === open) {
+        /* stop already owns teardown */
+      } else {
+        closeCtx(open);
+      }
+      return;
     }
+    startFallback(name);
   }
 }
 
 export function stopShuilemeSound(): void {
   generation += 1;
-  const playing = source;
+  playing = false;
+  stopSourceOnly();
   const open = ctx;
-  source = null;
   ctx = null;
-  try {
-    playing?.stop();
-  } catch {
-    /* already stopped */
-  }
   closeCtx(open);
 }
