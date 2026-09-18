@@ -51,3 +51,18 @@ test('authenticated / shows the officer dashboard', async () => {
   render(<App />);
   expect(await screen.findByText('Officer dashboard')).toBeInTheDocument();
 });
+
+test('unauthenticated /shuileme/chat is 睡了么 chat inside the lounge, not officer chrome', async () => {
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ beds: [], bedrooms: [], articles: [] }),
+  });
+  window.history.pushState({}, '', '/shuileme/chat');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: '睡了么' })).toBeInTheDocument();
+  expect(screen.getByRole('textbox').tagName).toBe('TEXTAREA');
+  expect(screen.queryByText('Officer dashboard')).not.toBeInTheDocument();
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(window.location.pathname).toBe('/shuileme/chat');
+});

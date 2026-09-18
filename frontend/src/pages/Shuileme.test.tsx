@@ -165,6 +165,7 @@ function cardTitleButton(name: string): HTMLElement {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
+  window.history.pushState({}, '', '/shuileme');
   global.fetch = mockShuilemeFetch();
 });
 
@@ -432,6 +433,25 @@ test('sound dock marks playing and 停 silences', async () => {
   expect(close).toHaveBeenCalled();
   expect(screen.queryByText(/正在响|Playing/)).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: '睡了么' })).toBeInTheDocument();
+});
+
+test('/shuileme/chat opens the 聊 dock inside 睡了么', async () => {
+  window.history.pushState({}, '', '/shuileme/chat');
+  render(<Shuileme />);
+  expect(screen.getByRole('heading', { name: '睡了么' })).toBeInTheDocument();
+  expect(screen.getByRole('textbox').tagName).toBe('TEXTAREA');
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(window.location.pathname).toBe('/shuileme/chat');
+});
+
+test('聊 dock stays on the 睡了么 app at /shuileme/chat', async () => {
+  render(<Shuileme />);
+  await userEvent.click(screen.getByRole('button', { name: '聊' }));
+  expect(window.location.pathname).toBe('/shuileme/chat');
+  expect(screen.getByRole('textbox').tagName).toBe('TEXTAREA');
+  expect(screen.getByRole('heading', { name: '睡了么' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: '床' }));
+  expect(window.location.pathname).toBe('/shuileme');
 });
 
 test('chat dock shows a dry lecture and a sleepy thinking status', async () => {
