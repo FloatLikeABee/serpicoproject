@@ -165,6 +165,7 @@ function cardTitleButton(name: string): HTMLElement {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
+  window.history.pushState({}, '', '/shuileme');
   global.fetch = mockShuilemeFetch();
 });
 
@@ -320,10 +321,13 @@ test('bed cards appear before every photo src is assigned', async () => {
   expect(screen.getByText('榻榻米')).toBeInTheDocument();
   expect(screen.getByText('罗汉床')).toBeInTheDocument();
   expect(document.querySelectorAll('.sm-ph').length).toBeGreaterThanOrEqual(3);
+  await waitFor(() => {
+    const queued = Array.from(document.querySelectorAll('.sm-gallery img')) as HTMLImageElement[];
+    expect(queued.length).toBeGreaterThanOrEqual(3);
+    expect(queued.filter((img) => img.getAttribute('src')).length).toBe(2);
+  });
   const imgs = Array.from(document.querySelectorAll('.sm-gallery img')) as HTMLImageElement[];
-  expect(imgs.length).toBeGreaterThanOrEqual(3);
   const withSrc = imgs.filter((img) => img.getAttribute('src'));
-  expect(withSrc.length).toBe(2);
   fireEvent.load(withSrc[0]);
   const later = imgs.find((img) => !withSrc.includes(img));
   expect(later?.getAttribute('src')).toBe('/shuileme/beds/luohan-bed.jpg');
@@ -335,8 +339,10 @@ test('bedroom photos wait their turn', async () => {
   expect(await screen.findByText('黑房间')).toBeInTheDocument();
   expect(screen.getByText('蒙古包夜')).toBeInTheDocument();
   expect(screen.getByText('竹帘午睡')).toBeInTheDocument();
-  const imgs = Array.from(document.querySelectorAll('.sm-gallery img')) as HTMLImageElement[];
-  expect(imgs.filter((img) => img.getAttribute('src')).length).toBe(2);
+  await waitFor(() => {
+    const imgs = Array.from(document.querySelectorAll('.sm-gallery img')) as HTMLImageElement[];
+    expect(imgs.filter((img) => img.getAttribute('src')).length).toBe(2);
+  });
 });
 
 test('醒了 freezes 已躺 and stops sound', async () => {
@@ -432,6 +438,25 @@ test('sound dock marks playing and 停 silences', async () => {
   expect(close).toHaveBeenCalled();
   expect(screen.queryByText(/正在响|Playing/)).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: '睡了么' })).toBeInTheDocument();
+});
+
+test('/shuileme/chat opens the 聊 dock inside 睡了么', async () => {
+  window.history.pushState({}, '', '/shuileme/chat');
+  render(<Shuileme />);
+  expect(screen.getByRole('heading', { name: '睡了么' })).toBeInTheDocument();
+  expect(screen.getByRole('textbox').tagName).toBe('TEXTAREA');
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(window.location.pathname).toBe('/shuileme/chat');
+});
+
+test('聊 dock stays on the 睡了么 app at /shuileme/chat', async () => {
+  render(<Shuileme />);
+  await userEvent.click(screen.getByRole('button', { name: '聊' }));
+  expect(window.location.pathname).toBe('/shuileme/chat');
+  expect(screen.getByRole('textbox').tagName).toBe('TEXTAREA');
+  expect(screen.getByRole('heading', { name: '睡了么' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: '床' }));
+  expect(window.location.pathname).toBe('/shuileme');
 });
 
 test('chat dock shows a dry lecture and a sleepy thinking status', async () => {

@@ -28,6 +28,7 @@ function AppContent() {
         <Route path="/x-hard-data" element={<HardDataDocs />} />
         <Route path="/fridge-raid" element={<FridgeRaid />} />
         <Route path="/lalem" element={<Lalem />} />
+        <Route path="/shuileme/chat" element={<Shuileme />} />
         <Route path="/shuileme" element={<Shuileme />} />
         <Route
           path="/*"

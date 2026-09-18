@@ -78,6 +78,18 @@ function shuilemeLocale(nation: Nation): string {
   return nation === 'cn' ? 'cn' : 'en';
 }
 
+function loungePath(pathname: string): string {
+  return pathname.replace(/\/+$/, '') || '/';
+}
+
+function dockFromPath(pathname: string): Dock | null {
+  return loungePath(pathname) === '/shuileme/chat' ? 'chat' : null;
+}
+
+function pathForDock(dock: Dock): string {
+  return dock === 'chat' ? '/shuileme/chat' : '/shuileme';
+}
+
 function readDock(): Dock {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
@@ -168,7 +180,7 @@ function prefersReducedMotion(): boolean {
 
 export default function Shuileme() {
   const [nation, setNation] = useState<Nation>(() => detectShuilemeLang());
-  const [dock, setDock] = useState<Dock>(() => readDock());
+  const [dock, setDock] = useState<Dock>(() => dockFromPath(window.location.pathname) ?? readDock());
   const [beds, setBeds] = useState<ShuilemeBed[]>([]);
   const [rooms, setRooms] = useState<ShuilemeRoom[]>([]);
   const [articles, setArticles] = useState<ShuilemeLore[]>([]);
@@ -210,6 +222,14 @@ export default function Shuileme() {
     return () => window.clearInterval(id);
   }, []);
 
+  const goDock = useCallback((next: Dock) => {
+    setDock(next);
+    const want = pathForDock(next);
+    if (loungePath(window.location.pathname) !== want) {
+      window.history.pushState({ shuilemeDock: next }, '', want);
+    }
+  }, []);
+
   useEffect(() => {
     try {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ dock }));
@@ -217,6 +237,19 @@ export default function Shuileme() {
       /* ignore */
     }
   }, [dock]);
+
+  useEffect(() => {
+    const onPop = () => {
+      const fromPath = dockFromPath(window.location.pathname);
+      if (fromPath) {
+        setDock(fromPath);
+        return;
+      }
+      setDock((current) => (current === 'chat' ? 'beds' : current));
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   useEffect(() => {
     let gone = false;
@@ -612,22 +645,22 @@ export default function Shuileme() {
       ) : null}
 
       <div className="sm-dock">
-        <button type="button" className={dock === 'beds' ? 'is-on' : undefined} onClick={() => setDock('beds')}>
+        <button type="button" className={dock === 'beds' ? 'is-on' : undefined} onClick={() => goDock('beds')}>
           {tx('shuileme.dock.beds')}
         </button>
-        <button type="button" className={dock === 'rooms' ? 'is-on' : undefined} onClick={() => setDock('rooms')}>
+        <button type="button" className={dock === 'rooms' ? 'is-on' : undefined} onClick={() => goDock('rooms')}>
           {tx('shuileme.dock.rooms')}
         </button>
-        <button type="button" className={dock === 'lore' ? 'is-on' : undefined} onClick={() => setDock('lore')}>
+        <button type="button" className={dock === 'lore' ? 'is-on' : undefined} onClick={() => goDock('lore')}>
           {tx('shuileme.dock.lore')}
         </button>
-        <button type="button" className={dock === 'sound' ? 'is-on' : undefined} onClick={() => setDock('sound')}>
+        <button type="button" className={dock === 'sound' ? 'is-on' : undefined} onClick={() => goDock('sound')}>
           {tx('shuileme.dock.sound')}
         </button>
-        <button type="button" className={dock === 'rest' ? 'is-on' : undefined} onClick={() => setDock('rest')}>
+        <button type="button" className={dock === 'rest' ? 'is-on' : undefined} onClick={() => goDock('rest')}>
           {tx('shuileme.dock.rest')}
         </button>
-        <button type="button" className={dock === 'chat' ? 'is-on' : undefined} onClick={() => setDock('chat')}>
+        <button type="button" className={dock === 'chat' ? 'is-on' : undefined} onClick={() => goDock('chat')}>
           {tx('shuileme.dock.chat')}
         </button>
       </div>

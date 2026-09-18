@@ -27,6 +27,7 @@ test('officer Navigation, Login, landing, Fridge Raid, and 拉了么 have no /sh
   expect(idx).toBeLessThan(protectedIdx);
   const spaRoutes = readFileSync(join(__dirname, '../scripts/spa-routes.js'), 'utf8');
   expect(spaRoutes).toMatch(/'shuileme'/);
+  expect(spaRoutes).toMatch(/'shuileme\/chat'/);
 });
 
 test('睡了么 page and night CSS stay isolated and dim', () => {
