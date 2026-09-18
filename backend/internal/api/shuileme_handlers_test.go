@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"serpico/backend/internal/ai"
 )
 
 type shuilemeBedJSON struct {
@@ -222,3 +224,75 @@ func TestShuilemeWikiRejectsOffHostWithoutUpstream(t *testing.T) {
 		t.Fatalf("off-host must not fetch, hits=%d", hits)
 	}
 }
+
+func TestShuilemeChatPostReturnsDryLecture(t *testing.T) {
+	resetLalemChatLimiter()
+	resetShuilemeChatLimiter()
+	r := fridgeRaidTestRouter(t, &ai.ShuilemeAdvisor{})
+	w := postJSON(r, "/api/v1/shuileme/chat", `{"locale":"cn","message":"讲一点数学"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Reply string `json:"reply"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(got.Reply) == "" {
+		t.Fatal("empty reply")
+	}
+	low := strings.ToLower(got.Reply)
+	if strings.Contains(low, "you have") || strings.Contains(got.Reply, "你患有") {
+		t.Fatalf("diagnostic %q", got.Reply)
+	}
+	if strings.Contains(got.Reply, "便便科普") {
+		t.Fatalf("must not reuse 拉了么 canned: %q", got.Reply)
+	}
+}
+
+func TestShuilemeChatCannedWhenAdvisorHasNoCompleteFn(t *testing.T) {
+	resetShuilemeChatLimiter()
+	r := fridgeRaidTestRouter(t, &ai.ShuilemeAdvisor{})
+	w := postJSON(r, "/api/v1/shuileme/chat", `{"locale":"en","message":"some math"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Reply string `json:"reply"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(got.Reply) == "" {
+		t.Fatal("expected canned")
+	}
+	if strings.Contains(strings.ToLower(got.Reply), "funny poop") {
+		t.Fatalf("canned reused 拉了么: %q", got.Reply)
+	}
+}
+
+func TestShuilemeChatRejectsDiagnosisFromLiveModel(t *testing.T) {
+	resetShuilemeChatLimiter()
+	adv := &ai.ShuilemeAdvisor{
+		CompleteFn: func(prompt string) (string, error) {
+			return `{"reply":"you have insomnia and 你患有失眠"}`, nil
+		},
+	}
+	r := fridgeRaidTestRouter(t, adv)
+	w := postJSON(r, "/api/v1/shuileme/chat", `{"locale":"en","message":"am I sick?"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Reply string `json:"reply"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	low := strings.ToLower(got.Reply)
+	if strings.Contains(low, "you have") || strings.Contains(got.Reply, "你患有") {
+		t.Fatalf("diagnostic leaked %q", got.Reply)
+	}
+}
+

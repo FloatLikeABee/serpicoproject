@@ -37,6 +37,21 @@ const beds = {
       wikiUrlEn: 'https://en.wikipedia.org/wiki/Tatami',
       credit: '睡了么插画',
     },
+    {
+      id: 'luohan-bed',
+      title: '罗汉床',
+      titleEn: 'Luohan couch-bed',
+      blurb: '三面围栏。',
+      blurbEn: 'Rails on three sides.',
+      size: 'double',
+      fill: 'platform',
+      era: 'ancient',
+      region: 'Jiangnan',
+      imageUrl: '/shuileme/beds/luohan-bed.jpg',
+      wikiUrlZh: 'https://zh.wikipedia.org/wiki/%E7%BD%97%E6%B1%89%E5%BA%8A',
+      wikiUrlEn: 'https://en.wikipedia.org/wiki/Chinese_furniture',
+      credit: '睡了么插画',
+    },
   ],
 };
 
@@ -68,6 +83,19 @@ const bedrooms = {
       wikiUrlEn: 'https://en.wikipedia.org/wiki/Yurt',
       credit: '睡了么插画',
     },
+    {
+      id: 'bamboo-nap',
+      title: '竹帘午睡',
+      titleEn: 'Bamboo nap',
+      blurb: '竹影在墙上走。',
+      blurbEn: 'Bamboo shade on the wall.',
+      light: 'day-shutters',
+      layout: 'alcove',
+      imageUrl: '/shuileme/rooms/bamboo-nap.jpg',
+      wikiUrlZh: 'https://zh.wikipedia.org/wiki/%E7%AB%B9',
+      wikiUrlEn: 'https://en.wikipedia.org/wiki/Bamboo',
+      credit: '睡了么插画',
+    },
   ],
 };
 
@@ -92,6 +120,18 @@ const lore = {
 function mockShuilemeFetch() {
   return jest.fn().mockImplementation((url: RequestInfo) => {
     const href = String(url);
+    if (href.includes('/lalem/')) {
+      return Promise.reject(new Error('睡了么 must not call /lalem/'));
+    }
+    if (href.includes('/shuileme/chat')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          reply: '加法满足交换律。一加二等于二加一。句子很短。这不是诊断。',
+        }),
+      });
+    }
     if (href.includes('/shuileme/wiki')) {
       return Promise.resolve({
         ok: true,
@@ -138,13 +178,14 @@ test('fresh visit shows 睡了么, not officer nav or 拉了么 world', async ()
   expect(screen.getByText(/已躺/)).toBeInTheDocument();
   expect(await screen.findByRole('img', { name: '火炕' })).toHaveAttribute('src', '/shuileme/beds/fire-kang.jpg');
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
-  expect(document.querySelectorAll('.sm-dock button')).toHaveLength(5);
+  expect(document.querySelectorAll('.sm-dock button')).toHaveLength(6);
   expect(screen.getByRole('button', { name: '床' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '卧' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '典' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '声' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '息' })).toBeInTheDocument();
-  expect(document.querySelector('textarea')).toBeNull();
+  expect(screen.getByRole('button', { name: '聊' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '醒了' })).toBeInTheDocument();
   expect(document.querySelector('.fr-page')).toBeNull();
   expect(document.documentElement).toHaveClass('sm-world');
   expect(document.documentElement).not.toHaveClass('ll-world');
@@ -267,4 +308,208 @@ test('Shuileme source does not use Notification or video', () => {
   expect(src).not.toMatch(/<video/);
   expect(src).not.toMatch(/youtube|douyin|tiktok/i);
   expect(src).not.toMatch(/\/lalem\//);
+  expect(src).not.toMatch(/#c6a56a/);
+});
+
+test('bed cards appear before every photo src is assigned', async () => {
+  render(<Shuileme />);
+  expect(await screen.findByText('火炕')).toBeInTheDocument();
+  expect(screen.getByText('榻榻米')).toBeInTheDocument();
+  expect(screen.getByText('罗汉床')).toBeInTheDocument();
+  expect(document.querySelectorAll('.sm-ph').length).toBeGreaterThanOrEqual(3);
+  const imgs = Array.from(document.querySelectorAll('.sm-gallery img')) as HTMLImageElement[];
+  expect(imgs.length).toBeGreaterThanOrEqual(3);
+  const withSrc = imgs.filter((img) => img.getAttribute('src'));
+  expect(withSrc.length).toBe(2);
+  fireEvent.load(withSrc[0]);
+  const later = imgs.find((img) => !withSrc.includes(img));
+  expect(later?.getAttribute('src')).toBe('/shuileme/beds/luohan-bed.jpg');
+});
+
+test('bedroom photos wait their turn', async () => {
+  render(<Shuileme />);
+  await userEvent.click(screen.getByRole('button', { name: '卧' }));
+  expect(await screen.findByText('黑房间')).toBeInTheDocument();
+  expect(screen.getByText('蒙古包夜')).toBeInTheDocument();
+  expect(screen.getByText('竹帘午睡')).toBeInTheDocument();
+  const imgs = Array.from(document.querySelectorAll('.sm-gallery img')) as HTMLImageElement[];
+  expect(imgs.filter((img) => img.getAttribute('src')).length).toBe(2);
+});
+
+test('醒了 freezes 已躺 and stops sound', async () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  const resume = jest.fn().mockResolvedValue(undefined);
+  const close = jest.fn();
+  (window as unknown as { AudioContext: unknown }).AudioContext = jest.fn().mockImplementation(() => ({
+    resume,
+    close,
+    state: 'suspended',
+    sampleRate: 44100,
+    destination: {},
+    createBuffer: () => ({
+      length: 1024,
+      numberOfChannels: 1,
+      sampleRate: 44100,
+      getChannelData: () => new Float32Array(1024),
+    }),
+    createBufferSource: () => ({
+      connect: jest.fn(),
+      start: jest.fn(),
+      stop: jest.fn(),
+      loop: true,
+      buffer: null,
+    }),
+    createGain: () => ({ connect: jest.fn(), gain: { value: 1 } }),
+    createBiquadFilter: () => ({
+      connect: jest.fn(),
+      type: 'lowpass',
+      frequency: { value: 800 },
+    }),
+  }));
+  render(<Shuileme />);
+  await userEvent.click(screen.getByRole('button', { name: '声' }));
+  await userEvent.click(screen.getByRole('button', { name: /褐噪|Brown/ }));
+  await userEvent.click(screen.getByRole('button', { name: '醒了' }));
+  const frozen = screen.getByText(/已躺/).textContent;
+  act(() => {
+    jest.setSystemTime(start + 12 * 1000);
+    jest.advanceTimersByTime(2000);
+  });
+  expect(screen.getByText(/已躺/).textContent).toBe(frozen);
+  expect(close).toHaveBeenCalled();
+  expect(screen.getByRole('heading', { name: '睡了么' })).toBeInTheDocument();
+  expect(document.querySelector('.fr-page')).toBeNull();
+  expect(document.documentElement).toHaveClass('sm-world');
+  const lalemCalls = (global.fetch as jest.Mock).mock.calls.filter((call) => String(call[0]).includes('/lalem/'));
+  expect(lalemCalls).toHaveLength(0);
+  jest.useRealTimers();
+});
+
+test('sound dock marks playing and 停 silences', async () => {
+  const resume = jest.fn().mockResolvedValue(undefined);
+  const close = jest.fn();
+  (window as unknown as { AudioContext: unknown }).AudioContext = jest.fn().mockImplementation(() => ({
+    resume,
+    close,
+    state: 'suspended',
+    sampleRate: 44100,
+    destination: {},
+    createBuffer: () => ({
+      length: 1024,
+      numberOfChannels: 1,
+      sampleRate: 44100,
+      getChannelData: () => new Float32Array(1024),
+    }),
+    createBufferSource: () => ({
+      connect: jest.fn(),
+      start: jest.fn(),
+      stop: jest.fn(),
+      loop: true,
+      buffer: null,
+    }),
+    createGain: () => ({ connect: jest.fn(), gain: { value: 1 } }),
+    createBiquadFilter: () => ({
+      connect: jest.fn(),
+      type: 'lowpass',
+      frequency: { value: 800 },
+    }),
+  }));
+  render(<Shuileme />);
+  await userEvent.click(screen.getByRole('button', { name: '声' }));
+  expect(resume).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole('button', { name: /褐噪|Brown/ }));
+  expect(resume).toHaveBeenCalled();
+  expect(screen.getByText(/正在响|Playing/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: '停' }));
+  expect(close).toHaveBeenCalled();
+  expect(screen.queryByText(/正在响|Playing/)).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '睡了么' })).toBeInTheDocument();
+});
+
+test('chat dock shows a dry lecture and a sleepy thinking status', async () => {
+  let releaseChat: ((value: unknown) => void) | undefined;
+  const inner = mockShuilemeFetch();
+  global.fetch = jest.fn().mockImplementation((url: RequestInfo, init?: RequestInit) => {
+    const href = String(url);
+    if (href.includes('/shuileme/chat')) {
+      return new Promise((resolve) => {
+        releaseChat = resolve;
+      });
+    }
+    return inner(url, init);
+  });
+  render(<Shuileme />);
+  await userEvent.click(screen.getByRole('button', { name: '聊' }));
+  const box = screen.getByRole('textbox');
+  expect(box.tagName).toBe('TEXTAREA');
+  await userEvent.type(box, '讲一点数学');
+  await userEvent.click(screen.getByRole('button', { name: '发送' }));
+  const status = await screen.findByRole('status');
+  expect(status).toBeInTheDocument();
+  expect(document.querySelector('.sm-chat-log')).toHaveAttribute('aria-busy', 'true');
+  expect(window.getComputedStyle(status).color).not.toMatch(/#7ee0ff|#c9f07a|#c6a56a/i);
+  await act(async () => {
+    releaseChat?.({
+      ok: true,
+      status: 200,
+      json: async () => ({ reply: '加法满足交换律。一加二等于二加一。句子很短。这不是诊断。' }),
+    });
+  });
+  expect(await screen.findByText(/交换律/)).toBeInTheDocument();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect((screen.getByText(/交换律/).textContent || '')).not.toMatch(/you have|你患有/i);
+  const chatCalls = (global.fetch as jest.Mock).mock.calls.filter((call) => String(call[0]).includes('/shuileme/chat'));
+  expect(chatCalls.length).toBeGreaterThan(0);
+  expect(String(chatCalls[0][1]?.method || '')).toMatch(/POST/i);
+  const lalemCalls = (global.fetch as jest.Mock).mock.calls.filter((call) => String(call[0]).includes('/lalem/'));
+  expect(lalemCalls).toHaveLength(0);
+  expect(document.querySelector('video')).toBeNull();
+});
+
+test('off-topic sleep chat returns to a dull lecture', async () => {
+  global.fetch = jest.fn().mockImplementation((url: RequestInfo, init?: RequestInit) => {
+    const href = String(url);
+    if (href.includes('/shuileme/chat')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ reply: '夜空看起来暗，因为没有阳光散射。这是简单的光学。不是案件，也不是便便。' }),
+      });
+    }
+    return mockShuilemeFetch()(url, init);
+  });
+  render(<Shuileme />);
+  await userEvent.click(screen.getByRole('button', { name: '聊' }));
+  await userEvent.type(screen.getByRole('textbox'), 'officer case file and Fridge Raid leftovers and poop');
+  await userEvent.click(screen.getByRole('button', { name: '发送' }));
+  const reply = await screen.findByText(/光学|散射/);
+  expect(reply.textContent || '').not.toMatch(/Officer Serpico|case file|便便科普/i);
+});
+
+test('reduced-motion thinking stays static', async () => {
+  const prev = window.matchMedia;
+  window.matchMedia = jest.fn().mockImplementation((query: string) => ({
+    matches: String(query).includes('prefers-reduced-motion'),
+    media: query,
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+  }));
+  global.fetch = jest.fn().mockImplementation((url: RequestInfo, init?: RequestInit) => {
+    const href = String(url);
+    if (href.includes('/shuileme/chat')) {
+      return new Promise(() => {
+        /* hang so thinking stays */
+      });
+    }
+    return mockShuilemeFetch()(url, init);
+  });
+  render(<Shuileme />);
+  await userEvent.click(screen.getByRole('button', { name: '聊' }));
+  await userEvent.type(screen.getByRole('textbox'), '讲一点法律');
+  await userEvent.click(screen.getByRole('button', { name: '发送' }));
+  const status = await screen.findByRole('status');
+  expect(status).toHaveClass('sm-think--static');
+  window.matchMedia = prev;
 });

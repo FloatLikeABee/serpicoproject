@@ -690,3 +690,56 @@ test('sit-alert still wins while chat is open', () => {
   expect(screen.getAllByRole('dialog', { name: '久坐警报' })).toHaveLength(1);
   jest.useRealTimers();
 });
+
+test('chat thinking status appears while the model is busy', async () => {
+  let releaseChat: ((value: unknown) => void) | undefined;
+  const inner = mockLalemFetch();
+  global.fetch = jest.fn().mockImplementation((url: RequestInfo, init?: RequestInit) => {
+    if (String(url).includes('/lalem/chat')) {
+      return new Promise((resolve) => {
+        releaseChat = resolve;
+      });
+    }
+    return inner(url, init);
+  });
+  render(<Lalem />);
+  await userEvent.click(screen.getByRole('button', { name: '聊' }));
+  await userEvent.type(screen.getByRole('textbox'), 'What is Bristol type 4?');
+  await userEvent.click(screen.getByRole('button', { name: '发送' }));
+  const status = await screen.findByRole('status');
+  expect(status).toHaveClass('ll-think');
+  expect(document.querySelector('.ll-chat-log')).toHaveAttribute('aria-busy', 'true');
+  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
+  const thinkBlock = css.slice(css.indexOf('.ll-think'));
+  expect(thinkBlock.slice(0, 800)).not.toMatch(/#c6a56a/i);
+  await act(async () => {
+    releaseChat?.({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        reply: 'Bristol type 4 is a smooth little sausage. Not a diagnosis — just funny poop science.',
+      }),
+    });
+  });
+  expect(await screen.findByText(/sausage|poop science/i)).toBeInTheDocument();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+});
+
+test('完了 freezes 已坐 and stops later sit-alerts and companion', () => {
+  jest.useFakeTimers();
+  const start = 1_700_000_000_000;
+  jest.setSystemTime(start);
+  render(<Lalem />);
+  expect(screen.getByRole('button', { name: '完了' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '完了' }));
+  const frozen = screen.getByText(/已坐/).textContent;
+  act(() => {
+    jest.setSystemTime(start + 5 * 60 * 1000);
+    jest.advanceTimersByTime(1000);
+  });
+  expect(screen.getByText(/已坐/).textContent).toBe(frozen);
+  expect(screen.queryByRole('dialog', { name: '久坐警报' })).not.toBeInTheDocument();
+  expect(document.querySelector('.ll-companion')).toBeNull();
+  expect(screen.getByRole('heading', { name: '拉了么' })).toBeInTheDocument();
+  jest.useRealTimers();
+});

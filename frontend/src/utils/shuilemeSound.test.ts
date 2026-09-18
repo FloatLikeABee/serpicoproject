@@ -1,10 +1,6 @@
-import { startShuilemeSound, stopShuilemeSound, SHUILEME_SCENES } from './shuilemeSound';
+import { startShuilemeSound, stopShuilemeSound, getShuilemeSoundState, SHUILEME_SCENES } from './shuilemeSound';
 
-test('shuileme scenes include brown pink rain fan', () => {
-  expect(SHUILEME_SCENES).toEqual(expect.arrayContaining(['brown', 'pink', 'rain', 'fan']));
-});
-
-test('startShuilemeSound resumes context; stop closes it; hidden does not stop', async () => {
+function fakeAudioContext() {
   const resume = jest.fn().mockResolvedValue(undefined);
   const close = jest.fn();
   const stop = jest.fn();
@@ -35,17 +31,40 @@ test('startShuilemeSound resumes context; stop closes it; hidden does not stop',
     }),
   }));
   (window as unknown as { AudioContext: unknown }).AudioContext = FakeCtx;
+  return { FakeCtx, resume, close };
+}
+
+test('shuileme scenes include brown pink rain fan', () => {
+  expect(SHUILEME_SCENES).toEqual(expect.arrayContaining(['brown', 'pink', 'rain', 'fan']));
+});
+
+test('start reuses one AudioContext, resume is called, hidden does not stop', async () => {
+  const { FakeCtx, resume, close } = fakeAudioContext();
+  expect(getShuilemeSoundState()).toBe('idle');
+  await startShuilemeSound('brown');
+  expect(resume).toHaveBeenCalled();
+  expect(getShuilemeSoundState()).toBe('playing');
+  expect(FakeCtx).toHaveBeenCalledTimes(1);
+  expect(close).not.toHaveBeenCalled();
+  resume.mockClear();
+  await startShuilemeSound('pink');
+  expect(resume).toHaveBeenCalled();
+  expect(FakeCtx).toHaveBeenCalledTimes(1);
+  expect(close).not.toHaveBeenCalled();
+  document.dispatchEvent(new Event('visibilitychange'));
+  expect(close).not.toHaveBeenCalled();
+  expect(getShuilemeSoundState()).toBe('playing');
+  stopShuilemeSound();
+  expect(getShuilemeSoundState()).toBe('idle');
+  expect(close).toHaveBeenCalled();
+});
+
+test('stale start after stop does not keep a closed context playing', async () => {
+  const { resume, close } = fakeAudioContext();
   const pending = startShuilemeSound('brown');
   stopShuilemeSound();
   await pending;
   expect(resume).toHaveBeenCalled();
-  expect(close).toHaveBeenCalled();
-  resume.mockClear();
-  close.mockClear();
-  await startShuilemeSound('brown');
-  expect(resume).toHaveBeenCalled();
-  document.dispatchEvent(new Event('visibilitychange'));
-  expect(close).not.toHaveBeenCalled();
-  stopShuilemeSound();
+  expect(getShuilemeSoundState()).toBe('idle');
   expect(close).toHaveBeenCalled();
 });
