@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { t } from '../i18n/catalog';
 import { detectShuilemeLang, saveShuilemeLang } from '../utils/shuilemeLang';
 import { startShuilemeSound, stopShuilemeSound, SHUILEME_SCENES } from '../utils/shuilemeSound';
+import { queueLoungePhotos } from '../utils/queueLoungePhotos';
 import { enterLoungeWorld, leaveLoungeWorld } from '../utils/loungeWorld';
 import { apiV1Base } from '../utils/hardDataUrls';
 import type { Nation } from '../utils/nation';
@@ -14,7 +15,7 @@ const ERAS = ['ancient', 'tang', 'edo', 'victorian', 'modern', 'space'] as const
 const LIGHTS = ['blackout', 'dim', 'nightlight', 'day-shutters', 'moon'] as const;
 const LAYOUTS = ['alcove', 'open', 'capsule', 'sleeper', 'kang-room', 'washitsu', 'tent', 'chamber'] as const;
 
-type Dock = 'beds' | 'rooms' | 'lore' | 'sound' | 'rest';
+type Dock = 'beds' | 'rooms' | 'lore' | 'sound' | 'rest' | 'chat';
 
 export type ShuilemeBed = {
   id: string;
@@ -69,7 +70,13 @@ type WikiReader =
   | { status: 'ok'; title: string; extract: string; sourceUrl: string }
   | { status: 'error'; url: string };
 
+type ChatTurn = { role: 'user' | 'assistant'; text: string };
+
 type SessionSnap = { dock?: Dock };
+
+function shuilemeLocale(nation: Nation): string {
+  return nation === 'cn' ? 'cn' : 'en';
+}
 
 function readDock(): Dock {
   try {
@@ -81,7 +88,8 @@ function readDock(): Dock {
       parsed?.dock === 'rooms' ||
       parsed?.dock === 'lore' ||
       parsed?.dock === 'sound' ||
-      parsed?.dock === 'rest'
+      parsed?.dock === 'rest' ||
+      parsed?.dock === 'chat'
     ) {
       return parsed.dock;
     }
@@ -174,7 +182,12 @@ export default function Shuileme() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [soundScene, setSoundScene] = useState<string>('');
   const [restStatic] = useState(() => prefersReducedMotion());
+  const [sessionOver, setSessionOver] = useState(false);
+  const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
   const started = useRef(Date.now());
+  const frozenElapsed = useRef<number | null>(null);
   const titleId = useId();
   const wikiTitleId = useId();
   const wikiGen = useRef(0);
@@ -278,6 +291,11 @@ export default function Shuileme() {
     });
   }, [rooms, light, layout]);
 
+  useEffect(() => {
+    if (dock !== 'beds' && dock !== 'rooms') return undefined;
+    return queueLoungePhotos(document.querySelector('.sm-gallery'));
+  }, [dock, visibleBeds, visibleRooms]);
+
   const bedName = (item: ShuilemeBed) => (nation === 'cn' ? item.title : item.titleEn);
   const bedBlurb = (item: ShuilemeBed) => (nation === 'cn' ? item.blurb : item.blurbEn);
   const roomName = (item: ShuilemeRoom) => (nation === 'cn' ? item.title : item.titleEn);
@@ -285,7 +303,10 @@ export default function Shuileme() {
   const loreName = (item: ShuilemeLore) => (nation === 'cn' ? item.title : item.titleEn);
   const loreBody = (item: ShuilemeLore) => (nation === 'cn' ? item.body : item.bodyEn);
 
-  const elapsed = Math.max(0, Math.floor((nowMs - started.current) / 1000));
+  const elapsed =
+    sessionOver && frozenElapsed.current !== null
+      ? frozenElapsed.current
+      : Math.max(0, Math.floor((nowMs - started.current) / 1000));
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
   const restDim = dock === 'rest' && elapsed >= 8 * 60;
@@ -298,6 +319,71 @@ export default function Shuileme() {
     void startShuilemeSound(scene);
   };
 
+  const stopScene = () => {
+    stopShuilemeSound();
+    setSoundScene('');
+  };
+
+  const endSession = () => {
+    if (sessionOver) return;
+    frozenElapsed.current = Math.max(0, Math.floor((Date.now() - started.current) / 1000));
+    setSessionOver(true);
+    stopScene();
+  };
+
+  const sendChat = useCallback(() => {
+    const message = chatDraft.trim();
+    if (!message || chatBusy) return;
+    const history = chatTurns.slice(-6).map((turn) => ({ role: turn.role, text: turn.text }));
+    setChatDraft('');
+    setChatTurns((prev) => prev.concat([{ role: 'user', text: message }]));
+    setChatBusy(true);
+    fetch(`${apiV1Base()}/shuileme/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale: shuilemeLocale(nation), message, history }),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((body: { reply?: string }) => {
+        const reply = String(body?.reply || '').trim();
+        if (!reply || /you have|你患有/i.test(reply)) {
+          setChatTurns((prev) =>
+            prev.concat([
+              {
+                role: 'assistant',
+                text:
+                  nation === 'cn'
+                    ? '加法可以左右交换。一加二等于二加一。句子短，读着慢。'
+                    : 'Addition is commutative. One plus two equals two plus one. Short sentences.',
+              },
+            ])
+          );
+          return;
+        }
+        setChatTurns((prev) => prev.concat([{ role: 'assistant', text: reply }]));
+      })
+      .catch(() => {
+        setChatTurns((prev) =>
+          prev.concat([
+            {
+              role: 'assistant',
+              text:
+                nation === 'cn'
+                  ? '加法可以左右交换。一加二等于二加一。句子短，读着慢。'
+                  : 'Addition is commutative. One plus two equals two plus one. Short sentences.',
+            },
+          ])
+        );
+      })
+      .finally(() => setChatBusy(false));
+  }, [chatBusy, chatDraft, chatTurns, nation]);
+
+  const queuedPhoto = (src: string, alt: string) => (
+    <span className="sm-ph">
+      <img data-src={src} alt={alt} width={320} height={320} />
+    </span>
+  );
+
   return (
     <main className="sm-page">
       <header className="sm-top">
@@ -307,6 +393,9 @@ export default function Shuileme() {
           <p className="sm-timer">{tx('shuileme.timer', { m: String(minutes), s: pad2(seconds) })}</p>
         </div>
         <div className="sm-lang">
+          <button type="button" className="sm-stop" onClick={endSession}>
+            {tx('shuileme.stop')}
+          </button>
           <button type="button" className={nation === 'us' ? 'is-on' : undefined} onClick={() => setNation('us')}>
             {tx('shuileme.langEn')}
           </button>
@@ -342,7 +431,7 @@ export default function Shuileme() {
             />
           </div>
           <ul className="sm-gallery">
-            {visibleBeds.map((item, i) => (
+            {visibleBeds.map((item) => (
               <li key={item.id}>
                 <article className="sm-card">
                   {loungeWikiUrl(item, nation) ? (
@@ -352,10 +441,10 @@ export default function Shuileme() {
                       aria-label={`${tx('shuileme.wiki')}: ${bedName(item)}`}
                       onClick={() => openWiki(loungeWikiUrl(item, nation))}
                     >
-                      <img src={item.imageUrl} alt={bedName(item)} width={320} height={320} loading={i === 0 ? 'eager' : 'lazy'} />
+                      {queuedPhoto(item.imageUrl, bedName(item))}
                     </button>
                   ) : (
-                    <img src={item.imageUrl} alt={bedName(item)} width={320} height={320} />
+                    queuedPhoto(item.imageUrl, bedName(item))
                   )}
                   <button type="button" className="sm-card-open" onClick={() => setOpen({ kind: 'bed', item })}>
                     <span className="sm-card-title" title={bedName(item)}>
@@ -391,7 +480,7 @@ export default function Shuileme() {
             />
           </div>
           <ul className="sm-gallery">
-            {visibleRooms.map((item, i) => (
+            {visibleRooms.map((item) => (
               <li key={item.id}>
                 <article className="sm-card">
                   {loungeWikiUrl(item, nation) ? (
@@ -401,10 +490,10 @@ export default function Shuileme() {
                       aria-label={`${tx('shuileme.wiki')}: ${roomName(item)}`}
                       onClick={() => openWiki(loungeWikiUrl(item, nation))}
                     >
-                      <img src={item.imageUrl} alt={roomName(item)} width={320} height={320} loading={i === 0 ? 'eager' : 'lazy'} />
+                      {queuedPhoto(item.imageUrl, roomName(item))}
                     </button>
                   ) : (
-                    <img src={item.imageUrl} alt={roomName(item)} width={320} height={320} />
+                    queuedPhoto(item.imageUrl, roomName(item))
                   )}
                   <button type="button" className="sm-card-open" onClick={() => setOpen({ kind: 'room', item })}>
                     <span className="sm-card-title" title={roomName(item)}>
@@ -454,7 +543,7 @@ export default function Shuileme() {
 
       {dock === 'sound' ? (
         <div className="sm-body sm-sound">
-          <p className="sm-disclaimer">{tx('shuileme.sound.hint')}</p>
+          <p className="sm-disclaimer">{soundScene ? tx('shuileme.sound.playing') : tx('shuileme.sound.hint')}</p>
           <div className="sm-sound-grid">
             {SHUILEME_SCENES.map((scene) => (
               <button
@@ -466,6 +555,48 @@ export default function Shuileme() {
                 {tx(`shuileme.sound.${scene}`)}
               </button>
             ))}
+          </div>
+          {soundScene ? (
+            <div className="sm-sound-tools">
+              <button type="button" onClick={stopScene}>
+                {tx('shuileme.sound.stop')}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {dock === 'chat' ? (
+        <div className="sm-body sm-chat">
+          <ul className="sm-chat-log" aria-busy={chatBusy}>
+            {chatTurns.map((turn, i) => (
+              <li key={`${turn.role}-${i}`} className={`sm-chat-bubble sm-chat-bubble--${turn.role}`}>
+                {turn.text}
+              </li>
+            ))}
+            {chatBusy ? (
+              <li
+                className={`sm-think${restStatic ? ' sm-think--static' : ''}`}
+                role="status"
+                aria-live="polite"
+              >
+                {tx('shuileme.think')}
+              </li>
+            ) : null}
+          </ul>
+          {chatTurns.length === 0 && !chatBusy ? <p className="sm-disclaimer">{tx('shuileme.chat.empty')}</p> : null}
+          <div className="sm-chat-composer">
+            <textarea
+              aria-label={tx('shuileme.chat.composer')}
+              placeholder={tx('shuileme.chat.placeholder')}
+              value={chatDraft}
+              rows={2}
+              disabled={chatBusy}
+              onChange={(e) => setChatDraft(e.target.value)}
+            />
+            <button type="button" onClick={sendChat} disabled={chatBusy || !chatDraft.trim()}>
+              {tx('shuileme.chat.send')}
+            </button>
           </div>
         </div>
       ) : null}
@@ -495,6 +626,9 @@ export default function Shuileme() {
         </button>
         <button type="button" className={dock === 'rest' ? 'is-on' : undefined} onClick={() => setDock('rest')}>
           {tx('shuileme.dock.rest')}
+        </button>
+        <button type="button" className={dock === 'chat' ? 'is-on' : undefined} onClick={() => setDock('chat')}>
+          {tx('shuileme.dock.chat')}
         </button>
       </div>
 

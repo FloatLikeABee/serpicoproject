@@ -54,5 +54,6 @@ test('睡了么 page and night CSS stay isolated and dim', () => {
   expect(lounge).toMatch(/\.sm-sheet-hero\s*\{/);
   expect(lounge).toMatch(/prefers-reduced-motion/);
   const dock = /html\.sm-world[\s\S]*?\.sm-dock\s*\{([^}]*)\}/.exec(css)?.[1] || '';
-  expect(dock).toMatch(/repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  expect(dock).toMatch(/repeat\(6,\s*minmax\(0,\s*1fr\)\)/);
+  expect(page).toMatch(/textarea/);
 });

@@ -706,7 +706,7 @@ html.ll-world.synth-world #root {
   font-size: 0.95rem;
   color: var(--ll-muted);
 }
-.ll-lang { display: flex; gap: 0.35rem; }
+.ll-lang { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; }
 .ll-lang button,
 .ll-chip-wrap button,
 .ll-dock button,
@@ -1105,6 +1105,25 @@ html.ll-world.synth-world #root {
   gap: 0.45rem;
   flex: 1 1 auto;
 }
+.ll-think {
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.9rem;
+  max-width: 92%;
+  align-self: flex-start;
+  background: var(--ll-fun-a);
+  color: #1a1430;
+  font-weight: 700;
+}
+.ll-think:not(.ll-think--static) {
+  animation: ll-think-pulse 0.7s ease-in-out infinite;
+}
+@keyframes ll-think-pulse {
+  50% { background: var(--ll-fun-b); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ll-think:not(.ll-think--static) { animation: none; }
+}
 .ll-chat-bubble {
   margin: 0;
   padding: 0.65rem 0.8rem;
@@ -1325,12 +1344,17 @@ html.sm-world.synth-world #root {
   font-size: 0.95rem;
   color: var(--sm-muted);
 }
-.sm-lang { display: flex; gap: 0.35rem; }
+.sm-lang { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; }
+.sm-stop,
+.ll-stop {
+  font-weight: 700;
+}
 .sm-lang button,
 .sm-chip-wrap button,
 .sm-dock button,
 .sm-sheet-close,
-.sm-sound-grid button {
+.sm-sound-grid button,
+.sm-sound-tools button {
   min-height: 2.75rem;
   border: 1px solid var(--sm-line);
   background: var(--sm-surface);
@@ -1441,6 +1465,18 @@ html.sm-world.synth-world #root {
   display: block;
   background: var(--sm-surface);
 }
+.sm-ph {
+  display: block;
+  grid-row: 1;
+  aspect-ratio: 1 / 1;
+  background: color-mix(in srgb, var(--sm-surface) 78%, #000 22%);
+  overflow: hidden;
+}
+.sm-ph img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .sm-card-title {
   font-weight: 700;
   padding: 0.35rem 0.6rem 0.1rem;
@@ -1514,7 +1550,7 @@ html.sm-world.synth-world #root {
 
 .sm-dock {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.3rem;
   flex-shrink: 0;
   padding-block-start: 0.65rem;
@@ -1600,6 +1636,84 @@ html.sm-world.synth-world #root {
   grid-template-columns: 1fr 1fr;
   gap: 0.65rem;
   margin-top: 0.5rem;
+}
+.sm-sound-tools {
+  margin-top: 0.85rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.sm-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.sm-chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.sm-chat-bubble {
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.9rem;
+  line-height: 1.55;
+  max-width: 92%;
+}
+.sm-chat-bubble--user {
+  align-self: flex-end;
+  background: var(--sm-surface);
+  border: 1px solid var(--sm-line);
+}
+.sm-chat-bubble--assistant {
+  align-self: flex-start;
+  background: color-mix(in srgb, var(--sm-surface) 88%, var(--sm-accent) 12%);
+  border: 1px solid var(--sm-line);
+}
+.sm-think {
+  margin: 0;
+  color: var(--sm-muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+}
+.sm-think:not(.sm-think--static)::after {
+  content: '';
+  animation: sm-think-dots 1.8s ease-in-out infinite;
+}
+@keyframes sm-think-dots {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sm-think:not(.sm-think--static)::after { animation: none; }
+}
+.sm-chat-composer {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-end;
+}
+.sm-chat-composer textarea {
+  flex: 1 1 auto;
+  min-height: 3.2rem;
+  resize: none;
+  border-radius: 0.85rem;
+  border: 1px solid var(--sm-line);
+  background: var(--sm-surface);
+  color: var(--sm-text);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+}
+.sm-chat-composer button {
+  min-height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--sm-line);
+  background: var(--sm-surface);
+  color: var(--sm-text);
+  padding: 0.4rem 0.95rem;
+  cursor: pointer;
 }
 
 .sm-rest {
