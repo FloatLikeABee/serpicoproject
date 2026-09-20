@@ -1,0 +1,292 @@
+{
+  "cases": [
+    {
+      "id": "forming-quiet",
+      "title": "安静期的砂粒",
+      "titleEn": "Quiet grit while forming",
+      "body": "有人在体检里听说肾里有一粒很小的影子，平时并不疼。词条把这写成形成期的典型过程，不是点名。滤过尿液有时能收集到砂粒。这不是诊断。",
+      "bodyEn": "Someone hears about a tiny shadow in the kidney during a checkup and feels no pain. Entries call this a typical forming stage, without naming anyone. Straining urine sometimes collects grit. This is not a diagnosis.",
+      "stage": "forming",
+      "imageUrl": "/kuaixiaosan/cases/forming-quiet.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "colic-night",
+      "title": "夜里腰侧绞痛",
+      "titleEn": "Night flank colic",
+      "body": "有人夜里忽然腰侧剧痛，坐立不安，尿色变深。这是典型绞痛过程的百科描述。小口喝水、侧卧休息是常见的等待步骤。发热时要立刻就医。这不是诊断。",
+      "bodyEn": "Someone wakes with sudden flank pain, cannot sit still, and urine looks darker. A typical colic course in an encyclopedia. Sipping fluids and resting on the side are common waiting steps. Fever means seek emergency care. This is not a diagnosis.",
+      "stage": "colic",
+      "imageUrl": "/kuaixiaosan/cases/colic-night.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "er-waiting",
+      "title": "急诊走廊里的等待",
+      "titleEn": "Waiting in an emergency bay",
+      "body": "有人因为呕吐喝不进水、疼痛无法走动而被送到急诊。百科把无法补水和发热加腰痛写成红旗。这是就医时机说明，不是给某人下病名。空病床只是场景。",
+      "bodyEn": "Someone is taken to emergency care because vomiting blocks fluids and pain blocks walking. Encyclopedias list inability to keep fluids and fever with flank pain as red flags. Timing, not a personal disease name. Empty beds are only a setting.",
+      "stage": "er",
+      "imageUrl": "/kuaixiaosan/cases/er-waiting.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "post-op-stent",
+      "title": "术后支架的几天",
+      "titleEn": "Days with a postoperative stent",
+      "body": "有人在输尿管镜后带着双J管回家，尿里可以有血丝，腰部会有坠胀。词条写的是常见恢复过程。休息、滤过尿液、按医嘱复诊。这不是处方剂量。",
+      "bodyEn": "Someone goes home after ureteroscopy with a double-J stent, sees streaks of blood, and feels a dull flank ache. Entries describe a common recovery course. Rest, strain urine, and follow the scheduled review. This is not a prescription dose.",
+      "stage": "post-op",
+      "imageUrl": "/kuaixiaosan/cases/post-op-stent.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "prevention-water",
+      "title": "以后怎样喝水",
+      "titleEn": "How people talk about fluids later",
+      "body": "有人在排出一枚结石后，开始把水杯放在桌上。预防词条强调足量液体，不写成惩罚。柠檬水是常见的饮食讨论，不是特效药。这不是诊断。",
+      "bodyEn": "Someone who has passed a stone starts leaving a water glass on the table. Prevention entries emphasize enough fluid, not punishment. Lemon water is a common diet discussion, not a miracle drug. This is not a diagnosis.",
+      "stage": "prevention",
+      "imageUrl": "/kuaixiaosan/cases/prevention-water.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "colic-wave",
+      "title": "一阵一阵的绞痛",
+      "titleEn": "Waves of colic",
+      "body": "有人描述疼痛像波浪，来了又走。输尿管蠕动被用来解释这种节奏。热敷后腰、慢慢走动是百科里常见的等待动作。完全无尿要立刻就医。",
+      "bodyEn": "Someone describes pain as waves that come and go. Ureteral peristalsis is used to explain that rhythm. Heat on the back and slow walking are common waiting actions in encyclopedias. No urine at all means seek emergency care now.",
+      "stage": "colic",
+      "imageUrl": "/kuaixiaosan/cases/colic-wave.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "er-ct",
+      "title": "急诊里的非增强CT",
+      "titleEn": "Non-contrast CT in emergency care",
+      "body": "有人在急诊被安排做非增强CT，因为高密度影在图上比较清楚。成像是工具，不是判决书。怀孕或无法配合时，词条会提到其他路径。这不是诊断。",
+      "bodyEn": "Someone in emergency care is scheduled for non-contrast CT because dense shadows show clearly. Imaging is a tool, not a verdict. Entries mention other paths in pregnancy or when CT is not suitable. This is not a diagnosis.",
+      "stage": "er",
+      "imageUrl": "/kuaixiaosan/cases/er-ct.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "post-litho",
+      "title": "体外碎石之后",
+      "titleEn": "After shock-wave lithotripsy",
+      "body": "有人做完体外冲击波，回家后尿里出现砂粒。滤过尿液是为了交给后续化验。休息几天、小口补水是常见恢复步骤。发热要立刻就医。这不是诊断。",
+      "bodyEn": "Someone finishes extracorporeal shock-wave lithotripsy and later sees grit in the urine. Straining urine is for later assay. Rest for a few days and sip fluids are common recovery steps. Fever means seek emergency care. This is not a diagnosis.",
+      "stage": "post-op",
+      "imageUrl": "/kuaixiaosan/cases/post-litho.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "forming-diet",
+      "title": "饮食日记里的草酸",
+      "titleEn": "Oxalate in a food diary",
+      "body": "有人开始记下菠菜和坚果的次数。草酸词条讨论食物与尿化学，不写成禁食令。足量液体仍然是预防段落的第一句。这不是诊断。",
+      "bodyEn": "Someone starts counting spinach and nuts. Oxalate entries discuss food and urine chemistry, not a ban. Enough fluid remains the first line of prevention paragraphs. This is not a diagnosis.",
+      "stage": "forming",
+      "imageUrl": "/kuaixiaosan/cases/forming-diet.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "prevention-citrus",
+      "title": "柠檬和预防讨论",
+      "titleEn": "Citrus in prevention talk",
+      "body": "有人把柠檬片放进水杯。柠檬酸盐在百科里作为尿化学的话题出现，不是特效处方。预防还包括不要长期脱水。这不是诊断。",
+      "bodyEn": "Someone drops lemon slices into a glass. Citrate appears in encyclopedias as urine chemistry, not a patent dose. Prevention also includes not staying dehydrated for long stretches. This is not a diagnosis.",
+      "stage": "prevention",
+      "imageUrl": "/kuaixiaosan/cases/prevention-citrus.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "colic-travel",
+      "title": "旅途中的腰绞痛",
+      "titleEn": "Flank colic while traveling",
+      "body": "有人在车上忽然弯下腰。词条提醒脱水和长时间少尿。能喝就小口喝水，吐到喝不进要找急诊。这是行程中的典型 vignette，不是点名。",
+      "bodyEn": "Someone doubles over in a vehicle. Entries mention dehydration and long stretches with little urine. Sip water if it stays down. Vomiting that blocks fluids means seek emergency care. A travel vignette, not a named patient.",
+      "stage": "colic",
+      "imageUrl": "/kuaixiaosan/cases/colic-travel.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    },
+    {
+      "id": "post-ureteroscopy",
+      "title": "输尿管镜取石之后",
+      "titleEn": "After ureteroscopic removal",
+      "body": "有人做完输尿管镜，医生用网篮取出碎块。术后几天可能有血尿和尿急。休息、滤过尿液、按约定复诊。红旗仍是发热、无尿、喝不进水。这不是诊断。",
+      "bodyEn": "Someone finishes ureteroscopy after a basket removes fragments. A few days of blood-tinged urine and urgency are commonly described. Rest, strain urine, and keep the review visit. Red flags remain fever, no urine, and blocked fluids. This is not a diagnosis.",
+      "stage": "post-op",
+      "imageUrl": "/kuaixiaosan/cases/post-ureteroscopy.jpg",
+      "credit": "肾结石快消散媒体包",
+      "sources": [
+        {
+          "label": "Wikipedia",
+          "url": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3"
+        },
+        {
+          "label": "Wikipedia EN",
+          "url": "https://en.wikipedia.org/wiki/Kidney_stone_disease"
+        },
+        {
+          "label": "NHS",
+          "url": "https://www.nhs.uk/conditions/kidney-stones/"
+        }
+      ]
+    }
+  ]
+}

@@ -107,6 +107,18 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		shuileme.POST("/chat", func(c *gin.Context) { handleShuilemeChat(c, aiService) })
 	}
 
+	// 肾结石快消散 kidney-stone lounge (public, unlisted sibling of 睡了么)
+	kuaixiaosan := r.Group("/kuaixiaosan")
+	{
+		kuaixiaosan.GET("/stones", handleKuaixiaosanStones)
+		kuaixiaosan.GET("/cases", handleKuaixiaosanCases)
+		kuaixiaosan.GET("/recover", handleKuaixiaosanRecover)
+		kuaixiaosan.GET("/lore", handleKuaixiaosanLore)
+		kuaixiaosan.GET("/imaging", handleKuaixiaosanImaging)
+		kuaixiaosan.GET("/wiki", handleKuaixiaosanWiki)
+		kuaixiaosan.POST("/chat", func(c *gin.Context) { handleKuaixiaosanChat(c, aiService) })
+	}
+
 	// Chase Game routes
 	chaseGame := r.Group("/chase-game")
 	{
