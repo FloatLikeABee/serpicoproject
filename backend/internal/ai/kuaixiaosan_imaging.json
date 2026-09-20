@@ -1,0 +1,148 @@
+{
+  "imaging": [
+    {
+      "id": "noncontrast-ct",
+      "title": "肾门层面的CT",
+      "titleEn": "CT at the renal hilum",
+      "blurb": "非增强CT常用来寻找高密度影。图像是教学切片，不是某个人的报告。",
+      "blurbEn": "Non-contrast CT is often used to look for dense shadows. A teaching slice, not a personal report.",
+      "kind": "ct",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%AE%A1%E7%AE%97%E6%9C%BA%E6%96%AD%E5%B1%82%E6%89%AB%E6%8F%8F",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/CT_scan",
+      "imageUrl": "/kuaixiaosan/imaging/noncontrast-ct.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "us-stone",
+      "title": "超声下的肾下极结石",
+      "titleEn": "Ultrasound of a lower-pole stone",
+      "blurb": "超声用回声和声影描述结石。去标识的教学图，没有可辨认的面孔。",
+      "blurbEn": "Ultrasound describes stones with echoes and shadowing. A de-identified teaching frame. No identifiable face.",
+      "kind": "us",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%B6%85%E5%A3%B0%E6%B3%A2%E6%A3%80%E6%9F%A5",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Medical_ultrasound",
+      "imageUrl": "/kuaixiaosan/imaging/us-stone.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "kub-xray",
+      "title": "腹部X光上的致密影",
+      "titleEn": "Dense shadow on an abdominal radiograph",
+      "blurb": "部分结石在X光上显影，尿酸石常常不显影。这是成像物理，不是诊断。",
+      "blurbEn": "Some stones show on X-ray. Uric acid stones often do not. Imaging physics, not a diagnosis.",
+      "kind": "xray",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/X%E5%B0%84%E7%BA%BF",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/X-ray",
+      "imageUrl": "/kuaixiaosan/imaging/kub-xray.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "anatomy-section",
+      "title": "肾脏剖面图",
+      "titleEn": "Vertical kidney section",
+      "blurb": "剖面帮助认出皮质、髓质和肾盂。解剖课图片。",
+      "blurbEn": "A section helps label cortex, medulla, and pelvis. An anatomy-class picture.",
+      "kind": "anatomy",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%82%BE",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Kidney",
+      "imageUrl": "/kuaixiaosan/imaging/anatomy-section.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "specimen-macro",
+      "title": "结石标本特写",
+      "titleEn": "Macro photograph of a stone",
+      "blurb": "特写用来看表面纹理。标本摄影，不是病人肖像。",
+      "blurbEn": "A close-up shows surface texture. Specimen photography, not a patient portrait.",
+      "kind": "specimen",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Kidney_stone_disease",
+      "imageUrl": "/kuaixiaosan/imaging/specimen-macro.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "device-eswl",
+      "title": "冲击波发生器",
+      "titleEn": "Shock-wave generator",
+      "blurb": "体外碎石机的外观。器械照片，不代表某次治疗。",
+      "blurbEn": "The outside of a shock-wave machine. A device photo, not a particular treatment.",
+      "kind": "device",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E4%BD%93%E5%A4%96%E5%86%B2%E5%87%BB%E6%B3%A2%E7%A2%8E%E7%9F%B3%E6%9C%AF",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Extracorporeal_shock_wave_lithotripsy",
+      "imageUrl": "/kuaixiaosan/imaging/device-eswl.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "ct-sagittal",
+      "title": "矢状与轴位CT",
+      "titleEn": "Sagittal and axial CT",
+      "blurb": "同一检查可以有不同切面。去标识的教学拼图。",
+      "blurbEn": "One exam can have several planes. A de-identified teaching collage.",
+      "kind": "ct",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%AE%A1%E7%AE%97%E6%9C%BA%E6%96%AD%E5%B1%82%E6%89%AB%E6%8F%8F",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/CT_scan",
+      "imageUrl": "/kuaixiaosan/imaging/ct-sagittal.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "us-kidney",
+      "title": "肾脏超声切面",
+      "titleEn": "Kidney ultrasound slice",
+      "blurb": "超声切面呈扇形。教学帧，没有面孔。",
+      "blurbEn": "Ultrasound slices look fan-shaped. A teaching frame without a face.",
+      "kind": "us",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%B6%85%E5%A3%B0%E6%B3%A2%E6%A3%80%E6%9F%A5",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Medical_ultrasound",
+      "imageUrl": "/kuaixiaosan/imaging/us-kidney.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "xray-staghorn",
+      "title": "鹿角石的影像",
+      "titleEn": "Imaging of a staghorn stone",
+      "blurb": "铸型可以在影像上画出肾盂轮廓。形态学，不是点名。",
+      "blurbEn": "A cast can outline the pelvis on imaging. Morphology, not a named person.",
+      "kind": "xray",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/X%E5%B0%84%E7%BA%BF",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/X-ray",
+      "imageUrl": "/kuaixiaosan/imaging/xray-staghorn.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "anatomy-numbered",
+      "title": "编号肾脏图",
+      "titleEn": "Numbered kidney diagram",
+      "blurb": "编号图把结构一一标出。课堂用图。",
+      "blurbEn": "A numbered plate labels each structure. A classroom figure.",
+      "kind": "anatomy",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%82%BE",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Kidney",
+      "imageUrl": "/kuaixiaosan/imaging/anatomy-numbered.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "specimen-4mm",
+      "title": "四毫米结石标本",
+      "titleEn": "A four-millimetre stone",
+      "blurb": "尺子帮助对照大小分级。砂粒、小结石、鹿角石是教学标签。",
+      "blurbEn": "A ruler helps size-class teaching. Grit, small, and staghorn are labels for class, not a verdict.",
+      "kind": "specimen",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%82%BE%E7%BB%93%E7%9F%B3",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Kidney_stone_disease",
+      "imageUrl": "/kuaixiaosan/imaging/specimen-4mm.jpg",
+      "credit": "肾结石快消散媒体包"
+    },
+    {
+      "id": "device-stent-xray",
+      "title": "支架置入后的影像",
+      "titleEn": "Imaging after stent placement",
+      "blurb": "支架在影像上呈弯曲的管道。器械位置教学，不是某位病人的档案。",
+      "blurbEn": "A stent looks like a curved tube on imaging. Device-position teaching, not a personal file.",
+      "kind": "device",
+      "wikiUrlZh": "https://zh.wikipedia.org/wiki/%E8%BE%93%E5%B0%BF%E7%AE%A1%E9%95%9C",
+      "wikiUrlEn": "https://en.wikipedia.org/wiki/Ureteroscopy",
+      "imageUrl": "/kuaixiaosan/imaging/device-stent-xray.jpg",
+      "credit": "肾结石快消散媒体包"
+    }
+  ]
+}

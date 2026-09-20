@@ -1,4 +1,4 @@
-// Rebuild stamp 2026-09-18T12:30Z — 睡了么 in-app /shuileme/chat lounge route.
+// Rebuild stamp 2026-09-20T08:40Z — 肾结石快消散 /kuaixiaosan and nested /kuaixiaosan/chat.
 export const PROD_FRONTEND = 'https://serpico.onrender.com';
 export const PROD_BACKEND = 'https://serpicoproject.onrender.com';
 export const PROD_API_V1 = `${PROD_BACKEND}/api/v1`;
