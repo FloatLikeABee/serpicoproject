@@ -57,4 +57,7 @@ test('小茂密咖啡 page and cream-rose CSS stay isolated', () => {
   expect(lounge).not.toMatch(/#7ee0ff/i);
   expect(lounge).not.toMatch(/#c9f07a/i);
   expect(lounge).toMatch(/prefers-reduced-motion/);
+  expect(lounge).toMatch(/overflow:\s*auto/);
+  expect(lounge).toMatch(/\.xm-hero img\s*\{[^}]*max-height:\s*42vh/);
+  expect(lounge).toMatch(/\.xm-page\s*\{[^}]*max-width:\s*40rem/);
 });

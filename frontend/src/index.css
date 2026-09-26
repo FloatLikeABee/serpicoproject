@@ -2186,6 +2186,10 @@ html.xm-world.synth-world {
   --xm-blush: #f3c1d0;
   --xm-peach: #f3c3a4;
   --xm-line: rgba(74, 48, 64, 0.14);
+  color-scheme: light;
+  height: auto;
+  min-height: 100%;
+  overflow: auto;
   background: var(--xm-bg);
   color: var(--xm-text);
 }
@@ -2193,11 +2197,17 @@ html.xm-world body,
 html.xm-world.synth-world body,
 html.xm-world #root,
 html.xm-world.synth-world #root {
+  height: auto;
+  min-height: 100%;
+  overflow: auto;
   background: var(--xm-bg);
   color: var(--xm-text);
+  font-family: "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
 }
 .xm-page {
-  min-height: 100vh;
+  min-height: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
   padding: 1rem 1rem 2.5rem;
   background: var(--xm-bg);
   color: var(--xm-text);
@@ -2241,6 +2251,8 @@ html.xm-world.synth-world #root {
 .xm-hero img {
   width: 100%;
   height: auto;
+  max-height: 42vh;
+  object-fit: cover;
   border-radius: 1.25rem;
   background: var(--xm-blush);
   display: block;
