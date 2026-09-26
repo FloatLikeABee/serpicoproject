@@ -1,6 +1,6 @@
-const LOUNGE_WORLDS = ['synth-world', 'fr-world', 'll-world', 'sm-world', 'kx-world'] as const;
+const LOUNGE_WORLDS = ['synth-world', 'fr-world', 'll-world', 'sm-world', 'kx-world', 'xm-world'] as const;
 
-export type LoungeWorld = 'fr-world' | 'll-world' | 'sm-world' | 'kx-world';
+export type LoungeWorld = 'fr-world' | 'll-world' | 'sm-world' | 'kx-world' | 'xm-world';
 
 export function enterLoungeWorld(world: LoungeWorld) {
   const root = document.documentElement;
