@@ -459,6 +459,16 @@ const en: Catalog = {
   'kuaixiaosan.wiki': 'Wikipedia',
   'kuaixiaosan.wikiError': 'This encyclopedia extract is unavailable in the lounge right now.',
   'kuaixiaosan.disclaimer': 'Kidney-stone encyclopedia, not medical advice.',
+  'xiaomaomi.title': 'Xiaomaomi Coffee',
+  'xiaomaomi.kicker': 'Maomi',
+  'xiaomaomi.invite': 'A kitten cup for students and young workers.',
+  'xiaomaomi.chip.all': 'All',
+  'xiaomaomi.chip.coffee': 'Coffee',
+  'xiaomaomi.chip.tea': 'Tea',
+  'xiaomaomi.chip.fusion': 'Tea-coffee',
+  'xiaomaomi.langEn': 'EN',
+  'xiaomaomi.langZh': '中文',
+  'xiaomaomi.close': 'Close',
 };
 
 const zh: Catalog = {
@@ -917,6 +927,16 @@ const zh: Catalog = {
   'kuaixiaosan.wiki': '维基百科',
   'kuaixiaosan.wikiError': '这篇百科摘要暂时读不到。先把感觉说清楚。',
   'kuaixiaosan.disclaimer': '结石百科，不能替代医疗诊断或治疗。',
+  'xiaomaomi.title': '小茂密咖啡',
+  'xiaomaomi.kicker': '茂密',
+  'xiaomaomi.invite': '给学生和刚上班的人，一杯小猫主题的咖啡或茶。',
+  'xiaomaomi.chip.all': '全部',
+  'xiaomaomi.chip.coffee': '咖啡',
+  'xiaomaomi.chip.tea': '茶',
+  'xiaomaomi.chip.fusion': '茶咖',
+  'xiaomaomi.langEn': 'EN',
+  'xiaomaomi.langZh': '中文',
+  'xiaomaomi.close': '关闭',
 };
 
 const catalogs: Record<Nation, Catalog> = { us: en, cn: zh };

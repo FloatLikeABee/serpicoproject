@@ -173,6 +173,19 @@ describe('i18n catalog', () => {
     expect(t('us', 'kuaixiaosan.disclaimer')).toMatch(/not medical/i);
   });
 
+  it('returns 小茂密咖啡 chrome in Simplified Chinese by default keys', () => {
+    expect(t('cn', 'xiaomaomi.title')).toBe('小茂密咖啡');
+    expect(t('cn', 'xiaomaomi.kicker')).toBe('茂密');
+    expect(t('cn', 'xiaomaomi.chip.all')).toBe('全部');
+    expect(t('cn', 'xiaomaomi.chip.coffee')).toBe('咖啡');
+    expect(t('cn', 'xiaomaomi.chip.tea')).toBe('茶');
+    expect(t('cn', 'xiaomaomi.chip.fusion')).toBe('茶咖');
+    expect(t('us', 'xiaomaomi.title')).not.toBe('小茂密咖啡');
+    expect(t('us', 'xiaomaomi.chip.coffee')).toBe('Coffee');
+    expect(t('us', 'xiaomaomi.chip.fusion')).toBe('Tea-coffee');
+    expect(t('cn', 'xiaomaomi.invite')).toMatch(/学生/);
+  });
+
   it('returns escalating 拉了么 sit-alert copy that names the minutes and is not medical', () => {
     const cn = [1, 2, 3, 4, 5, 6].map((tier, i) => t('cn', `lalem.sitAlert.t${tier}`, { m: (i + 1) * 5 }));
     const en = [1, 2, 3, 4, 5, 6].map((tier, i) => t('us', `lalem.sitAlert.t${tier}`, { m: (i + 1) * 5 }));
