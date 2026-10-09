@@ -2062,10 +2062,18 @@ html.tr-world.synth-world #root {
 }
 .tr-card .tr-pixel,
 .tr-sheet .tr-pixel {
+  display: block;
   width: 3.25rem;
   height: 3.25rem;
   border-radius: 0.75rem;
+  border: 1px solid var(--tr-line);
+  background: #f3efe6;
   image-rendering: pixelated;
+}
+.tr-sheet .tr-pixel {
+  width: 5.5rem;
+  height: 5.5rem;
+  margin-top: 0.7rem;
 }
 .tr-body {
   white-space: pre-wrap;
@@ -2076,32 +2084,53 @@ html.tr-world.synth-world #root {
 }
 .tr-sheet-backdrop {
   position: fixed;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100dvh;
+  max-height: 100dvh;
   background: rgba(44, 40, 36, 0.38);
   display: flex;
   align-items: flex-end;
   z-index: 30;
   padding: 0;
+  overflow: hidden;
 }
 .tr-sheet {
   width: min(40rem, 100%);
   margin: 0 auto;
-  max-height: 86vh;
-  overflow: auto;
+  max-height: calc(100dvh - 0.75rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--tr-surface);
   color: var(--tr-ink);
   border-radius: 1.25rem 1.25rem 0 0;
-  padding: 1rem 1rem 1.4rem;
+  padding: 0.7rem 1rem max(1rem, env(safe-area-inset-bottom, 0px));
+}
+.tr-sheet-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+}
+.tr-sheet-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .tr-sheet h2 {
-  margin: 0.25rem 0 0.35rem;
+  margin: 0.35rem 0 0.35rem;
   font-size: 1.35rem;
   line-height: 1.25;
   text-wrap: balance;
 }
 .tr-close {
   min-height: 2.75rem;
-  margin-top: 0.9rem;
+  margin-top: 0;
   padding: 0.4rem 1rem;
   border-radius: 999px;
   border: 1px solid var(--tr-line);
