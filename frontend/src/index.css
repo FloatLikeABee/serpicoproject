@@ -2340,10 +2340,39 @@ html.xm-world.synth-world #root {
   margin-top: 0.6rem;
   padding: 0.4rem 1rem;
 }
+.tr-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #102033;
+  color: #e7f2ff;
+}
+.tr-page h1 { margin: 0.8rem 1rem 0.4rem; font-size: 1.4rem; }
+.tr-map { flex: 1; min-height: 16rem; }
+.tr-log { list-style: none; margin: 0; padding: 0.6rem 1rem 1.2rem; }
+.tr-log li { margin-bottom: 0.7rem; }
+.tr-kind { display: block; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.75; }
 @media (min-width: 720px) {
   .xm-gallery { grid-template-columns: 1fr 1fr; }
   .xm-sheet-backdrop { align-items: center; padding: 1.5rem; }
   .xm-sheet { border-radius: 1.25rem; max-width: 36rem; margin: 0 auto; }
+}
+.xm-visits {
+  margin: 1.2rem 1rem 2rem;
+}
+.xm-visit {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: 0.8rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--xm-line);
+}
+.xm-pixel {
+  width: 8rem;
+  height: 8rem;
+  image-rendering: pixelated;
+  background: var(--xm-blush);
 }
 @media (prefers-reduced-motion: reduce) {
   html.xm-world .xm-sheet,

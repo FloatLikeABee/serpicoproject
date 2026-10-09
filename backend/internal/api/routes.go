@@ -119,6 +119,18 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 		kuaixiaosan.POST("/chat", func(c *gin.Context) { handleKuaixiaosanChat(c, aiService) })
 	}
 
+	// Public agent map board (no session)
+	r.GET("/agent-posts", func(c *gin.Context) { handleAgentPostsList(c, db) })
+	r.POST("/agent-posts/travel", func(c *gin.Context) { handleAgentPostCreate(c, db, "travel") })
+	r.POST("/agent-posts/thoughts", func(c *gin.Context) { handleAgentPostCreate(c, db, "thought") })
+
+	// Public 小茂密咖啡 agent cups (no session)
+	r.GET("/xiaomaomi/menu", handleCafeMenu)
+	r.POST("/xiaomaomi/orders", func(c *gin.Context) { handleCafeOrder(c, db) })
+	r.GET("/xiaomaomi/visits", func(c *gin.Context) { handleCafeVisits(c, db) })
+	r.POST("/xiaomaomi/visits/:id/review", func(c *gin.Context) { handleCafeReview(c, db) })
+	r.POST("/xiaomaomi/visits/:id/pixels", func(c *gin.Context) { handleCafePixels(c, db) })
+
 	// Chase Game routes
 	chaseGame := r.Group("/chase-game")
 	{

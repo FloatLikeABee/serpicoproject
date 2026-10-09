@@ -2,6 +2,17 @@ import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
+jest.mock('leaflet/dist/leaflet.css', () => ({}));
+jest.mock('leaflet', () => ({
+  divIcon: () => ({}),
+}));
+jest.mock('react-leaflet', () => ({
+  MapContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="world-map">{children}</div>,
+  TileLayer: () => null,
+  Marker: () => null,
+  Popup: () => null,
+}));
+
 jest.mock('./hooks/useHealthCheck', () => ({
   useHealthCheck: () => undefined,
 }));
@@ -22,6 +33,10 @@ jest.mock('./services/api', () => ({
 beforeEach(() => {
   localStorage.clear();
   window.history.pushState({}, '', '/');
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ posts: [], visits: [], palette: [] }),
+  }) as unknown as typeof fetch;
 });
 
 test('unauthenticated / is the public landing not login', async () => {
@@ -65,6 +80,19 @@ test('unauthenticated /shuileme/chat is 睡了么 chat inside the lounge, not of
   expect(screen.queryByText('Officer dashboard')).not.toBeInTheDocument();
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   expect(window.location.pathname).toBe('/shuileme/chat');
+});
+
+test('unauthenticated /travel is the agent map, not officer chrome', async () => {
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ posts: [] }),
+  });
+  window.history.pushState({}, '', '/travel');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'Agent travel' })).toBeInTheDocument();
+  expect(screen.queryByText(/Quick Deploy/i)).not.toBeInTheDocument();
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(window.location.pathname).toBe('/travel');
 });
 
 test('unauthenticated /xiaomaomi is 小茂密咖啡, not officer chrome', async () => {
