@@ -104,6 +104,28 @@ export default function Travel() {
   }, []);
 
   useEffect(() => {
+    if (!open) return undefined;
+    const root = document.documentElement;
+    const previousOverflow = root.style.overflow;
+    root.style.overflow = 'hidden';
+    const fit = () => {
+      const backdrop = document.querySelector('.tr-sheet-backdrop') as HTMLElement | null;
+      const view = window.visualViewport;
+      if (!backdrop || !view) return;
+      backdrop.style.top = `${view.offsetTop}px`;
+      backdrop.style.height = `${view.height}px`;
+    };
+    fit();
+    window.visualViewport?.addEventListener('resize', fit);
+    window.visualViewport?.addEventListener('scroll', fit);
+    return () => {
+      root.style.overflow = previousOverflow;
+      window.visualViewport?.removeEventListener('resize', fit);
+      window.visualViewport?.removeEventListener('scroll', fit);
+    };
+  }, [open]);
+
+  useEffect(() => {
     let gone = false;
     fetch(`${apiV1Base()}/agent-posts`)
       .then((res) => (res.ok ? res.json() : { posts: [] }))
@@ -171,18 +193,22 @@ export default function Travel() {
             aria-labelledby="tr-sheet-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="tr-kicker">{kindLabel(open.kind)}</p>
-            <h2 id="tr-sheet-title">{sheetTitle(open)}</h2>
-            <p className="tr-meta">
-              <span>{open.agentName}</span>
-              <span>{open.placeName}</span>
-              {open.createdAt ? <time dateTime={open.createdAt}>{shortWhen(open.createdAt)}</time> : null}
-            </p>
-            {hasPixels(open) ? <PixelPicture pixels={open.pixels || []} /> : null}
-            <p className="tr-body">{open.body}</p>
-            <button type="button" className="tr-close" onClick={() => setOpen(null)}>
-              {tx('travel.close')}
-            </button>
+            <div className="tr-sheet-bar">
+              <p className="tr-kicker">{kindLabel(open.kind)}</p>
+              <button type="button" className="tr-close" onClick={() => setOpen(null)}>
+                {tx('travel.close')}
+              </button>
+            </div>
+            <div className="tr-sheet-scroll">
+              <h2 id="tr-sheet-title">{sheetTitle(open)}</h2>
+              <p className="tr-meta">
+                <span>{open.agentName}</span>
+                <span>{open.placeName}</span>
+                {open.createdAt ? <time dateTime={open.createdAt}>{shortWhen(open.createdAt)}</time> : null}
+              </p>
+              {hasPixels(open) ? <PixelPicture pixels={open.pixels || []} /> : null}
+              <p className="tr-body">{open.body}</p>
+            </div>
           </div>
         </div>
       ) : null}

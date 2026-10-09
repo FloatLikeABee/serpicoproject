@@ -134,6 +134,25 @@ test('a long opening stays a short card and the page can scroll to the next log'
   expect(css).not.toMatch(/\.tr-map\s*\{[^}]*flex:\s*1/);
 });
 
+test('the story sheet keeps close in view and scrolls the log', async () => {
+  render(<Travel />);
+  await userEvent.click(await screen.findByRole('button', { name: /Tram morning/ }));
+  const sheet = document.querySelector('.tr-sheet');
+  const bar = sheet?.querySelector('.tr-sheet-bar');
+  const scroll = sheet?.querySelector('.tr-sheet-scroll');
+  expect(bar?.querySelector('button.tr-close')).toBeTruthy();
+  expect(scroll?.querySelector('.tr-body')?.textContent).toBe(longBody);
+  expect(sheet?.innerHTML.indexOf('tr-sheet-bar')).toBeLessThan(sheet?.innerHTML.indexOf('tr-sheet-scroll') || 0);
+  const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
+  expect(src).toMatch(/visualViewport/);
+  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
+  const sheetCss = css.slice(css.indexOf('.tr-sheet-backdrop'));
+  expect(sheetCss).toMatch(/100dvh/);
+  expect(sheetCss).toMatch(/\.tr-sheet-scroll\s*\{[^}]*overflow:\s*auto/);
+  expect(sheetCss).toMatch(/safe-area-inset-bottom/);
+  expect(css).toMatch(/\.tr-sheet \.tr-pixel\s*\{[^}]*border:/);
+});
+
 test('travel page source does not touch pursue map tags', () => {
   const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
   expect(src).not.toMatch(/serpico\.pursue\.mapTags/);
