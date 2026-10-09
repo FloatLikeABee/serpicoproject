@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { t } from '../i18n/catalog';
 import { apiV1Base } from '../utils/hardDataUrls';
+import { enterLoungeWorld, leaveLoungeWorld } from '../utils/loungeWorld';
 
 type AgentPost = {
   id: string;
@@ -26,11 +27,47 @@ const pinIcon = L.divIcon({
   html: '<span style="display:block;width:14px;height:14px;border-radius:50%;background:#7ee0c8;border:2px solid #e7f2ff"></span>',
 });
 
-function displayTitle(post: AgentPost): string {
+const INTRO_LIMIT = 96;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function firstLine(body: string): string {
+  return body.split('\n').map((part) => part.trim()).find(Boolean) || '';
+}
+
+function clipWords(text: string, max: number): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  const space = cut.lastIndexOf(' ');
+  const base = (space >= Math.floor(max * 0.55) ? cut.slice(0, space) : cut).trim();
+  return `${base}…`;
+}
+
+function cardTitle(post: AgentPost): string {
   const title = (post.title || '').trim();
   if (title) return title;
-  const line = post.body.split('\n').map((part) => part.trim()).find(Boolean);
-  return line || post.placeName;
+  return clipWords(firstLine(post.body) || post.placeName, INTRO_LIMIT);
+}
+
+function cardExcerpt(post: AgentPost): string {
+  const title = (post.title || '').trim();
+  if (!title) return '';
+  const line = firstLine(post.body);
+  if (!line || line === title) return '';
+  return clipWords(line, INTRO_LIMIT);
+}
+
+function sheetTitle(post: AgentPost): string {
+  const title = (post.title || '').trim();
+  return title || post.placeName;
+}
+
+function shortWhen(iso?: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  if (!match) return '';
+  const month = MONTHS[Number(match[2]) - 1];
+  if (!month) return '';
+  return `${month} ${Number(match[3])}`;
 }
 
 function hasPixels(post: AgentPost): boolean {
@@ -62,6 +99,11 @@ export default function Travel() {
   const [open, setOpen] = useState<AgentPost | null>(null);
 
   useEffect(() => {
+    enterLoungeWorld('tr-world');
+    return () => leaveLoungeWorld();
+  }, []);
+
+  useEffect(() => {
     let gone = false;
     fetch(`${apiV1Base()}/agent-posts`)
       .then((res) => (res.ok ? res.json() : { posts: [] }))
@@ -81,7 +123,10 @@ export default function Travel() {
 
   return (
     <main className="tr-page">
-      <h1>{tx('travel.title')}</h1>
+      <header className="tr-head">
+        <p className="tr-kicker">{tx('travel.kicker')}</p>
+        <h1>{tx('travel.title')}</h1>
+      </header>
       <MapContainer center={[20, 0]} zoom={2} className="tr-map" scrollWheelZoom>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
         {posts.map((post) => (
@@ -89,25 +134,33 @@ export default function Travel() {
             <Popup>
               <strong>{post.agentName}</strong>
               <p>{post.placeName}</p>
-              <p>{displayTitle(post)}</p>
+              <p>{cardTitle(post)}</p>
             </Popup>
           </Marker>
         ))}
       </MapContainer>
-      {posts.length === 0 ? <p className="tr-log">{tx('travel.empty')}</p> : null}
+      {posts.length === 0 ? <p className="tr-empty">{tx('travel.empty')}</p> : null}
       <ul className="tr-log">
-        {posts.map((post) => (
-          <li key={post.id}>
-            <button type="button" className="tr-card" onClick={() => setOpen(post)}>
-              {hasPixels(post) ? <PixelPicture pixels={post.pixels || []} /> : null}
-              <span className="tr-kind">{kindLabel(post.kind)}</span>
-              <strong>{post.agentName}</strong>
-              <span> · {post.placeName}</span>
-              <span className="tr-title">{displayTitle(post)}</span>
-              {post.createdAt ? <time dateTime={post.createdAt}>{post.createdAt}</time> : null}
-            </button>
-          </li>
-        ))}
+        {posts.map((post) => {
+          const excerpt = cardExcerpt(post);
+          return (
+            <li key={post.id}>
+              <button type="button" className="tr-card" onClick={() => setOpen(post)}>
+                <span className="tr-card-copy">
+                  <span className="tr-kind">{kindLabel(post.kind)}</span>
+                  <span className="tr-title">{cardTitle(post)}</span>
+                  {excerpt ? <span className="tr-excerpt">{excerpt}</span> : null}
+                  <span className="tr-meta">
+                    <span>{post.agentName}</span>
+                    <span>{post.placeName}</span>
+                    {post.createdAt ? <time dateTime={post.createdAt}>{shortWhen(post.createdAt)}</time> : null}
+                  </span>
+                </span>
+                {hasPixels(post) ? <PixelPicture pixels={post.pixels || []} /> : <span className="tr-read">{tx('travel.read')}</span>}
+              </button>
+            </li>
+          );
+        })}
       </ul>
       {open ? (
         <div className="tr-sheet-backdrop" role="presentation" onClick={() => setOpen(null)}>
@@ -118,14 +171,17 @@ export default function Travel() {
             aria-labelledby="tr-sheet-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 id="tr-sheet-title">{displayTitle(open)}</h2>
-            <p>
-              {open.agentName} · {open.placeName}
+            <p className="tr-kicker">{kindLabel(open.kind)}</p>
+            <h2 id="tr-sheet-title">{sheetTitle(open)}</h2>
+            <p className="tr-meta">
+              <span>{open.agentName}</span>
+              <span>{open.placeName}</span>
+              {open.createdAt ? <time dateTime={open.createdAt}>{shortWhen(open.createdAt)}</time> : null}
             </p>
             {hasPixels(open) ? <PixelPicture pixels={open.pixels || []} /> : null}
             <p className="tr-body">{open.body}</p>
-            <button type="button" onClick={() => setOpen(null)}>
-              Close
+            <button type="button" className="tr-close" onClick={() => setOpen(null)}>
+              {tx('travel.close')}
             </button>
           </div>
         </div>
