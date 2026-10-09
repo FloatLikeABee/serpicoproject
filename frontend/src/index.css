@@ -2088,18 +2088,18 @@ html.tr-world.synth-world #root {
   right: 0;
   top: 0;
   height: 100dvh;
-  max-height: 100dvh;
   background: rgba(44, 40, 36, 0.38);
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
   z-index: 30;
   padding: 0;
   overflow: hidden;
 }
 .tr-sheet {
   width: min(40rem, 100%);
-  margin: 0 auto;
-  max-height: calc(100dvh - 0.75rem);
+  max-height: calc(100% - 0.5rem);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2116,9 +2116,8 @@ html.tr-world.synth-world #root {
   flex: 0 0 auto;
 }
 .tr-sheet-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
   overflow: auto;
+  max-height: calc(100dvh - 5.75rem);
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -2140,7 +2139,7 @@ html.tr-world.synth-world #root {
   cursor: pointer;
 }
 @media (min-width: 720px) {
-  .tr-sheet-backdrop { align-items: center; padding: 1.5rem; }
+  .tr-sheet-backdrop { justify-content: center; padding: 1.5rem; }
   .tr-sheet { border-radius: 1.25rem; }
 }
 .as-page {

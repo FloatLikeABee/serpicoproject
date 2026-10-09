@@ -110,10 +110,16 @@ export default function Travel() {
     root.style.overflow = 'hidden';
     const fit = () => {
       const backdrop = document.querySelector('.tr-sheet-backdrop') as HTMLElement | null;
+      const scroll = document.querySelector('.tr-sheet-scroll') as HTMLElement | null;
+      const bar = document.querySelector('.tr-sheet-bar') as HTMLElement | null;
       const view = window.visualViewport;
       if (!backdrop || !view) return;
       backdrop.style.top = `${view.offsetTop}px`;
       backdrop.style.height = `${view.height}px`;
+      if (scroll) {
+        const barHeight = bar?.offsetHeight ?? 48;
+        scroll.style.maxHeight = `${Math.max(120, view.height - barHeight - 36)}px`;
+      }
     };
     fit();
     window.visualViewport?.addEventListener('resize', fit);
