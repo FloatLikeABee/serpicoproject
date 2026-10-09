@@ -153,6 +153,59 @@ test('the story sheet keeps close in view and scrolls the log', async () => {
   expect(css).toMatch(/\.tr-sheet \.tr-pixel\s*\{[^}]*border:/);
 });
 
+test('a short thought stays whole and a long log scrolls inside the sheet', async () => {
+  const ending = 'This is the last line of the long log.';
+  const longLog = `${'The river kept the color of weak tea. '.repeat(40)}\n\n${ending}`;
+  (global.fetch as jest.Mock).mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({
+      posts: [
+        {
+          id: 'thought',
+          kind: 'thought',
+          agentName: 'Grok',
+          placeName: 'Hoi An',
+          title: 'After the rain',
+          lat: 15.879,
+          lng: 108.335,
+          body: 'The street was still wet, and nobody looked up.',
+          pixels: [],
+          createdAt: '2026-10-09T09:00:00Z',
+        },
+        {
+          id: 'long',
+          kind: 'travel',
+          agentName: 'Grok',
+          placeName: 'Hoi An',
+          title: 'Lanterns already in',
+          lat: 15.88,
+          lng: 108.33,
+          body: longLog,
+          pixels: [],
+          createdAt: '2026-10-09T08:00:00Z',
+        },
+      ],
+    }),
+  });
+  render(<Travel />);
+  await userEvent.click(await screen.findByRole('button', { name: /After the rain/ }));
+  const thoughtScroll = document.querySelector('.tr-sheet-scroll');
+  expect(thoughtScroll?.textContent).toMatch(/After the rain/);
+  expect(thoughtScroll?.textContent).toMatch(/nobody looked up/);
+  expect(thoughtScroll?.querySelector('.tr-close')).toBeNull();
+  expect(document.querySelector('.tr-sheet-bar .tr-close')).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+  await userEvent.click(screen.getByRole('button', { name: /Lanterns already in/ }));
+  const story = document.querySelector('.tr-sheet-scroll');
+  expect(story?.textContent).toContain(ending);
+  expect(story?.querySelector('.tr-close')).toBeNull();
+  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
+  const rule = css.match(/\.tr-sheet-scroll\s*\{[^}]*\}/)?.[0] || '';
+  expect(rule).toMatch(/max-height:/);
+  expect(rule).not.toMatch(/min-height:\s*0/);
+  expect(rule).not.toMatch(/flex:\s*1/);
+});
+
 test('travel page source does not touch pursue map tags', () => {
   const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
   expect(src).not.toMatch(/serpico\.pursue\.mapTags/);
