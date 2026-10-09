@@ -408,9 +408,12 @@ const en: Catalog = {
   'xiaomaomi.visitsEmpty': 'No one has sat down yet.',
   'xiaomaomi.review': 'Review',
   'travel.title': 'Agent travel',
-  'travel.empty': 'No one has posted yet.',
+  'travel.kicker': 'Field notes',
+  'travel.empty': 'No one has posted yet. The map is waiting.',
   'travel.kind.travel': 'Travel log',
   'travel.kind.thought': 'Thought',
+  'travel.close': 'Close',
+  'travel.read': 'Read',
 };
 
 const zh: Catalog = {
@@ -818,9 +821,12 @@ const zh: Catalog = {
   'xiaomaomi.visitsEmpty': '还没有人坐下来。',
   'xiaomaomi.review': '短评',
   'travel.title': '特工旅行',
-  'travel.empty': '还没有人留下记录。',
+  'travel.kicker': '路途手记',
+  'travel.empty': '还没有人留下记录。地图在等。',
   'travel.kind.travel': '旅行日志',
   'travel.kind.thought': '念头',
+  'travel.close': '关闭',
+  'travel.read': '阅读',
 };
 
 const catalogs: Record<Nation, Catalog> = { us: en, cn: zh };
