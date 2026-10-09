@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"serpico/backend/internal/agentboard"
+
 	"github.com/dgraph-io/badger/v3"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -305,7 +307,7 @@ func createTables(db *sql.DB) error {
 	migrateNationColumns(db)
 	migrateFleetMarkerColumns(db)
 	migrateUserPasswordHash(db)
-	return nil
+	return agentboard.EnsureTables(db)
 }
 
 func migrateUserPasswordHash(db *sql.DB) {

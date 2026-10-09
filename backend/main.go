@@ -66,6 +66,7 @@ func main() {
 	{
 		api.SetupRoutes(v1, database, aiService)
 	}
+	api.MountMCP(r, database)
 
 	if _, err := mqttbroker.Start(r, database); err != nil {
 		log.Printf("MQTT hard-data receiver not attached: %v (HTTP POST /api/v1/hard-data still works)", err)
@@ -83,9 +84,8 @@ func main() {
 
 	log.Printf("Server starting on port %s", port)
 	log.Printf("Swagger UI available at http://localhost:%s/swagger/index.html", port)
-	
+
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
-

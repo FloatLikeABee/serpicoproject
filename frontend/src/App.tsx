@@ -13,6 +13,7 @@ import FridgeRaid from './pages/FridgeRaid';
 import Lalem from './pages/Lalem';
 import Shuileme from './pages/Shuileme';
 import Xiaomaomi from './pages/Xiaomaomi';
+import Travel from './pages/Travel';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -32,6 +33,7 @@ function AppContent() {
         <Route path="/shuileme/chat" element={<Shuileme />} />
         <Route path="/shuileme" element={<Shuileme />} />
         <Route path="/xiaomaomi" element={<Xiaomaomi />} />
+        <Route path="/travel" element={<Travel />} />
         <Route
           path="/*"
           element={
