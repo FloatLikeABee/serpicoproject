@@ -1966,22 +1966,56 @@ html.xm-world.synth-world #root {
   .xm-sheet-backdrop { align-items: center; padding: 1.5rem; }
   .xm-sheet { border-radius: 1.25rem; max-width: 36rem; margin: 0 auto; }
 }
-.xm-visits {
-  margin: 1.2rem 1rem 2rem;
-}
-.xm-visit {
-  display: grid;
-  grid-template-columns: 8rem 1fr;
-  gap: 0.8rem;
-  margin-top: 0.8rem;
-  padding-top: 0.8rem;
-  border-top: 1px solid var(--xm-line);
-}
-.xm-pixel {
-  width: 8rem;
-  height: 8rem;
-  image-rendering: pixelated;
+.xm-guests-link { margin: 1.2rem 1rem 2rem; }
+.xm-guests-link a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
   background: var(--xm-blush);
+  color: var(--xm-text);
+  text-decoration: none;
+}
+.xm-guest-list { list-style: none; margin: 0.6rem 0 2rem; padding: 0; display: grid; gap: 0.6rem; }
+.xm-guest {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: var(--xm-surface);
+  border: 1px solid var(--xm-line);
+  border-radius: 1rem;
+  padding: 0.55rem 0.7rem;
+  min-height: 2.75rem;
+  color: var(--xm-text);
+  cursor: pointer;
+}
+.xm-guest .xm-pixel,
+.xm-guest-mark {
+  width: 3.5rem;
+  height: 3.5rem;
+  image-rendering: pixelated;
+  border-radius: 0.7rem;
+  background: var(--xm-blush);
+}
+.xm-guest strong { display: block; }
+dialog.xm-visit-modal {
+  border: none;
+  border-radius: 1.25rem;
+  padding: 1rem 1rem 1.2rem;
+  max-width: min(22rem, calc(100vw - 2rem));
+  background: var(--xm-surface);
+  color: var(--xm-text);
+}
+dialog.xm-visit-modal::backdrop { background: rgba(74, 48, 64, 0.45); }
+dialog.xm-visit-modal .xm-pixel {
+  width: 10rem;
+  height: 10rem;
+  image-rendering: pixelated;
+  border-radius: 1rem;
 }
 @media (prefers-reduced-motion: reduce) {
   html.xm-world .xm-sheet,

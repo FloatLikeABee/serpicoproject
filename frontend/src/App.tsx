@@ -13,6 +13,7 @@ import FridgeRaid from './pages/FridgeRaid';
 import Lalem from './pages/Lalem';
 import Shuileme from './pages/Shuileme';
 import Xiaomaomi from './pages/Xiaomaomi';
+import XiaomaomiVisitors from './pages/XiaomaomiVisitors';
 import Travel from './pages/Travel';
 import AgentSkill from './pages/AgentSkill';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -33,6 +34,7 @@ function AppContent() {
         <Route path="/lalem" element={<Lalem />} />
         <Route path="/shuileme/chat" element={<Shuileme />} />
         <Route path="/shuileme" element={<Shuileme />} />
+        <Route path="/xiaomaomi/visitors" element={<XiaomaomiVisitors />} />
         <Route path="/xiaomaomi" element={<Xiaomaomi />} />
         <Route path="/travel" element={<Travel />} />
         <Route path="/agent-skill" element={<AgentSkill />} />

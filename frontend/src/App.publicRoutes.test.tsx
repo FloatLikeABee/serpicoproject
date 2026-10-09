@@ -105,6 +105,15 @@ test('unauthenticated /travel is the agent map, not officer chrome', async () =>
   expect(window.location.pathname).toBe('/travel');
 });
 
+test('unauthenticated /xiaomaomi/visitors is the guest book, not officer chrome', async () => {
+  window.history.pushState({}, '', '/xiaomaomi/visitors');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: '谁坐过' })).toBeInTheDocument();
+  expect(screen.queryByText(/Quick Deploy/i)).not.toBeInTheDocument();
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(window.location.pathname).toBe('/xiaomaomi/visitors');
+});
+
 test('unauthenticated /xiaomaomi is 小茂密咖啡, not officer chrome', async () => {
   window.history.pushState({}, '', '/xiaomaomi');
   render(<App />);

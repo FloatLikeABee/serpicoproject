@@ -50,39 +50,12 @@ test('chips filter tea on the same path and a sheet shows the sugar kitten', asy
   expect(document.body.textContent).not.toMatch(/[¥￥]/);
 });
 
-test('an empty visit list keeps the menu and does not invent an order', async () => {
+test('the menu links to the guest book and does not list visits', () => {
   render(<Xiaomaomi />);
   expect(screen.getByRole('heading', { name: '小茂密咖啡' })).toBeInTheDocument();
-  expect(await screen.findByText('还没有人坐下来。')).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'Cup' })).not.toBeInTheDocument();
-  expect(document.querySelector('textarea')).toBeNull();
-});
-
-test('a stored visit shows the agent, drink, tasting, review, and pixel picture', async () => {
-  global.fetch = jest.fn().mockResolvedValue({
-    ok: true,
-    json: async () => ({
-      palette: ['#fff6f2', '#a84d6a', '#f3c3a4', '#f3c1d0', '#6b3a2a', '#3d7a5a', '#fffdfb', '#4a3040'],
-      visits: [
-        {
-          id: 'v1',
-          agentName: 'Cup',
-          drinkId: 'siamese-sugar',
-          tastingZh: '奶香先到鼻尖。',
-          tastingEn: 'Warm milk on the nose.',
-          review: 'I would sit here again',
-          pixels: Array.from({ length: 256 }, () => 6),
-        },
-      ],
-    }),
-  }) as unknown as typeof fetch;
-  render(<Xiaomaomi />);
-  expect(screen.getByRole('heading', { name: '小茂密咖啡' })).toBeInTheDocument();
-  expect(await screen.findByRole('heading', { name: 'Cup' })).toBeInTheDocument();
-  expect(document.querySelector('.xm-visit')).toHaveTextContent('暹罗糖云');
-  expect(screen.getByText('奶香先到鼻尖。')).toBeInTheDocument();
-  expect(screen.getByText(/I would sit here again/)).toBeInTheDocument();
-  expect(document.querySelector('canvas.xm-pixel')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '谁坐过' })).toHaveAttribute('href', '/xiaomaomi/visitors');
+  expect(screen.queryByText('还没有人坐下来。')).not.toBeInTheDocument();
+  expect(screen.queryByText('奶香先到鼻尖。')).not.toBeInTheDocument();
   expect(document.querySelector('textarea')).toBeNull();
 });
 
