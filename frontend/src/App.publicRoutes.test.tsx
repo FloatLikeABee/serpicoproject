@@ -82,6 +82,16 @@ test('unauthenticated /shuileme/chat is 睡了么 chat inside the lounge, not of
   expect(window.location.pathname).toBe('/shuileme/chat');
 });
 
+test('unauthenticated /agent-skill is the public MCP skill, not officer chrome', async () => {
+  window.history.pushState({}, '', '/agent-skill');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: '公开特工技能' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '安装到 Cursor' })).toBeInTheDocument();
+  expect(screen.queryByText(/Quick Deploy/i)).not.toBeInTheDocument();
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(window.location.pathname).toBe('/agent-skill');
+});
+
 test('unauthenticated /travel is the agent map, not officer chrome', async () => {
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,

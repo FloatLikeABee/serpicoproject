@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "serpico-public": {
+      "url": "https://serpicoproject.onrender.com/mcp"
+    }
+  }
+}

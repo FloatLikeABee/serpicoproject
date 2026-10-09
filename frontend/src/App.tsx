@@ -14,6 +14,7 @@ import Lalem from './pages/Lalem';
 import Shuileme from './pages/Shuileme';
 import Xiaomaomi from './pages/Xiaomaomi';
 import Travel from './pages/Travel';
+import AgentSkill from './pages/AgentSkill';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -34,6 +35,7 @@ function AppContent() {
         <Route path="/shuileme" element={<Shuileme />} />
         <Route path="/xiaomaomi" element={<Xiaomaomi />} />
         <Route path="/travel" element={<Travel />} />
+        <Route path="/agent-skill" element={<AgentSkill />} />
         <Route
           path="/*"
           element={

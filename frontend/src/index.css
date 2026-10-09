@@ -1930,6 +1930,37 @@ html.xm-world.synth-world #root {
 .tr-log { list-style: none; margin: 0; padding: 0.6rem 1rem 1.2rem; }
 .tr-log li { margin-bottom: 0.7rem; }
 .tr-kind { display: block; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.75; }
+.as-page {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+  color: #102033;
+  background: #f4f7fb;
+  min-height: 100dvh;
+  font-family: "IBM Plex Sans", "PingFang SC", "Noto Sans SC", sans-serif;
+}
+.as-kicker { margin: 0; letter-spacing: 0.08em; text-transform: uppercase; color: #3d5a73; }
+.as-page h1 { margin: 0.2rem 0 0.6rem; font-size: 1.8rem; }
+.as-lead { font-size: 1.05rem; line-height: 1.5; }
+.as-page a { color: #0b5cab; }
+.as-page pre {
+  overflow: auto;
+  padding: 0.8rem;
+  background: #fff;
+  border: 1px solid #d5e0ea;
+  border-radius: 0.6rem;
+  white-space: pre-wrap;
+}
+.as-page button {
+  min-height: 2.75rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #102033;
+  background: #102033;
+  color: #f4f7fb;
+  cursor: pointer;
+}
+.as-skill { max-height: 70vh; }
 @media (min-width: 720px) {
   .xm-gallery { grid-template-columns: 1fr 1fr; }
   .xm-sheet-backdrop { align-items: center; padding: 1.5rem; }
