@@ -2,7 +2,7 @@
 
 ## Context
 
-See proposal.md — Why. On `main`, unlisted side apps already exist at `/lalem` (`html.ll-world`), `/shuileme` (`html.sm-world`), and `/kuaixiaosan` (`html.kx-world`): public routes before `ProtectedRoute`, `spa-routes.js` static copies, `enterLoungeWorld` / `leaveLoungeWorld`, CN-default language keys, photo cards, and bottom sheets. Those pages are dark, docked, and (for 睡了么 and 肾结石快消散) chat-backed. 小茂密咖啡 copies the **unlisted public-route arrangement** and changes the **shape** to one light landing page. Specs: `xiaomaomi-page`, `xiaomaomi-menu`. Luxury gold PR #104 stays out.
+See proposal.md — Why. On `main`, unlisted side apps already exist at `/lalem` (`html.ll-world`) and `/shuileme` (`html.sm-world`): public routes before `ProtectedRoute`, `spa-routes.js` static copies, `enterLoungeWorld` / `leaveLoungeWorld`, CN-default language keys, photo cards, and bottom sheets. Those pages are dark, docked, and 睡了么 is chat-backed. 小茂密咖啡 copies the **unlisted public-route arrangement** and changes the **shape** to one light landing page. Specs: `xiaomaomi-page`, `xiaomaomi-menu`. Luxury gold PR #104 stays out.
 
 ## Goals / Non-Goals
 
@@ -102,7 +102,7 @@ Frontend only.
 ## Migration Plan
 
 1. Land the page on `main`. Frontend `autoDeployTrigger: commit` publishes `/xiaomaomi` via `spa-routes.js`.
-2. No backend release is required. Existing `/lalem`, `/shuileme`, and `/kuaixiaosan` APIs stay as they are.
+2. No backend release is required. Existing `/lalem` and `/shuileme` APIs stay as they are.
 3. Rollback is reverting the commit. The route disappears with the previous static build; no database migration.
 
 ## Open Questions

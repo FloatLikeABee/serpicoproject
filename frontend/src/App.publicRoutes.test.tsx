@@ -76,18 +76,3 @@ test('unauthenticated /xiaomaomi is 小茂密咖啡, not officer chrome', async 
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   expect(window.location.pathname).toBe('/xiaomaomi');
 });
-
-test('unauthenticated /kuaixiaosan/chat is 肾结石快消散 chat inside the lounge, not officer chrome', async () => {
-  global.fetch = jest.fn().mockResolvedValue({
-    ok: true,
-    status: 200,
-    json: async () => ({ stones: [], cases: [], recover: [], articles: [], imaging: [] }),
-  });
-  window.history.pushState({}, '', '/kuaixiaosan/chat');
-  render(<App />);
-  expect(await screen.findByRole('heading', { name: '肾结石快消散' })).toBeInTheDocument();
-  expect(screen.getByRole('textbox').tagName).toBe('TEXTAREA');
-  expect(screen.queryByText('Officer dashboard')).not.toBeInTheDocument();
-  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
-  expect(window.location.pathname).toBe('/kuaixiaosan/chat');
-});

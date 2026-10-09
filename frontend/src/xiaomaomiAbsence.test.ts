@@ -10,7 +10,6 @@ test('officer Navigation, Login, landing, Fridge Raid, and the other lounges do 
     'pages/FridgeRaid.tsx',
     'pages/Lalem.tsx',
     'pages/Shuileme.tsx',
-    'pages/Kuaixiaosan.tsx',
   ];
   for (const rel of files) {
     const src = readFileSync(join(__dirname, rel), 'utf8');

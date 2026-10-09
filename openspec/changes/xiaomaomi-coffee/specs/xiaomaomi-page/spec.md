@@ -8,7 +8,7 @@ Defines the unlisted 小茂密咖啡 landing page: one Chinese-default phone pag
 
 ### Requirement: Unlisted Chinese-default café page
 
-`/xiaomaomi` MUST be a public route outside the officer `ProtectedRoute`. Officer Navigation, Login, landing, HomeGate, Fridge Raid, 拉了么, 睡了么, and 肾结石快消散 MUST NOT link to it. The first visit MUST default to Simplified Chinese unless a stored 小茂密咖啡 language or `?lang=` / `?nation=` override is present. The page MUST use an isolated cream-and-rose skin (`html.xm-world` / `.xm-*`) and MUST NOT apply `ll-world`, `sm-world`, `kx-world`, or Fridge Raid kitchen classes. The skin MUST NOT use `#c6a56a`, `#ff4d8d`, `#7ee0ff`, or `#c9f07a`.
+`/xiaomaomi` MUST be a public route outside the officer `ProtectedRoute`. Officer Navigation, Login, landing, HomeGate, Fridge Raid, 拉了么, and 睡了么 MUST NOT link to it. The first visit MUST default to Simplified Chinese unless a stored 小茂密咖啡 language or `?lang=` / `?nation=` override is present. The page MUST use an isolated cream-and-rose skin (`html.xm-world` / `.xm-*`) and MUST NOT apply `ll-world`, `sm-world`, `kx-world`, or Fridge Raid kitchen classes. The skin MUST NOT use `#c6a56a`, `#ff4d8d`, `#7ee0ff`, or `#c9f07a`.
 
 #### Scenario: Fresh visit is 小茂密咖啡, not officer nav
 

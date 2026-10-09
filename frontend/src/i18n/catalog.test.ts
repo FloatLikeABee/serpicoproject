@@ -155,24 +155,6 @@ describe('i18n catalog', () => {
     expect(t('us', 'shuileme.disclaimer')).toMatch(/not medical/i);
   });
 
-  it('returns 肾结石快消散 chrome in Simplified Chinese by default keys', () => {
-    expect(t('cn', 'kuaixiaosan.title')).toBe('肾结石快消散');
-    expect(t('cn', 'kuaixiaosan.kicker')).toBe('快消散');
-    expect(t('cn', 'kuaixiaosan.dock.stones')).toBe('石');
-    expect(t('cn', 'kuaixiaosan.dock.cases')).toBe('例');
-    expect(t('cn', 'kuaixiaosan.dock.recover')).toBe('复');
-    expect(t('cn', 'kuaixiaosan.dock.lore')).toBe('典');
-    expect(t('cn', 'kuaixiaosan.dock.imaging')).toBe('影');
-    expect(t('cn', 'kuaixiaosan.dock.chat')).toBe('聊');
-    expect(t('cn', 'kuaixiaosan.stop')).toBe('好了');
-    expect(t('cn', 'kuaixiaosan.composition.calcium-oxalate')).toBe('草酸钙');
-    expect(t('us', 'kuaixiaosan.title')).not.toBe('肾结石快消散');
-    expect(t('us', 'kuaixiaosan.dock.stones')).toBe('Stones');
-    expect(t('us', 'kuaixiaosan.stop')).toBe("I'm done");
-    expect(t('cn', 'kuaixiaosan.disclaimer')).toMatch(/不能替代医疗/);
-    expect(t('us', 'kuaixiaosan.disclaimer')).toMatch(/not medical/i);
-  });
-
   it('returns 小茂密咖啡 chrome in Simplified Chinese by default keys', () => {
     expect(t('cn', 'xiaomaomi.title')).toBe('小茂密咖啡');
     expect(t('cn', 'xiaomaomi.kicker')).toBe('茂密');

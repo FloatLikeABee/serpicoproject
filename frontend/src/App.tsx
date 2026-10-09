@@ -12,7 +12,6 @@ import Join from './pages/Join';
 import FridgeRaid from './pages/FridgeRaid';
 import Lalem from './pages/Lalem';
 import Shuileme from './pages/Shuileme';
-import Kuaixiaosan from './pages/Kuaixiaosan';
 import Xiaomaomi from './pages/Xiaomaomi';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -32,8 +31,6 @@ function AppContent() {
         <Route path="/lalem" element={<Lalem />} />
         <Route path="/shuileme/chat" element={<Shuileme />} />
         <Route path="/shuileme" element={<Shuileme />} />
-        <Route path="/kuaixiaosan/chat" element={<Kuaixiaosan />} />
-        <Route path="/kuaixiaosan" element={<Kuaixiaosan />} />
         <Route path="/xiaomaomi" element={<Xiaomaomi />} />
         <Route
           path="/*"
