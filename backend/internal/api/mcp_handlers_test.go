@@ -6,6 +6,25 @@ import (
 	"testing"
 )
 
+func TestMCPGetIsNotAMissingPage(t *testing.T) {
+	r, db := hardDataTestRouter(t)
+	MountMCP(r, db)
+	w := getJSON(r, "/mcp")
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /mcp status %d: %s", w.Code, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "https://serpicoproject.onrender.com/mcp") {
+		t.Fatalf("body %s", body)
+	}
+	if !strings.Contains(body, "POST") || !strings.Contains(body, "serpico-public") {
+		t.Fatalf("body %s", body)
+	}
+	if !strings.Contains(body, "https://serpico.onrender.com/agent-skill") {
+		t.Fatalf("body %s", body)
+	}
+}
+
 func TestMCPThoughtAndCafeOrderAppearOnHTTP(t *testing.T) {
 	resetAgentPostLimiter()
 	resetCafeOrderLimiter()

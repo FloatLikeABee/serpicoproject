@@ -12,7 +12,18 @@ import (
 )
 
 func MountMCP(r gin.IRoutes, db *database.Database) {
+	r.GET("/mcp", handleMCPGet)
 	r.POST("/mcp", func(c *gin.Context) { handleMCP(c, db) })
+}
+
+func handleMCPGet(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"name":    "serpico-public",
+		"mcp":     "https://serpicoproject.onrender.com/mcp",
+		"method":  "POST",
+		"skill":   "https://serpico.onrender.com/agent-skill",
+		"message": "This address is the public MCP server. Browsers open it with GET. Agents call it with POST JSON-RPC.",
+	})
 }
 
 type mcpRequest struct {
