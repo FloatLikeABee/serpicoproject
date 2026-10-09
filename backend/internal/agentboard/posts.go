@@ -2,6 +2,7 @@ package agentboard
 
 import (
 	"database/sql"
+	"encoding/json"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -16,18 +17,24 @@ type Post struct {
 	Kind      string  `json:"kind"`
 	AgentName string  `json:"agentName"`
 	PlaceName string  `json:"placeName"`
+	Title     string  `json:"title"`
 	Lat       float64 `json:"lat"`
 	Lng       float64 `json:"lng"`
 	Body      string  `json:"body"`
+	Pixels    []int   `json:"pixels"`
 	CreatedAt string  `json:"createdAt"`
 }
 
 type PostInput struct {
 	AgentName string
 	PlaceName string
+	Title     string
 	Lat       float64
 	Lng       float64
 	Body      string
+	Pixels    json.RawMessage
+	ImageURL  string
+	Photo     string
 }
 
 type ValidationError struct {
@@ -43,9 +50,11 @@ func EnsureTables(db *sql.DB) error {
 			kind TEXT NOT NULL,
 			agent_name TEXT NOT NULL,
 			place_name TEXT NOT NULL,
+			title TEXT NOT NULL DEFAULT '',
 			lat REAL NOT NULL,
 			lng REAL NOT NULL,
 			body TEXT NOT NULL,
+			pixels TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_agent_posts_created ON agent_posts(created_at DESC)`,
@@ -68,6 +77,8 @@ func EnsureTables(db *sql.DB) error {
 			return err
 		}
 	}
+	_, _ = db.Exec(`ALTER TABLE agent_posts ADD COLUMN title TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE agent_posts ADD COLUMN pixels TEXT NOT NULL DEFAULT ''`)
 	return nil
 }
 
@@ -98,6 +109,9 @@ func ValidatePost(kind string, in PostInput) error {
 	if utf8.RuneCountInString(name) > 40 {
 		return ValidationError{Msg: "name is longer than 40 characters"}
 	}
+	if utf8.RuneCountInString(oneLine(in.Title)) > 80 {
+		return ValidationError{Msg: "title is longer than 80 characters"}
+	}
 	limit := 500
 	if kind == "travel" {
 		limit = 800
@@ -115,19 +129,33 @@ func InsertPost(db *sql.DB, kind string, in PostInput, now time.Time) (Post, err
 	if err := ValidatePost(kind, in); err != nil {
 		return Post{}, err
 	}
+	pixels := normalizePixels(kind, in)
+	rawPixels := ""
+	if len(pixels) > 0 {
+		encoded, err := json.Marshal(pixels)
+		if err != nil {
+			return Post{}, err
+		}
+		rawPixels = string(encoded)
+	}
 	post := Post{
 		ID:        uuid.NewString(),
 		Kind:      kind,
 		AgentName: plainText(in.AgentName),
 		PlaceName: plainText(in.PlaceName),
+		Title:     oneLine(in.Title),
 		Lat:       in.Lat,
 		Lng:       in.Lng,
 		Body:      plainText(in.Body),
+		Pixels:    pixels,
 		CreatedAt: now.UTC().Format(time.RFC3339Nano),
 	}
+	if post.Pixels == nil {
+		post.Pixels = []int{}
+	}
 	_, err := db.Exec(
-		`INSERT INTO agent_posts (id, kind, agent_name, place_name, lat, lng, body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		post.ID, post.Kind, post.AgentName, post.PlaceName, post.Lat, post.Lng, post.Body, post.CreatedAt,
+		`INSERT INTO agent_posts (id, kind, agent_name, place_name, title, lat, lng, body, pixels, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		post.ID, post.Kind, post.AgentName, post.PlaceName, post.Title, post.Lat, post.Lng, post.Body, rawPixels, post.CreatedAt,
 	)
 	if err != nil {
 		return Post{}, err
@@ -141,7 +169,7 @@ func InsertPost(db *sql.DB, kind string, in PostInput, now time.Time) (Post, err
 }
 
 func ListPosts(db *sql.DB) ([]Post, error) {
-	rows, err := db.Query(`SELECT id, kind, agent_name, place_name, lat, lng, body, created_at FROM agent_posts ORDER BY created_at DESC, id DESC`)
+	rows, err := db.Query(`SELECT id, kind, agent_name, place_name, title, lat, lng, body, pixels, created_at FROM agent_posts ORDER BY created_at DESC, id DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -149,10 +177,59 @@ func ListPosts(db *sql.DB) ([]Post, error) {
 	out := []Post{}
 	for rows.Next() {
 		var post Post
-		if err := rows.Scan(&post.ID, &post.Kind, &post.AgentName, &post.PlaceName, &post.Lat, &post.Lng, &post.Body, &post.CreatedAt); err != nil {
+		var rawPixels string
+		if err := rows.Scan(&post.ID, &post.Kind, &post.AgentName, &post.PlaceName, &post.Title, &post.Lat, &post.Lng, &post.Body, &rawPixels, &post.CreatedAt); err != nil {
 			return nil, err
 		}
+		post.Pixels = decodePixels(rawPixels)
 		out = append(out, post)
 	}
 	return out, rows.Err()
+}
+
+func oneLine(s string) string {
+	s = plainText(s)
+	return strings.Join(strings.Fields(s), " ")
+}
+
+func normalizePixels(kind string, in PostInput) []int {
+	if kind != "travel" {
+		return []int{}
+	}
+	if strings.TrimSpace(in.ImageURL) != "" || strings.TrimSpace(in.Photo) != "" {
+		return []int{}
+	}
+	trimmed := strings.TrimSpace(string(in.Pixels))
+	if trimmed == "" || trimmed == "null" || strings.HasPrefix(trimmed, `"`) {
+		return []int{}
+	}
+	var pixels []int
+	if err := json.Unmarshal(in.Pixels, &pixels); err != nil || !validPaletteGrid(pixels) {
+		return []int{}
+	}
+	return pixels
+}
+
+func validPaletteGrid(pixels []int) bool {
+	if len(pixels) != 256 {
+		return false
+	}
+	for _, cell := range pixels {
+		if cell < 0 || cell > 7 {
+			return false
+		}
+	}
+	return true
+}
+
+func decodePixels(raw string) []int {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "null" || raw == "[]" {
+		return []int{}
+	}
+	var pixels []int
+	if err := json.Unmarshal([]byte(raw), &pixels); err != nil || !validPaletteGrid(pixels) {
+		return []int{}
+	}
+	return pixels
 }
