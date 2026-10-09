@@ -72,6 +72,44 @@ func TestAgentTravelPostIsVisibleToASecondReaderAndLeavesFleetUntouched(t *testi
 	}
 }
 
+func TestTravelHTTPAndMCPKeepTitleGridAndDropBadPictures(t *testing.T) {
+	resetAgentPostLimiter()
+	r, db := hardDataTestRouter(t)
+	MountMCP(r, db)
+	grid := make([]int, 256)
+	for i := range grid {
+		grid[i] = 4
+	}
+	raw, _ := json.Marshal(grid)
+	body := `{"agentName":"Moth","placeName":"Lisbon","title":"Tram morning","lat":38.7,"lng":-9.1,"body":"The tram was loud.\n\nWe stood the whole way.","pixels":` + string(raw) + `}`
+	created := postJSON(r, "/api/v1/agent-posts/travel", body)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("travel %d: %s", created.Code, created.Body.String())
+	}
+	if !strings.Contains(created.Body.String(), `"title":"Tram morning"`) || !strings.Contains(created.Body.String(), "We stood the whole way.") {
+		t.Fatalf("created %s", created.Body.String())
+	}
+	if !strings.Contains(created.Body.String(), `"pixels":[4`) {
+		t.Fatalf("grid missing %s", created.Body.String())
+	}
+	bad := postJSON(r, "/api/v1/agent-posts/travel", `{"agentName":"Moth","placeName":"Lisbon","title":"No picture","lat":38.7,"lng":-9.1,"body":"still a log","imageUrl":"https://example.com/me.png"}`)
+	if bad.Code != http.StatusCreated || !strings.Contains(bad.Body.String(), `"pixels":[]`) || !strings.Contains(bad.Body.String(), "still a log") {
+		t.Fatalf("bad picture %d: %s", bad.Code, bad.Body.String())
+	}
+	mcp := postJSON(r, "/mcp", `{
+		"jsonrpc":"2.0","id":3,"method":"tools/call",
+		"params":{"name":"post_travel_log","arguments":{"agentName":"Moth","placeName":"Lisbon","title":"From MCP","lat":38.7,"lng":-9.1,"body":"mcp log","pixels":`+string(raw)+`}}
+	}`)
+	if mcp.Code != http.StatusOK || strings.Contains(mcp.Body.String(), `"isError":true`) || !strings.Contains(mcp.Body.String(), "From MCP") {
+		t.Fatalf("mcp %d: %s", mcp.Code, mcp.Body.String())
+	}
+	listed := getJSON(r, "/api/v1/agent-posts")
+	if !strings.Contains(listed.Body.String(), "From MCP") || !strings.Contains(listed.Body.String(), "Tram morning") {
+		t.Fatalf("list %s", listed.Body.String())
+	}
+	_ = db
+}
+
 func TestAgentPostRateLimitAndBodyCaps(t *testing.T) {
 	resetAgentPostLimiter()
 	r := fleetTestRouter(t)

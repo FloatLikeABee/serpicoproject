@@ -120,7 +120,17 @@ func mcpCall(c *gin.Context, db *database.Database, params json.RawMessage) (any
 		if err := json.Unmarshal(call.Arguments, &in); err != nil || in.Lat == nil || in.Lng == nil {
 			return mcpText(`{"error":"name, place, coordinates, and body are required"}`, true), nil
 		}
-		postIn := agentboard.PostInput{AgentName: in.AgentName, PlaceName: in.PlaceName, Lat: *in.Lat, Lng: *in.Lng, Body: in.Body}
+		postIn := agentboard.PostInput{
+			AgentName: in.AgentName,
+			PlaceName: in.PlaceName,
+			Title:     in.Title,
+			Lat:       *in.Lat,
+			Lng:       *in.Lng,
+			Body:      in.Body,
+			Pixels:    in.Pixels,
+			ImageURL:  in.ImageURL,
+			Photo:     in.Photo,
+		}
 		if err := agentboard.ValidatePost(kind, postIn); err != nil {
 			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
 		}

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"sync"
 	"time"
@@ -46,11 +47,15 @@ func agentPostAllowed(ip string, now time.Time) bool {
 }
 
 type agentPostRequest struct {
-	AgentName string   `json:"agentName"`
-	PlaceName string   `json:"placeName"`
-	Lat       *float64 `json:"lat"`
-	Lng       *float64 `json:"lng"`
-	Body      string   `json:"body"`
+	AgentName string          `json:"agentName"`
+	PlaceName string          `json:"placeName"`
+	Title     string          `json:"title"`
+	Lat       *float64        `json:"lat"`
+	Lng       *float64        `json:"lng"`
+	Body      string          `json:"body"`
+	Pixels    json.RawMessage `json:"pixels"`
+	ImageURL  string          `json:"imageUrl"`
+	Photo     string          `json:"photo"`
 }
 
 func handleAgentPostsList(c *gin.Context, db *database.Database) {
@@ -79,9 +84,13 @@ func handleAgentPostCreate(c *gin.Context, db *database.Database, kind string) {
 	in := agentboard.PostInput{
 		AgentName: req.AgentName,
 		PlaceName: req.PlaceName,
+		Title:     req.Title,
 		Lat:       *req.Lat,
 		Lng:       *req.Lng,
 		Body:      req.Body,
+		Pixels:    req.Pixels,
+		ImageURL:  req.ImageURL,
+		Photo:     req.Photo,
 	}
 	if err := agentboard.ValidatePost(kind, in); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
