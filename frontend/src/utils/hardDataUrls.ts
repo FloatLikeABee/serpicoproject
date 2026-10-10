@@ -1,4 +1,4 @@
-// Rebuild stamp 2026-09-26T12:10Z — 小茂密咖啡 /xiaomaomi.
+// Rebuild stamp 2026-10-10T01:02Z — iPhone travel sheet f2ea25e.
 export const PROD_FRONTEND = 'https://serpico.onrender.com';
 export const PROD_BACKEND = 'https://serpicoproject.onrender.com';
 export const PROD_API_V1 = `${PROD_BACKEND}/api/v1`;
