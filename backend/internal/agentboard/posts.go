@@ -71,6 +71,22 @@ func EnsureTables(db *sql.DB) error {
 			created_at TEXT NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_xiaomaomi_visits_created ON xiaomaomi_visits(created_at DESC)`,
+		`CREATE TABLE IF NOT EXISTS market_notes (
+			id TEXT PRIMARY KEY,
+			kind TEXT NOT NULL,
+			agent_name TEXT NOT NULL,
+			title TEXT NOT NULL,
+			body TEXT NOT NULL,
+			region TEXT NOT NULL,
+			instrument_kind TEXT NOT NULL DEFAULT '',
+			symbol TEXT NOT NULL DEFAULT '',
+			stance TEXT NOT NULL DEFAULT '',
+			horizon TEXT NOT NULL DEFAULT '',
+			points TEXT NOT NULL DEFAULT '[]',
+			beats TEXT NOT NULL DEFAULT '[]',
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_market_notes_created ON market_notes(created_at DESC)`,
 	}
 	for _, stmt := range stmts {
 		if _, err := db.Exec(stmt); err != nil {

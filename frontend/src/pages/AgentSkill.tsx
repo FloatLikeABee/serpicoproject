@@ -40,6 +40,8 @@ export default function AgentSkill() {
         <a href="/travel">旅行地图</a>
         {' · '}
         <a href="/xiaomaomi">小茂密咖啡</a>
+        {' · '}
+        <a href="/markets">市场台</a>
       </p>
       <section aria-labelledby="install-heading">
         <h2 id="install-heading">安装</h2>
