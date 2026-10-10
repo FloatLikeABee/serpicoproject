@@ -153,17 +153,14 @@ test('the story opens as a full overlay modal that scrolls inside', async () => 
   expect(scroll?.querySelector('.tr-body')?.textContent).toBe(longBody);
   expect(sheet?.innerHTML.indexOf('tr-sheet-bar')).toBeLessThan(sheet?.innerHTML.indexOf('tr-sheet-scroll') || 0);
   const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
-  expect(src).toMatch(/visualViewport/);
+  expect(src).not.toMatch(/visualViewport/);
   const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
   const sheetCss = css.slice(css.indexOf('.tr-sheet-backdrop'));
   const backdropRule = sheetCss.match(/\.tr-sheet-backdrop\s*\{[^}]*\}/)?.[0] || '';
   const sheetRule = sheetCss.match(/\.tr-sheet\s*\{[^}]*\}/)?.[0] || '';
-  expect(backdropRule).toMatch(/left:\s*0/);
-  expect(backdropRule).toMatch(/right:\s*0/);
-  expect(backdropRule).toMatch(/top:\s*0/);
-  expect(backdropRule).toMatch(/height:\s*100dvh/);
-  expect(backdropRule).not.toMatch(/inset:/);
-  expect(backdropRule).not.toMatch(/bottom:/);
+  expect(backdropRule).toMatch(/inset:\s*0/);
+  expect(backdropRule).toMatch(/height:\s*auto/);
+  expect(backdropRule).not.toMatch(/100dvh/);
   expect(backdropRule).toMatch(/align-items:\s*center/);
   expect(backdropRule).toMatch(/justify-content:\s*center/);
   expect(backdropRule).toMatch(/padding:/);
@@ -182,41 +179,16 @@ test('the story opens as a full overlay modal that scrolls inside', async () => 
   expect(css).toMatch(/\.tr-sheet \.tr-pixel\s*\{[^}]*border:/);
 });
 
-test('the story sheet follows the mobile visual viewport', async () => {
-  const listeners: Record<string, EventListener> = {};
-  const viewport = {
-    offsetTop: 73,
-    height: 612,
-    addEventListener: jest.fn((name: string, listener: EventListener) => {
-      listeners[name] = listener;
-    }),
-    removeEventListener: jest.fn(),
-  };
-  Object.defineProperty(window, 'visualViewport', {
-    configurable: true,
-    value: viewport,
-  });
-
+test('opening a post locks page scroll without measuring the visual viewport', async () => {
   render(<Travel />);
   await userEvent.click(await screen.findByRole('button', { name: /Tram morning/ }));
+  expect(document.documentElement.style.overflow).toBe('hidden');
   const backdrop = document.querySelector('.tr-sheet-backdrop') as HTMLElement;
-  expect(backdrop.style.top).toBe('73px');
-  expect(backdrop.style.height).toBe('612px');
-  expect(readFileSync(join(__dirname, 'Travel.tsx'), 'utf8')).toMatch(/backdrop\.style\.bottom = 'auto'/);
-  expect(viewport.addEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
-  expect(viewport.addEventListener).toHaveBeenCalledWith('scroll', expect.any(Function));
-
-  viewport.offsetTop = 96;
-  viewport.height = 568;
-  listeners.resize(new Event('resize'));
-  expect(backdrop.style.top).toBe('96px');
-  expect(backdrop.style.height).toBe('568px');
-
-  viewport.offsetTop = 104;
-  viewport.height = 550;
-  listeners.scroll(new Event('scroll'));
-  expect(backdrop.style.top).toBe('104px');
-  expect(backdrop.style.height).toBe('550px');
+  expect(backdrop.style.top).toBe('');
+  expect(backdrop.style.height).toBe('');
+  const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
+  expect(src).not.toMatch(/visualViewport/);
+  expect(src).toMatch(/overflow = 'hidden'/);
 });
 
 test('a short thought stays whole and a long log scrolls inside the sheet', async () => {
