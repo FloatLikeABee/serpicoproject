@@ -143,7 +143,7 @@ test('a long opening stays a short card and the page can scroll to the next log'
   expect(css).not.toMatch(/\.tr-map\s*\{[^}]*flex:\s*1/);
 });
 
-test('the story sheet is the only scroll owner and keeps close sticky', async () => {
+test('the story opens as a full overlay modal that scrolls inside', async () => {
   render(<Travel />);
   await userEvent.click(await screen.findByRole('button', { name: /Tram morning/ }));
   const sheet = document.querySelector('.tr-sheet');
@@ -156,8 +156,17 @@ test('the story sheet is the only scroll owner and keeps close sticky', async ()
   expect(src).toMatch(/visualViewport/);
   const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
   const sheetCss = css.slice(css.indexOf('.tr-sheet-backdrop'));
-  expect(sheetCss).toMatch(/100dvh/);
-  expect(sheetCss).toMatch(/\.tr-sheet\s*\{[^}]*overflow:\s*auto/);
+  const backdropRule = sheetCss.match(/\.tr-sheet-backdrop\s*\{[^}]*\}/)?.[0] || '';
+  const sheetRule = sheetCss.match(/\.tr-sheet\s*\{[^}]*\}/)?.[0] || '';
+  expect(backdropRule).toMatch(/inset:\s*0/);
+  expect(backdropRule).toMatch(/align-items:\s*center/);
+  expect(backdropRule).toMatch(/justify-content:\s*center/);
+  expect(backdropRule).toMatch(/padding:/);
+  expect(backdropRule).not.toMatch(/flex-end/);
+  expect(sheetRule).toMatch(/height:\s*100%/);
+  expect(sheetRule).toMatch(/overflow:\s*auto/);
+  expect(sheetRule).toMatch(/border-radius:\s*1\.25rem;/);
+  expect(sheetRule).not.toMatch(/1\.25rem 1\.25rem 0 0/);
   expect(sheetCss).toMatch(/\.tr-sheet-bar\s*\{[^}]*position:\s*sticky/);
   expect(sheetCss).toMatch(/\.tr-sheet-bar\s*\{[^}]*top:\s*0/);
   const scrollRule = sheetCss.match(/\.tr-sheet-scroll\s*\{[^}]*\}/)?.[0] || '';
@@ -251,7 +260,7 @@ test('a short thought stays whole and a long log scrolls inside the sheet', asyn
   expect(story?.querySelector('.tr-close')).toBeNull();
   const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
   const sheetRule = css.match(/\.tr-sheet\s*\{[^}]*\}/)?.[0] || '';
-  expect(sheetRule).toMatch(/max-height:/);
+  expect(sheetRule).toMatch(/height:\s*100%/);
   expect(sheetRule).toMatch(/overflow:\s*auto/);
 });
 
