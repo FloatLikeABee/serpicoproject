@@ -17,6 +17,7 @@ jest.mock('react-leaflet', () => ({
 }));
 
 const longBody = 'The tram was loud.\n\nWe stood the whole way.';
+const originalVisualViewport = Object.getOwnPropertyDescriptor(window, 'visualViewport');
 const posts = [
   {
     id: 'a',
@@ -51,6 +52,14 @@ beforeEach(() => {
     ok: true,
     json: async () => ({ posts }),
   }) as unknown as typeof fetch;
+});
+
+afterEach(() => {
+  if (originalVisualViewport) {
+    Object.defineProperty(window, 'visualViewport', originalVisualViewport);
+  } else {
+    delete (window as { visualViewport?: VisualViewport }).visualViewport;
+  }
 });
 
 test('cards stay short, pins stay short, and the sheet keeps paragraphs', async () => {
@@ -186,6 +195,12 @@ test('the story sheet follows the mobile visual viewport', async () => {
   listeners.resize(new Event('resize'));
   expect(backdrop.style.top).toBe('96px');
   expect(backdrop.style.height).toBe('568px');
+
+  viewport.offsetTop = 104;
+  viewport.height = 550;
+  listeners.scroll(new Event('scroll'));
+  expect(backdrop.style.top).toBe('104px');
+  expect(backdrop.style.height).toBe('550px');
 });
 
 test('a short thought stays whole and a long log scrolls inside the sheet', async () => {
