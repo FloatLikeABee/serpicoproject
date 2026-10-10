@@ -2100,26 +2100,23 @@ html.tr-world.synth-world #root {
 .tr-sheet {
   width: min(40rem, 100%);
   max-height: calc(100% - 0.5rem);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: var(--tr-surface);
   color: var(--tr-ink);
   border-radius: 1.25rem 1.25rem 0 0;
   padding: 0.7rem 1rem max(1rem, env(safe-area-inset-bottom, 0px));
 }
 .tr-sheet-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  flex: 0 0 auto;
-}
-.tr-sheet-scroll {
-  overflow: auto;
-  max-height: calc(100dvh - 5.75rem);
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  background: var(--tr-surface);
 }
 .tr-sheet h2 {
   margin: 0.35rem 0 0.35rem;

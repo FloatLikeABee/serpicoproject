@@ -17,6 +17,7 @@ jest.mock('react-leaflet', () => ({
 }));
 
 const longBody = 'The tram was loud.\n\nWe stood the whole way.';
+const originalVisualViewport = Object.getOwnPropertyDescriptor(window, 'visualViewport');
 const posts = [
   {
     id: 'a',
@@ -51,6 +52,14 @@ beforeEach(() => {
     ok: true,
     json: async () => ({ posts }),
   }) as unknown as typeof fetch;
+});
+
+afterEach(() => {
+  if (originalVisualViewport) {
+    Object.defineProperty(window, 'visualViewport', originalVisualViewport);
+  } else {
+    delete (window as { visualViewport?: VisualViewport }).visualViewport;
+  }
 });
 
 test('cards stay short, pins stay short, and the sheet keeps paragraphs', async () => {
@@ -134,7 +143,7 @@ test('a long opening stays a short card and the page can scroll to the next log'
   expect(css).not.toMatch(/\.tr-map\s*\{[^}]*flex:\s*1/);
 });
 
-test('the story sheet keeps close in view and scrolls the log', async () => {
+test('the story sheet is the only scroll owner and keeps close sticky', async () => {
   render(<Travel />);
   await userEvent.click(await screen.findByRole('button', { name: /Tram morning/ }));
   const sheet = document.querySelector('.tr-sheet');
@@ -148,9 +157,50 @@ test('the story sheet keeps close in view and scrolls the log', async () => {
   const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
   const sheetCss = css.slice(css.indexOf('.tr-sheet-backdrop'));
   expect(sheetCss).toMatch(/100dvh/);
-  expect(sheetCss).toMatch(/\.tr-sheet-scroll\s*\{[^}]*overflow:\s*auto/);
+  expect(sheetCss).toMatch(/\.tr-sheet\s*\{[^}]*overflow:\s*auto/);
+  expect(sheetCss).toMatch(/\.tr-sheet-bar\s*\{[^}]*position:\s*sticky/);
+  expect(sheetCss).toMatch(/\.tr-sheet-bar\s*\{[^}]*top:\s*0/);
+  const scrollRule = sheetCss.match(/\.tr-sheet-scroll\s*\{[^}]*\}/)?.[0] || '';
+  expect(scrollRule).not.toMatch(/overflow:/);
+  expect(scrollRule).not.toMatch(/max-height:/);
   expect(sheetCss).toMatch(/safe-area-inset-bottom/);
   expect(css).toMatch(/\.tr-sheet \.tr-pixel\s*\{[^}]*border:/);
+});
+
+test('the story sheet follows the mobile visual viewport', async () => {
+  const listeners: Record<string, EventListener> = {};
+  const viewport = {
+    offsetTop: 73,
+    height: 612,
+    addEventListener: jest.fn((name: string, listener: EventListener) => {
+      listeners[name] = listener;
+    }),
+    removeEventListener: jest.fn(),
+  };
+  Object.defineProperty(window, 'visualViewport', {
+    configurable: true,
+    value: viewport,
+  });
+
+  render(<Travel />);
+  await userEvent.click(await screen.findByRole('button', { name: /Tram morning/ }));
+  const backdrop = document.querySelector('.tr-sheet-backdrop') as HTMLElement;
+  expect(backdrop.style.top).toBe('73px');
+  expect(backdrop.style.height).toBe('612px');
+  expect(viewport.addEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
+  expect(viewport.addEventListener).toHaveBeenCalledWith('scroll', expect.any(Function));
+
+  viewport.offsetTop = 96;
+  viewport.height = 568;
+  listeners.resize(new Event('resize'));
+  expect(backdrop.style.top).toBe('96px');
+  expect(backdrop.style.height).toBe('568px');
+
+  viewport.offsetTop = 104;
+  viewport.height = 550;
+  listeners.scroll(new Event('scroll'));
+  expect(backdrop.style.top).toBe('104px');
+  expect(backdrop.style.height).toBe('550px');
 });
 
 test('a short thought stays whole and a long log scrolls inside the sheet', async () => {
@@ -200,10 +250,9 @@ test('a short thought stays whole and a long log scrolls inside the sheet', asyn
   expect(story?.textContent).toContain(ending);
   expect(story?.querySelector('.tr-close')).toBeNull();
   const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
-  const rule = css.match(/\.tr-sheet-scroll\s*\{[^}]*\}/)?.[0] || '';
-  expect(rule).toMatch(/max-height:/);
-  expect(rule).not.toMatch(/min-height:\s*0/);
-  expect(rule).not.toMatch(/flex:\s*1/);
+  const sheetRule = css.match(/\.tr-sheet\s*\{[^}]*\}/)?.[0] || '';
+  expect(sheetRule).toMatch(/max-height:/);
+  expect(sheetRule).toMatch(/overflow:\s*auto/);
 });
 
 test('travel page source does not touch pursue map tags', () => {
