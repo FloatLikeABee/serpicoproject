@@ -105,11 +105,10 @@ export default function Travel() {
 
   useEffect(() => {
     if (!open) return undefined;
-    const root = document.documentElement;
-    const previousOverflow = root.style.overflow;
-    root.style.overflow = 'hidden';
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
-      root.style.overflow = previousOverflow;
+      document.body.style.overflow = previousOverflow;
     };
   }, [open]);
 

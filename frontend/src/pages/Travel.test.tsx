@@ -158,8 +158,13 @@ test('the story opens as a full overlay modal that scrolls inside', async () => 
   const sheetCss = css.slice(css.indexOf('.tr-sheet-backdrop'));
   const backdropRule = sheetCss.match(/\.tr-sheet-backdrop\s*\{[^}]*\}/)?.[0] || '';
   const sheetRule = sheetCss.match(/\.tr-sheet\s*\{[^}]*\}/)?.[0] || '';
-  expect(backdropRule).toMatch(/inset:\s*0/);
-  expect(backdropRule).toMatch(/height:\s*auto/);
+  expect(backdropRule).toMatch(/top:\s*0/);
+  expect(backdropRule).toMatch(/left:\s*0/);
+  expect(backdropRule).toMatch(/right:\s*0/);
+  expect(backdropRule).toMatch(/height:\s*100vh/);
+  expect(backdropRule).toMatch(/100lvh/);
+  expect(backdropRule).not.toMatch(/inset:/);
+  expect(backdropRule).not.toMatch(/height:\s*auto/);
   expect(backdropRule).not.toMatch(/100dvh/);
   expect(backdropRule).toMatch(/align-items:\s*center/);
   expect(backdropRule).toMatch(/justify-content:\s*center/);
@@ -179,16 +184,18 @@ test('the story opens as a full overlay modal that scrolls inside', async () => 
   expect(css).toMatch(/\.tr-sheet \.tr-pixel\s*\{[^}]*border:/);
 });
 
-test('opening a post locks page scroll without measuring the visual viewport', async () => {
+test('opening a post locks body scroll without trapping the overlay on html', async () => {
   render(<Travel />);
   await userEvent.click(await screen.findByRole('button', { name: /Tram morning/ }));
-  expect(document.documentElement.style.overflow).toBe('hidden');
-  const backdrop = document.querySelector('.tr-sheet-backdrop') as HTMLElement;
-  expect(backdrop.style.top).toBe('');
-  expect(backdrop.style.height).toBe('');
+  expect(document.body.style.overflow).toBe('hidden');
+  expect(document.documentElement.style.overflow).not.toBe('hidden');
   const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
   expect(src).not.toMatch(/visualViewport/);
-  expect(src).toMatch(/overflow = 'hidden'/);
+  expect(src).toMatch(/document\.body\.style\.overflow = 'hidden'/);
+  expect(src).not.toMatch(/documentElement[\s\S]{0,80}overflow = 'hidden'/);
+  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
+  const lounge = css.slice(css.indexOf('html.tr-world'));
+  expect(lounge).toMatch(/min-height:\s*100lvh/);
 });
 
 test('a short thought stays whole and a long log scrolls inside the sheet', async () => {
