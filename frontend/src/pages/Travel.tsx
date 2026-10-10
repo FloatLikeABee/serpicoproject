@@ -114,6 +114,7 @@ export default function Travel() {
       if (!backdrop || !view) return;
       backdrop.style.top = `${view.offsetTop}px`;
       backdrop.style.height = `${view.height}px`;
+      backdrop.style.bottom = 'auto';
     };
     fit();
     window.visualViewport?.addEventListener('resize', fit);

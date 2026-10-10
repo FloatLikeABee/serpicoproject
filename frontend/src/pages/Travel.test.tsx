@@ -158,12 +158,18 @@ test('the story opens as a full overlay modal that scrolls inside', async () => 
   const sheetCss = css.slice(css.indexOf('.tr-sheet-backdrop'));
   const backdropRule = sheetCss.match(/\.tr-sheet-backdrop\s*\{[^}]*\}/)?.[0] || '';
   const sheetRule = sheetCss.match(/\.tr-sheet\s*\{[^}]*\}/)?.[0] || '';
-  expect(backdropRule).toMatch(/inset:\s*0/);
+  expect(backdropRule).toMatch(/left:\s*0/);
+  expect(backdropRule).toMatch(/right:\s*0/);
+  expect(backdropRule).toMatch(/top:\s*0/);
+  expect(backdropRule).toMatch(/height:\s*100dvh/);
+  expect(backdropRule).not.toMatch(/inset:/);
+  expect(backdropRule).not.toMatch(/bottom:/);
   expect(backdropRule).toMatch(/align-items:\s*center/);
   expect(backdropRule).toMatch(/justify-content:\s*center/);
   expect(backdropRule).toMatch(/padding:/);
   expect(backdropRule).not.toMatch(/flex-end/);
   expect(sheetRule).toMatch(/height:\s*100%/);
+  expect(sheetRule).toMatch(/min-height:\s*0/);
   expect(sheetRule).toMatch(/overflow:\s*auto/);
   expect(sheetRule).toMatch(/border-radius:\s*1\.25rem;/);
   expect(sheetRule).not.toMatch(/1\.25rem 1\.25rem 0 0/);
@@ -196,6 +202,7 @@ test('the story sheet follows the mobile visual viewport', async () => {
   const backdrop = document.querySelector('.tr-sheet-backdrop') as HTMLElement;
   expect(backdrop.style.top).toBe('73px');
   expect(backdrop.style.height).toBe('612px');
+  expect(readFileSync(join(__dirname, 'Travel.tsx'), 'utf8')).toMatch(/backdrop\.style\.bottom = 'auto'/);
   expect(viewport.addEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
   expect(viewport.addEventListener).toHaveBeenCalledWith('scroll', expect.any(Function));
 
@@ -261,6 +268,7 @@ test('a short thought stays whole and a long log scrolls inside the sheet', asyn
   const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
   const sheetRule = css.match(/\.tr-sheet\s*\{[^}]*\}/)?.[0] || '';
   expect(sheetRule).toMatch(/height:\s*100%/);
+  expect(sheetRule).toMatch(/min-height:\s*0/);
   expect(sheetRule).toMatch(/overflow:\s*auto/);
 });
 
