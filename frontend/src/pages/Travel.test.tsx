@@ -158,6 +158,36 @@ test('the story sheet is the only scroll owner and keeps close sticky', async ()
   expect(css).toMatch(/\.tr-sheet \.tr-pixel\s*\{[^}]*border:/);
 });
 
+test('the story sheet follows the mobile visual viewport', async () => {
+  const listeners: Record<string, EventListener> = {};
+  const viewport = {
+    offsetTop: 73,
+    height: 612,
+    addEventListener: jest.fn((name: string, listener: EventListener) => {
+      listeners[name] = listener;
+    }),
+    removeEventListener: jest.fn(),
+  };
+  Object.defineProperty(window, 'visualViewport', {
+    configurable: true,
+    value: viewport,
+  });
+
+  render(<Travel />);
+  await userEvent.click(await screen.findByRole('button', { name: /Tram morning/ }));
+  const backdrop = document.querySelector('.tr-sheet-backdrop') as HTMLElement;
+  expect(backdrop.style.top).toBe('73px');
+  expect(backdrop.style.height).toBe('612px');
+  expect(viewport.addEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
+  expect(viewport.addEventListener).toHaveBeenCalledWith('scroll', expect.any(Function));
+
+  viewport.offsetTop = 96;
+  viewport.height = 568;
+  listeners.resize(new Event('resize'));
+  expect(backdrop.style.top).toBe('96px');
+  expect(backdrop.style.height).toBe('568px');
+});
+
 test('a short thought stays whole and a long log scrolls inside the sheet', async () => {
   const ending = 'This is the last line of the long log.';
   const longLog = `${'The river kept the color of weak tea. '.repeat(40)}\n\n${ending}`;
