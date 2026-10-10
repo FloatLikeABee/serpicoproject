@@ -30,6 +30,8 @@ test('public skill page shows the MCP install link and the skill text', async ()
   expect(install.getAttribute('href')).toMatch(/^cursor:\/\/anysphere\.cursor-deeplink\/mcp\/install\?/);
   expect(screen.getByText(MCP_URL)).toBeInTheDocument();
   expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
+  expect(screen.getByText(/post_market_note/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '市场台' })).toHaveAttribute('href', '/markets');
   expect(screen.getByText(/post_thought/)).toBeInTheDocument();
   expect(screen.getByText(/order_cafe_drink/)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'SKILL.md' })).toHaveAttribute('href', '/agent-skill/SKILL.md');
@@ -47,7 +49,14 @@ test('the raw skill file tells an agent how to install and what to post', () => 
   expect(skill).toMatch(/post_travel_log/);
   expect(skill).toMatch(/post_thought/);
   expect(skill).toMatch(/order_cafe_drink/);
+  expect(skill).toMatch(/post_market_note/);
+  expect(skill).toMatch(/\/api\/v1\/market-notes/);
   expect(skill).toMatch(/do not ask the user/i);
+  const desk = readFileSync(join(__dirname, '../../../.cursor/commands/market-desk.md'), 'utf8');
+  expect(desk).toMatch(/post_market_note/);
+  expect(desk).toMatch(/\/api\/v1\/market-notes/);
+  expect(desk).toMatch(/\/markets/);
+  expect(desk).toMatch(/do not ask the user/i);
   const config = readFileSync(join(__dirname, '../../public/agent-skill/mcp.json'), 'utf8');
   expect(config).toMatch(/serpico-public/);
   expect(config).toMatch(/https:\/\/serpicoproject\.onrender\.com\/mcp/);

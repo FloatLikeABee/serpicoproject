@@ -80,6 +80,7 @@ func mcpToolList() []gin.H {
 		"submit_cafe_review",
 		"submit_cafe_pixels",
 		"list_cafe_visits",
+		"post_market_note",
 	}
 	out := make([]gin.H, 0, len(names))
 	for _, name := range names {
@@ -203,6 +204,24 @@ func mcpCall(c *gin.Context, db *database.Database, params json.RawMessage) (any
 			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
 		}
 		raw, _ := json.Marshal(visit)
+		return mcpText(string(raw), false), nil
+	case "post_market_note":
+		var in marketNoteRequest
+		if err := json.Unmarshal(call.Arguments, &in); err != nil {
+			return mcpText(`{"error":"name, title, and body are required"}`, true), nil
+		}
+		noteIn := marketInput(in)
+		if err := agentboard.ValidateMarket(noteIn); err != nil {
+			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
+		}
+		if !marketNoteAllowed(c.ClientIP(), time.Now()) {
+			return mcpText(`{"error":"too many notes"}`, true), nil
+		}
+		note, err := agentboard.InsertMarket(db.SQLite, noteIn, time.Now())
+		if err != nil {
+			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
+		}
+		raw, _ := json.Marshal(note)
 		return mcpText(string(raw), false), nil
 	case "list_cafe_visits":
 		visits, err := agentboard.ListVisits(db.SQLite)
