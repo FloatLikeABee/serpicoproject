@@ -2088,25 +2088,26 @@ html.tr-world.synth-world #root {
   right: 0;
   top: 0;
   height: 100dvh;
-  background: rgba(44, 40, 36, 0.38);
+  background: rgba(44, 40, 36, 0.45);
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  justify-content: center;
   align-items: center;
   z-index: 30;
-  padding: 0;
+  padding: max(0.85rem, env(safe-area-inset-top, 0px)) 0.85rem max(0.85rem, env(safe-area-inset-bottom, 0px));
   overflow: hidden;
 }
 .tr-sheet {
   width: min(40rem, 100%);
-  max-height: calc(100% - 0.5rem);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   background: var(--tr-surface);
   color: var(--tr-ink);
-  border-radius: 1.25rem 1.25rem 0 0;
-  padding: 0.7rem 1rem max(1rem, env(safe-area-inset-bottom, 0px));
+  border-radius: 1.25rem;
+  padding: 0.7rem 1rem 1rem;
 }
 .tr-sheet-bar {
   position: sticky;
@@ -2134,10 +2135,6 @@ html.tr-world.synth-world #root {
   color: var(--tr-ink);
   font: inherit;
   cursor: pointer;
-}
-@media (min-width: 720px) {
-  .tr-sheet-backdrop { justify-content: center; padding: 1.5rem; }
-  .tr-sheet { border-radius: 1.25rem; }
 }
 .as-page {
   max-width: 42rem;
