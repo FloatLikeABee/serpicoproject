@@ -108,21 +108,8 @@ export default function Travel() {
     const root = document.documentElement;
     const previousOverflow = root.style.overflow;
     root.style.overflow = 'hidden';
-    const fit = () => {
-      const backdrop = document.querySelector('.tr-sheet-backdrop') as HTMLElement | null;
-      const view = window.visualViewport;
-      if (!backdrop || !view) return;
-      backdrop.style.top = `${view.offsetTop}px`;
-      backdrop.style.height = `${view.height}px`;
-      backdrop.style.bottom = 'auto';
-    };
-    fit();
-    window.visualViewport?.addEventListener('resize', fit);
-    window.visualViewport?.addEventListener('scroll', fit);
     return () => {
       root.style.overflow = previousOverflow;
-      window.visualViewport?.removeEventListener('resize', fit);
-      window.visualViewport?.removeEventListener('scroll', fit);
     };
   }, [open]);
 

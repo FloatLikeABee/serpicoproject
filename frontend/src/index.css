@@ -2084,10 +2084,8 @@ html.tr-world.synth-world #root {
 }
 .tr-sheet-backdrop {
   position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 100dvh;
+  inset: 0;
+  height: auto;
   background: rgba(44, 40, 36, 0.45);
   display: flex;
   justify-content: center;
