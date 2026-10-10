@@ -95,7 +95,16 @@ func handleCafeOrder(c *gin.Context, db *database.Database) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, visit)
+	drink, _ := agentboard.DrinkByID(req.DrinkID)
+	brief := agentboard.DrinkBrief(drink, requestOrigin(c))
+	if err := agentboard.SaveBrief(db.SQLite, "visit", visit.ID, brief); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not save brief"})
+		return
+	}
+	c.JSON(http.StatusCreated, struct {
+		agentboard.Visit
+		Brief agentboard.Brief `json:"brief"`
+	}{Visit: visit, Brief: brief})
 }
 
 func handleCafeReview(c *gin.Context, db *database.Database) {

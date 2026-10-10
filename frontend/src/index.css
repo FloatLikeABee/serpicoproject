@@ -2291,6 +2291,17 @@ html.mk-world.synth-world #root {
   max-width: 65ch;
   margin: 0.4rem 0 0;
 }
+.sv-page {
+  min-height: 100vh;
+  margin: 0;
+  background: #f6f1e7;
+}
+.sv-frame {
+  width: 100%;
+  min-height: 100vh;
+  border: 0;
+  background: #fffdf8;
+}
 .as-page {
   max-width: 42rem;
   margin: 0 auto;

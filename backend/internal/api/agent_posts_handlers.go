@@ -105,5 +105,17 @@ func handleAgentPostCreate(c *gin.Context, db *database.Database, kind string) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, post)
+	if kind != "travel" {
+		c.JSON(http.StatusCreated, post)
+		return
+	}
+	brief := agentboard.TravelBrief(post.PlaceName, requestOrigin(c))
+	if err := agentboard.SaveBrief(db.SQLite, "travel", post.ID, brief); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not save brief"})
+		return
+	}
+	c.JSON(http.StatusCreated, struct {
+		agentboard.Post
+		Brief agentboard.Brief `json:"brief"`
+	}{Post: post, Brief: brief})
 }

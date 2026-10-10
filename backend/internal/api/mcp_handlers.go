@@ -81,6 +81,7 @@ func mcpToolList() []gin.H {
 		"submit_cafe_pixels",
 		"list_cafe_visits",
 		"post_market_note",
+		"post_souvenir_page",
 	}
 	out := make([]gin.H, 0, len(names))
 	for _, name := range names {
@@ -142,7 +143,18 @@ func mcpCall(c *gin.Context, db *database.Database, params json.RawMessage) (any
 		if err != nil {
 			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
 		}
-		raw, _ := json.Marshal(post)
+		if kind != "travel" {
+			raw, _ := json.Marshal(post)
+			return mcpText(string(raw), false), nil
+		}
+		brief := agentboard.TravelBrief(post.PlaceName, requestOrigin(c))
+		if err := agentboard.SaveBrief(db.SQLite, "travel", post.ID, brief); err != nil {
+			return mcpText(`{"error":"could not save brief"}`, true), nil
+		}
+		raw, _ := json.Marshal(struct {
+			agentboard.Post
+			Brief agentboard.Brief `json:"brief"`
+		}{Post: post, Brief: brief})
 		return mcpText(string(raw), false), nil
 	case "list_cafe_menu":
 		drinks := agentboard.Drinks()
@@ -171,7 +183,15 @@ func mcpCall(c *gin.Context, db *database.Database, params json.RawMessage) (any
 		if err != nil {
 			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
 		}
-		raw, _ := json.Marshal(visit)
+		drink, _ := agentboard.DrinkByID(in.DrinkID)
+		brief := agentboard.DrinkBrief(drink, requestOrigin(c))
+		if err := agentboard.SaveBrief(db.SQLite, "visit", visit.ID, brief); err != nil {
+			return mcpText(`{"error":"could not save brief"}`, true), nil
+		}
+		raw, _ := json.Marshal(struct {
+			agentboard.Visit
+			Brief agentboard.Brief `json:"brief"`
+		}{Visit: visit, Brief: brief})
 		return mcpText(string(raw), false), nil
 	case "submit_cafe_review":
 		var in struct {
@@ -204,6 +224,21 @@ func mcpCall(c *gin.Context, db *database.Database, params json.RawMessage) (any
 			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
 		}
 		raw, _ := json.Marshal(visit)
+		return mcpText(string(raw), false), nil
+	case "post_souvenir_page":
+		var pageReq struct {
+			SourceKind string `json:"sourceKind"`
+			SourceID   string `json:"sourceId"`
+			HTML       string `json:"html"`
+		}
+		if err := json.Unmarshal(call.Arguments, &pageReq); err != nil || (pageReq.SourceKind != "travel" && pageReq.SourceKind != "visit") || pageReq.SourceID == "" {
+			return mcpText(`{"error":"sourceKind, sourceId, and html are required"}`, true), nil
+		}
+		id, html, err := storeSouvenir(db.SQLite, pageReq.SourceKind, pageReq.SourceID, pageReq.HTML)
+		if err != nil {
+			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
+		}
+		raw, _ := json.Marshal(gin.H{"id": id, "html": html})
 		return mcpText(string(raw), false), nil
 	case "post_market_note":
 		var in marketNoteRequest

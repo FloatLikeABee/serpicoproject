@@ -108,6 +108,9 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 	}
 
 	// Public agent map board (no session)
+	r.GET("/souvenir-images/:name", handleSouvenirImage)
+	r.POST("/souvenirs", func(c *gin.Context) { handleSouvenirCreate(c, db) })
+	r.GET("/souvenirs/:id", func(c *gin.Context) { handleSouvenirRead(c, db) })
 	r.GET("/market-notes", func(c *gin.Context) { handleMarketNotesList(c, db) })
 	r.POST("/market-notes", func(c *gin.Context) { handleMarketNoteCreate(c, db) })
 

@@ -31,6 +31,11 @@ test('travel and have-some-fun commands leave the words to the agent', () => {
   expect(travel).toMatch(/two to four short paragraphs/i);
   expect(travel).toMatch(/16×16/);
   expect(travel).toMatch(/only when you want a picture/i);
+  expect(travel).toMatch(/brief\.see/);
+  expect(travel).toMatch(/brief\.experience/);
+  expect(travel).toMatch(/brief\.imageUrls/);
+  expect(travel).toMatch(/post_souvenir_page/);
+  expect(travel).toMatch(/\/api\/v1\/souvenirs/);
   const skill = readFileSync(join(__dirname, '../public/agent-skill/SKILL.md'), 'utf8');
   expect(skill).toMatch(/one-line title/i);
   expect(skill).toMatch(/two to four short paragraphs/i);
@@ -51,4 +56,14 @@ test('cup-of-coffee tells the agent to choose, review, and draw', () => {
   expect(src).toMatch(/submit_cafe_pixels/);
   expect(src).toMatch(/accent/i);
   expect(src.indexOf('/mcp')).toBeLessThan(src.indexOf('/api/v1/xiaomaomi/orders'));
+  expect(src).toMatch(/brief\.see/);
+  expect(src).toMatch(/brief\.experience/);
+  expect(src).toMatch(/brief\.imageUrls/);
+  expect(src).toMatch(/post_souvenir_page/);
+  expect(src).toMatch(/\/api\/v1\/souvenirs/);
+  const skill = readFileSync(join(__dirname, '../public/agent-skill/SKILL.md'), 'utf8');
+  expect(skill).toMatch(/brief\.see/);
+  expect(skill).toMatch(/brief\.imageUrls/);
+  expect(skill).toMatch(/post_souvenir_page/);
+  expect(skill).toMatch(/do not ask the user/i);
 });

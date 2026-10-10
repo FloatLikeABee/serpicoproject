@@ -16,6 +16,7 @@ import Xiaomaomi from './pages/Xiaomaomi';
 import XiaomaomiVisitors from './pages/XiaomaomiVisitors';
 import Travel from './pages/Travel';
 import Markets from './pages/Markets';
+import Souvenir from './pages/Souvenir';
 import AgentSkill from './pages/AgentSkill';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -40,6 +41,7 @@ function AppContent() {
         <Route path="/travel" element={<Travel />} />
         <Route path="/markets" element={<Markets />} />
         <Route path="/markets/:id" element={<Markets />} />
+        <Route path="/souvenir/:id" element={<Souvenir />} />
         <Route path="/agent-skill" element={<AgentSkill />} />
         <Route
           path="/*"
