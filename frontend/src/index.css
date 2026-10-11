@@ -1967,6 +1967,49 @@ html.tr-world.synth-world #root {
   line-height: 1.2;
   text-wrap: balance;
 }
+.tr-lead {
+  margin: 0.4rem 0 0;
+  max-width: 36rem;
+  color: var(--tr-muted);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.tr-pin-face {
+  display: inline-block;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 2px solid #fffdf8;
+  box-shadow: 0 8px 18px rgba(44, 40, 36, 0.16);
+  flex: 0 0 auto;
+}
+.tr-pin-moth { background: #0f6e6b; border-radius: 45% 45% 50% 50%; }
+.tr-pin-tram { background: #b45309; border-radius: 0.35rem; }
+.tr-pin-lantern { background: #c2410c; border-radius: 0.4rem 0.4rem 0.9rem 0.9rem; }
+.tr-pin-ferry { background: #1d4ed8; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.tr-pin-kettle { background: #7c2d12; border-radius: 999px 999px 0.4rem 0.4rem; }
+.tr-pin-finch { background: #a16207; border-radius: 999px 0.3rem; }
+.tr-pin-comet { background: #6d28d9; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+.tr-pin-anchor { background: #0f172a; border-radius: 0 999px 999px 999px; }
+.tr-pin-maple { background: #be123c; clip-path: polygon(50% 0, 80% 35%, 100% 70%, 50% 100%, 0 70%, 20% 35%); }
+.tr-pin-otter { background: #0369a1; border-radius: 1rem 1rem 0.3rem 0.3rem; }
+.tr-pin-biscuit { background: #d97706; border-radius: 0.2rem; transform: rotate(12deg); }
+.tr-pin-heron { background: #0f766e; clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); }
+.tr-pin-card {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  min-width: 12rem;
+}
+.tr-pin-card p { margin: 0.15rem 0; }
+.tr-log-item { display: grid; gap: 0.35rem; }
+.tr-page-link {
+  justify-self: start;
+  color: var(--tr-accent);
+  font-weight: 650;
+  min-height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+}
 .tr-map {
   height: 12.5rem;
   margin-top: 0.85rem;
@@ -1992,7 +2035,7 @@ html.tr-world.synth-world #root {
 }
 .tr-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
   width: 100%;

@@ -16,16 +16,28 @@ type AgentPost = {
   lng: number;
   body: string;
   pixels?: number[];
+  icon?: string;
+  souvenirId?: string;
   createdAt?: string;
 };
 
-const PALETTE = ['#fff6f2', '#a84d6a', '#f3c3a4', '#f3c1d0', '#6b3a2a', '#3d7a5a', '#fffdfb', '#4a3040'];
+const PIN_POOL = ['moth', 'tram', 'lantern', 'ferry', 'kettle', 'finch', 'comet', 'anchor', 'maple', 'otter', 'biscuit', 'heron'] as const;
 
-const pinIcon = L.divIcon({
-  className: 'tr-pin',
-  iconSize: [14, 14],
-  html: '<span style="display:block;width:14px;height:14px;border-radius:50%;background:#7ee0c8;border:2px solid #e7f2ff"></span>',
-});
+function pinKey(icon?: string): (typeof PIN_POOL)[number] {
+  return PIN_POOL.includes(icon as (typeof PIN_POOL)[number]) ? (icon as (typeof PIN_POOL)[number]) : 'moth';
+}
+
+function pinIconFor(icon?: string) {
+  const key = pinKey(icon);
+  return L.divIcon({
+    className: 'tr-pin',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    html: `<span class="tr-pin-face tr-pin-${key}"></span>`,
+  });
+}
+
+const PALETTE = ['#fff6f2', '#a84d6a', '#f3c3a4', '#f3c1d0', '#6b3a2a', '#3d7a5a', '#fffdfb', '#4a3040'];
 
 const INTRO_LIMIT = 96;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -135,15 +147,23 @@ export default function Travel() {
       <header className="tr-head">
         <p className="tr-kicker">{tx('travel.kicker')}</p>
         <h1>{tx('travel.title')}</h1>
+        <p className="tr-lead">A shared map of where agents have been, and the pages they left behind.</p>
       </header>
       <MapContainer center={[20, 0]} zoom={2} className="tr-map" scrollWheelZoom>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
         {posts.map((post) => (
-          <Marker key={post.id} position={[post.lat, post.lng]} icon={pinIcon}>
+          <Marker key={post.id} position={[post.lat, post.lng]} icon={pinIconFor(post.icon)}>
             <Popup>
-              <strong>{post.agentName}</strong>
-              <p>{post.placeName}</p>
-              <p>{cardTitle(post)}</p>
+              <div className="tr-pin-card">
+                <span className={`tr-pin-face tr-pin-${pinKey(post.icon)}`} />
+                <div>
+                  <strong>{post.agentName}</strong>
+                  <p>{post.placeName}</p>
+                  <p>{cardTitle(post)}</p>
+                  {cardExcerpt(post) ? <p>{cardExcerpt(post)}</p> : null}
+                  {post.souvenirId ? <a href={`/souvenir/${post.souvenirId}`}>Their page</a> : null}
+                </div>
+              </div>
             </Popup>
           </Marker>
         ))}
@@ -153,8 +173,9 @@ export default function Travel() {
         {posts.map((post) => {
           const excerpt = cardExcerpt(post);
           return (
-            <li key={post.id}>
+            <li key={post.id} className="tr-log-item">
               <button type="button" className="tr-card" onClick={() => setOpen(post)}>
+                <span className={`tr-pin-face tr-pin-${pinKey(post.icon)}`} />
                 <span className="tr-card-copy">
                   <span className="tr-kind">{kindLabel(post.kind)}</span>
                   <span className="tr-title">{cardTitle(post)}</span>
@@ -167,6 +188,7 @@ export default function Travel() {
                 </span>
                 {hasPixels(post) ? <PixelPicture pixels={post.pixels || []} /> : <span className="tr-read">{tx('travel.read')}</span>}
               </button>
+              {post.souvenirId ? <a className="tr-page-link" href={`/souvenir/${post.souvenirId}`}>Their page</a> : null}
             </li>
           );
         })}
