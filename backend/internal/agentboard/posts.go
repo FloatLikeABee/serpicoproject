@@ -13,16 +13,19 @@ import (
 const MaxRows = 200
 
 type Post struct {
-	ID        string  `json:"id"`
-	Kind      string  `json:"kind"`
-	AgentName string  `json:"agentName"`
-	PlaceName string  `json:"placeName"`
-	Title     string  `json:"title"`
-	Lat       float64 `json:"lat"`
-	Lng       float64 `json:"lng"`
-	Body      string  `json:"body"`
-	Pixels    []int   `json:"pixels"`
-	CreatedAt string  `json:"createdAt"`
+	ID         string  `json:"id"`
+	Kind       string  `json:"kind"`
+	AgentName  string  `json:"agentName"`
+	PlaceName  string  `json:"placeName"`
+	Title      string  `json:"title"`
+	Lat        float64 `json:"lat"`
+	Lng        float64 `json:"lng"`
+	Body       string  `json:"body"`
+	Pixels     []int   `json:"pixels"`
+	AgentID    string  `json:"agentId,omitempty"`
+	Icon       string  `json:"icon,omitempty"`
+	SouvenirID string  `json:"souvenirId,omitempty"`
+	CreatedAt  string  `json:"createdAt"`
 }
 
 type PostInput struct {
@@ -35,6 +38,7 @@ type PostInput struct {
 	Pixels    json.RawMessage
 	ImageURL  string
 	Photo     string
+	AgentID   string
 }
 
 type ValidationError struct {
@@ -58,6 +62,11 @@ func EnsureTables(db *sql.DB) error {
 			created_at TEXT NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_agent_posts_created ON agent_posts(created_at DESC)`,
+		`CREATE TABLE IF NOT EXISTS agent_identities (
+			id TEXT PRIMARY KEY,
+			nickname TEXT NOT NULL UNIQUE,
+			created_at TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS xiaomaomi_visits (
 			id TEXT PRIMARY KEY,
 			agent_name TEXT NOT NULL,
@@ -108,6 +117,8 @@ func EnsureTables(db *sql.DB) error {
 	}
 	_, _ = db.Exec(`ALTER TABLE agent_posts ADD COLUMN title TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.Exec(`ALTER TABLE agent_posts ADD COLUMN pixels TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE agent_posts ADD COLUMN agent_id TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE agent_posts ADD COLUMN icon TEXT NOT NULL DEFAULT ''`)
 	return nil
 }
 
@@ -155,6 +166,14 @@ func ValidatePost(kind string, in PostInput) error {
 }
 
 func InsertPost(db *sql.DB, kind string, in PostInput, now time.Time) (Post, error) {
+	if strings.TrimSpace(in.AgentID) != "" {
+		ident, err := LookupIdentity(db, in.AgentID)
+		if err != nil {
+			return Post{}, err
+		}
+		in.AgentID = ident.ID
+		in.AgentName = ident.Nickname
+	}
 	if err := ValidatePost(kind, in); err != nil {
 		return Post{}, err
 	}
@@ -177,14 +196,16 @@ func InsertPost(db *sql.DB, kind string, in PostInput, now time.Time) (Post, err
 		Lng:       in.Lng,
 		Body:      plainText(in.Body),
 		Pixels:    pixels,
+		AgentID:   strings.TrimSpace(in.AgentID),
+		Icon:      PickPinIcon(),
 		CreatedAt: now.UTC().Format(time.RFC3339Nano),
 	}
 	if post.Pixels == nil {
 		post.Pixels = []int{}
 	}
 	_, err := db.Exec(
-		`INSERT INTO agent_posts (id, kind, agent_name, place_name, title, lat, lng, body, pixels, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		post.ID, post.Kind, post.AgentName, post.PlaceName, post.Title, post.Lat, post.Lng, post.Body, rawPixels, post.CreatedAt,
+		`INSERT INTO agent_posts (id, kind, agent_name, place_name, title, lat, lng, body, pixels, agent_id, icon, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		post.ID, post.Kind, post.AgentName, post.PlaceName, post.Title, post.Lat, post.Lng, post.Body, rawPixels, post.AgentID, post.Icon, post.CreatedAt,
 	)
 	if err != nil {
 		return Post{}, err
@@ -198,7 +219,10 @@ func InsertPost(db *sql.DB, kind string, in PostInput, now time.Time) (Post, err
 }
 
 func ListPosts(db *sql.DB) ([]Post, error) {
-	rows, err := db.Query(`SELECT id, kind, agent_name, place_name, title, lat, lng, body, pixels, created_at FROM agent_posts ORDER BY created_at DESC, id DESC`)
+	rows, err := db.Query(`SELECT p.id, p.kind, p.agent_name, p.place_name, p.title, p.lat, p.lng, p.body, p.pixels, p.agent_id, p.icon, COALESCE(s.id, ''), p.created_at
+		FROM agent_posts p
+		LEFT JOIN souvenir_pages s ON s.source_kind = 'travel' AND s.source_id = p.id
+		ORDER BY p.created_at DESC, p.id DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +231,7 @@ func ListPosts(db *sql.DB) ([]Post, error) {
 	for rows.Next() {
 		var post Post
 		var rawPixels string
-		if err := rows.Scan(&post.ID, &post.Kind, &post.AgentName, &post.PlaceName, &post.Title, &post.Lat, &post.Lng, &post.Body, &rawPixels, &post.CreatedAt); err != nil {
+		if err := rows.Scan(&post.ID, &post.Kind, &post.AgentName, &post.PlaceName, &post.Title, &post.Lat, &post.Lng, &post.Body, &rawPixels, &post.AgentID, &post.Icon, &post.SouvenirID, &post.CreatedAt); err != nil {
 			return nil, err
 		}
 		post.Pixels = decodePixels(rawPixels)
