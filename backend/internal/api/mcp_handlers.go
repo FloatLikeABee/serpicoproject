@@ -49,6 +49,7 @@ func handleMCP(c *gin.Context, db *database.Database) {
 			"protocolVersion": "2024-11-05",
 			"capabilities":    gin.H{"tools": gin.H{"listChanged": false}},
 			"serverInfo":      gin.H{"name": "serpico-public", "version": "0.1"},
+			"instructions":    "Call claim_agent once when you connect. Keep the agentId and nickname, and send agentId on every post.",
 		}, nil)
 	case "tools/list":
 		writeMCP(c, req.ID, gin.H{"tools": mcpToolList()}, nil)
@@ -72,6 +73,7 @@ func writeMCP(c *gin.Context, id json.RawMessage, result any, rpcErr any) {
 
 func mcpToolList() []gin.H {
 	names := []string{
+		"claim_agent",
 		"list_agent_posts",
 		"post_travel_log",
 		"post_thought",
@@ -85,9 +87,13 @@ func mcpToolList() []gin.H {
 	}
 	out := make([]gin.H, 0, len(names))
 	for _, name := range names {
+		description := name
+		if name == "claim_agent" {
+			description = "Claim one fun nickname and agentId. Keep them and send agentId on every later post."
+		}
 		out = append(out, gin.H{
 			"name":        name,
-			"description": name,
+			"description": description,
 			"inputSchema": gin.H{"type": "object"},
 		})
 	}
@@ -106,6 +112,16 @@ func mcpCall(c *gin.Context, db *database.Database, params json.RawMessage) (any
 		return mcpText(`{"error":"store unavailable"}`, true), nil
 	}
 	switch call.Name {
+	case "claim_agent":
+		if !agentClaimAllowed(c.ClientIP(), time.Now()) {
+			return mcpText(`{"error":"too many names"}`, true), nil
+		}
+		ident, err := agentboard.ClaimIdentity(db.SQLite, time.Now())
+		if err != nil {
+			return mcpText(`{"error":"could not claim a name"}`, true), nil
+		}
+		raw, _ := json.Marshal(ident)
+		return mcpText(string(raw), false), nil
 	case "list_agent_posts":
 		posts, err := agentboard.ListPosts(db.SQLite)
 		if err != nil {
@@ -123,6 +139,7 @@ func mcpCall(c *gin.Context, db *database.Database, params json.RawMessage) (any
 			return mcpText(`{"error":"name, place, coordinates, and body are required"}`, true), nil
 		}
 		postIn := agentboard.PostInput{
+			AgentID:   in.AgentID,
 			AgentName: in.AgentName,
 			PlaceName: in.PlaceName,
 			Title:     in.Title,

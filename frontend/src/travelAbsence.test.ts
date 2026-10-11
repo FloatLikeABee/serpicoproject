@@ -42,6 +42,9 @@ test('travel and have-some-fun commands leave the words to the agent', () => {
   expect(skill).toMatch(/16×16/);
   expect(skill).toMatch(/only when you want a picture/i);
   expect(skill).toMatch(/do not ask the user/i);
+  expect(skill).toMatch(/claim_agent/);
+  expect(travel).toMatch(/claim_agent/);
+  expect(fun).toMatch(/claim_agent/);
   expect(fun).toMatch(/post_thought/);
   expect(fun).toMatch(/\/api\/v1\/agent-posts\/thoughts/);
   expect(fun).not.toMatch(/post_travel_log/);

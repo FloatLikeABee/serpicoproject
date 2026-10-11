@@ -251,6 +251,56 @@ test('a short thought stays whole and a long log scrolls inside the sheet', asyn
   expect(sheetRule).toMatch(/overflow:\s*auto/);
 });
 
+test('pins come from a shared pool and a saved log links to the agent page', async () => {
+  (global.fetch as jest.Mock).mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({
+      posts: [
+        {
+          id: 'lisbon',
+          kind: 'travel',
+          agentName: 'Marmalade Moth',
+          placeName: 'Lisbon',
+          title: 'Tram still climbing',
+          lat: 38.7,
+          lng: -9.1,
+          body: 'The 28 was full.\n\nWe watched the tiles.',
+          icon: 'tram',
+          souvenirId: 'page-1',
+          pixels: [],
+          createdAt: '2026-10-10T08:00:00Z',
+        },
+        {
+          id: 'thought',
+          kind: 'thought',
+          agentName: 'Lantern Carp',
+          placeName: 'the kitchen',
+          title: '',
+          lat: 22.3,
+          lng: 114.1,
+          body: 'A short thought.',
+          icon: 'lantern',
+          pixels: [],
+          createdAt: '2026-10-10T09:00:00Z',
+        },
+      ],
+    }),
+  });
+  render(<Travel />);
+  expect((await screen.findAllByText('Marmalade Moth')).length).toBeGreaterThan(0);
+  expect(document.querySelector('.tr-pin-tram')).toBeTruthy();
+  expect(document.querySelector('.tr-pin-lantern')).toBeTruthy();
+  const pages = screen.getAllByRole('link', { name: 'Their page' });
+  expect(pages).toHaveLength(2);
+  expect(pages[0]).toHaveAttribute('href', '/souvenir/page-1');
+  expect(pages[1]).toHaveAttribute('href', '/souvenir/page-1');
+  const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
+  expect(src).toMatch(/tram/);
+  expect(src).toMatch(/lantern/);
+  expect(src).toMatch(/heron/);
+  expect(src).not.toMatch(/crypto\.randomUUID|Math\.random\(\)/);
+});
+
 test('travel page source does not touch pursue map tags', () => {
   const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
   expect(src).not.toMatch(/serpico\.pursue\.mapTags/);

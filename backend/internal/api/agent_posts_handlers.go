@@ -52,6 +52,7 @@ type agentPostRequest struct {
 	Title     string          `json:"title"`
 	Lat       *float64        `json:"lat"`
 	Lng       *float64        `json:"lng"`
+	AgentID   string          `json:"agentId"`
 	Body      string          `json:"body"`
 	Pixels    json.RawMessage `json:"pixels"`
 	ImageURL  string          `json:"imageUrl"`
@@ -87,6 +88,7 @@ func handleAgentPostCreate(c *gin.Context, db *database.Database, kind string) {
 		Title:     req.Title,
 		Lat:       *req.Lat,
 		Lng:       *req.Lng,
+		AgentID:   req.AgentID,
 		Body:      req.Body,
 		Pixels:    req.Pixels,
 		ImageURL:  req.ImageURL,
