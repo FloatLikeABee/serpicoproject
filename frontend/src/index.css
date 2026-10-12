@@ -1872,47 +1872,28 @@ html.xm-world.synth-world #root {
   overflow: hidden;
   background: var(--xm-peach);
 }
-.xm-ph img,
-.xm-sheet-hero {
+.xm-ph img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 .xm-card-open {
-  margin-top: 0.55rem;
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0;
   width: 100%;
   text-align: left;
-  padding: 0.4rem 0.8rem;
-  background: var(--xm-blush);
+  text-decoration: none;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
 }
 .xm-sub {
   margin: 0.35rem 0 0;
   color: var(--xm-muted);
   font-size: 0.92rem;
-}
-.xm-sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(74, 48, 64, 0.35);
-  display: flex;
-  align-items: flex-end;
-  z-index: 20;
-}
-.xm-sheet {
-  width: 100%;
-  max-height: 88vh;
-  overflow: auto;
-  background: var(--xm-surface);
-  color: var(--xm-text);
-  border-radius: 1.25rem 1.25rem 0 0;
-  padding: 0.8rem 1rem 1.4rem;
-}
-.xm-sheet-hero {
-  height: auto;
-  max-height: 46vh;
-  border-radius: 1rem;
-  background: var(--xm-peach);
 }
 .xm-close {
   margin-top: 0.6rem;
@@ -2026,29 +2007,42 @@ html.tr-world.synth-world #root {
   color: var(--tr-muted);
   border: 1px solid var(--tr-line);
 }
-.tr-log {
+.tr-board {
   list-style: none;
   margin: 0.85rem 0 0;
   padding: 0;
   display: grid;
-  gap: 0.7rem;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
 }
 .tr-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  align-items: center;
+  gap: 0.65rem;
+  align-items: start;
   width: 100%;
   min-height: 2.75rem;
   text-align: start;
+  text-decoration: none;
   font: inherit;
   color: var(--tr-ink);
   background: var(--tr-surface);
   border: 1px solid var(--tr-line);
   border-radius: 1.15rem;
-  padding: 0.8rem 0.85rem;
+  padding: 0.55rem;
   box-shadow: 0 10px 28px rgba(44, 40, 36, 0.06);
   cursor: pointer;
+}
+.tr-card-pic {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 0.9rem;
+  overflow: hidden;
+  background: #f3efe6;
+}
+.tr-card-pin {
+  width: 42%;
+  height: 42%;
 }
 .tr-card:focus-visible {
   outline: 2px solid var(--tr-accent);
@@ -2106,19 +2100,20 @@ html.tr-world.synth-world #root {
   font-weight: 650;
 }
 .tr-card .tr-pixel,
-.tr-sheet .tr-pixel {
+.tr-post .tr-pixel {
   display: block;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--tr-line);
+  width: 100%;
+  height: 100%;
+  border: 0;
   background: #f3efe6;
   image-rendering: pixelated;
 }
-.tr-sheet .tr-pixel {
-  width: 5.5rem;
-  height: 5.5rem;
+.tr-post .tr-pixel {
+  width: 8rem;
+  height: 8rem;
   margin-top: 0.7rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--tr-line);
 }
 .tr-body {
   white-space: pre-wrap;
@@ -2127,63 +2122,27 @@ html.tr-world.synth-world #root {
   max-width: 65ch;
   margin: 0.8rem 0 0;
 }
-.tr-sheet-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  height: 100vh;
-  height: 100lvh;
-  min-height: 100vh;
-  min-height: 100lvh;
-  background: rgba(44, 40, 36, 0.45);
-  display: flex;
-  justify-content: center;
+.tr-back {
+  display: inline-flex;
   align-items: center;
-  z-index: 30;
-  padding: max(0.85rem, env(safe-area-inset-top, 0px)) 0.85rem max(0.85rem, env(safe-area-inset-bottom, 0px));
-  overflow: hidden;
+  min-height: 2.75rem;
+  margin-bottom: 0.6rem;
+  color: var(--tr-accent);
+  font-weight: 650;
+  text-decoration: none;
 }
-.tr-sheet {
-  width: min(40rem, 100%);
-  height: 100%;
-  max-height: 100%;
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  background: var(--tr-surface);
-  color: var(--tr-ink);
-  border-radius: 1.25rem;
-  padding: 0.7rem 1rem 1rem;
+.tr-post .tr-map {
+  height: 18rem;
+  margin-top: 0;
 }
-.tr-sheet-bar {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  background: var(--tr-surface);
-}
-.tr-sheet h2 {
-  margin: 0.35rem 0 0.35rem;
-  font-size: 1.35rem;
+.tr-post h1 {
+  margin: 0.85rem 0 0.35rem;
+  font-size: 1.45rem;
   line-height: 1.25;
   text-wrap: balance;
 }
-.tr-close {
-  min-height: 2.75rem;
-  margin-top: 0;
-  padding: 0.4rem 1rem;
-  border-radius: 999px;
-  border: 1px solid var(--tr-line);
-  background: var(--tr-chip);
-  color: var(--tr-ink);
-  font: inherit;
-  cursor: pointer;
+@media (min-width: 720px) {
+  .tr-board { grid-template-columns: 1fr 1fr; }
 }
 html.mk-world,
 html.mk-world.synth-world {
@@ -2378,8 +2337,26 @@ html.mk-world.synth-world #root {
 .as-skill { max-height: 70vh; }
 @media (min-width: 720px) {
   .xm-gallery { grid-template-columns: 1fr 1fr; }
-  .xm-sheet-backdrop { align-items: center; padding: 1.5rem; }
-  .xm-sheet { border-radius: 1.25rem; max-width: 36rem; margin: 0 auto; }
+}
+.xm-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-bottom: 0.7rem;
+  color: var(--xm-accent);
+  font-weight: 650;
+  text-decoration: none;
+}
+.xm-drink-hero {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 1.1rem;
+  background: var(--xm-peach);
+  display: block;
+}
+.xm-drink h1 {
+  margin: 0.8rem 0 0;
 }
 .xm-guests-link { margin: 1.2rem 1rem 2rem; }
 .xm-guests-link a {
@@ -2433,6 +2410,5 @@ dialog.xm-visit-modal .xm-pixel {
   border-radius: 1rem;
 }
 @media (prefers-reduced-motion: reduce) {
-  html.xm-world .xm-sheet,
   html.xm-world .xm-card { transition: none; }
 }

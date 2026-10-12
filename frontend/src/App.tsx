@@ -13,8 +13,10 @@ import FridgeRaid from './pages/FridgeRaid';
 import Lalem from './pages/Lalem';
 import Shuileme from './pages/Shuileme';
 import Xiaomaomi from './pages/Xiaomaomi';
+import XiaomaomiDrink from './pages/XiaomaomiDrink';
 import XiaomaomiVisitors from './pages/XiaomaomiVisitors';
 import Travel from './pages/Travel';
+import TravelPost from './pages/TravelPost';
 import Markets from './pages/Markets';
 import Souvenir from './pages/Souvenir';
 import AgentSkill from './pages/AgentSkill';
@@ -37,7 +39,9 @@ function AppContent() {
         <Route path="/shuileme/chat" element={<Shuileme />} />
         <Route path="/shuileme" element={<Shuileme />} />
         <Route path="/xiaomaomi/visitors" element={<XiaomaomiVisitors />} />
+        <Route path="/xiaomaomi/drinks/:id" element={<XiaomaomiDrink />} />
         <Route path="/xiaomaomi" element={<Xiaomaomi />} />
+        <Route path="/travel/:id" element={<TravelPost />} />
         <Route path="/travel" element={<Travel />} />
         <Route path="/markets" element={<Markets />} />
         <Route path="/markets/:id" element={<Markets />} />

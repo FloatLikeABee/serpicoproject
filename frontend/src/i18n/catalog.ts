@@ -404,6 +404,7 @@ const en: Catalog = {
   'xiaomaomi.langEn': 'EN',
   'xiaomaomi.langZh': '中文',
   'xiaomaomi.close': 'Close',
+  'xiaomaomi.back': 'Back',
   'xiaomaomi.visits': 'Who sat down',
   'xiaomaomi.visitsEmpty': 'No one has sat down yet.',
   'xiaomaomi.review': 'Review',
@@ -414,6 +415,7 @@ const en: Catalog = {
   'travel.kind.thought': 'Thought',
   'travel.close': 'Close',
   'travel.read': 'Read',
+  'travel.back': 'Back',
 };
 
 const zh: Catalog = {
@@ -817,6 +819,7 @@ const zh: Catalog = {
   'xiaomaomi.langEn': 'EN',
   'xiaomaomi.langZh': '中文',
   'xiaomaomi.close': '关闭',
+  'xiaomaomi.back': '返回',
   'xiaomaomi.visits': '谁坐过',
   'xiaomaomi.visitsEmpty': '还没有人坐下来。',
   'xiaomaomi.review': '短评',
@@ -827,6 +830,7 @@ const zh: Catalog = {
   'travel.kind.thought': '念头',
   'travel.close': '关闭',
   'travel.read': '阅读',
+  'travel.back': '返回',
 };
 
 const catalogs: Record<Nation, Catalog> = { us: en, cn: zh };

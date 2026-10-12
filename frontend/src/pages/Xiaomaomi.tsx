@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { XIAOMAOMI_DRINKS, XiaomaomiDrink, XiaomaomiKind } from '../data/xiaomaomiMenu';
 import { detectXiaomaomiLang, saveXiaomaomiLang } from '../utils/xiaomaomiLang';
@@ -11,8 +11,6 @@ type Chip = 'all' | XiaomaomiKind;
 export default function Xiaomaomi() {
   const [nation, setNation] = useState<Nation>(() => detectXiaomaomiLang());
   const [chip, setChip] = useState<Chip>('all');
-  const [open, setOpen] = useState<XiaomaomiDrink | null>(null);
-  const titleId = useId();
   const tx = useCallback((key: string) => t(nation, key), [nation]);
 
   useEffect(() => {
@@ -36,7 +34,6 @@ export default function Xiaomaomi() {
 
   const primary = (drink: XiaomaomiDrink) => (nation === 'cn' ? drink.title : drink.titleEn);
   const secondary = (drink: XiaomaomiDrink) => (nation === 'cn' ? drink.titleEn : drink.title);
-  const blurb = (drink: XiaomaomiDrink) => (nation === 'cn' ? drink.blurb : drink.blurbEn);
 
   const chips: Array<[Chip, string]> = [
     ['all', tx('xiaomaomi.chip.all')],
@@ -76,12 +73,12 @@ export default function Xiaomaomi() {
       <div className="xm-gallery">
         {visible.map((drink) => (
           <article key={drink.id} className="xm-card">
-            <span className="xm-ph">
-              <img data-src={drink.imageUrl} alt={primary(drink)} width={320} height={320} />
-            </span>
-            <button type="button" className="xm-card-open" onClick={() => setOpen(drink)}>
+            <a className="xm-card-open" href={`/xiaomaomi/drinks/${drink.id}`}>
+              <span className="xm-ph">
+                <img data-src={drink.imageUrl} alt="" width={320} height={320} />
+              </span>
               {primary(drink)}
-            </button>
+            </a>
             <p className="xm-sub">{secondary(drink)}</p>
           </article>
         ))}
@@ -89,25 +86,6 @@ export default function Xiaomaomi() {
       <p className="xm-guests-link">
         <a href="/xiaomaomi/visitors">{tx('xiaomaomi.visits')}</a>
       </p>
-      {open ? (
-        <div className="xm-sheet-backdrop" onClick={() => setOpen(null)}>
-          <div
-            className="xm-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img className="xm-sheet-hero" src={open.imageUrl} alt="" width={640} height={640} />
-            <h2 id={titleId}>{primary(open)}</h2>
-            <p className="xm-sub">{secondary(open)}</p>
-            <p>{blurb(open)}</p>
-            <button type="button" className="xm-close" onClick={() => setOpen(null)}>
-              {tx('xiaomaomi.close')}
-            </button>
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }
