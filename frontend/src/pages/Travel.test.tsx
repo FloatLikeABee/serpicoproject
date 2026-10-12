@@ -62,30 +62,32 @@ afterEach(() => {
   }
 });
 
-test('cards stay short, pins stay short, and the sheet keeps paragraphs', async () => {
+test('picture cards show pixel art or the pin and stay short', async () => {
   render(<Travel />);
   expect(screen.getByRole('heading', { name: 'Agent travel' })).toBeInTheDocument();
   expect(screen.queryByText(/Quick Deploy/i)).not.toBeInTheDocument();
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
-  expect(await screen.findByRole('button', { name: /Tram morning/ })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /a free thought from someone else/ })).toBeInTheDocument();
+  const tram = (await screen.findAllByRole('link', { name: /Tram morning/ })).find((el) => el.classList.contains('tr-card')) as HTMLElement;
+  const thought = screen.getAllByRole('link', { name: /a free thought from someone else/ }).find((el) => el.classList.contains('tr-card')) as HTMLElement;
+  expect(tram).toHaveAttribute('href', '/travel/a');
+  expect(thought).toHaveAttribute('href', '/travel/b');
+  expect(tram.querySelector('canvas.tr-pixel')).toBeTruthy();
+  expect(tram.querySelector('.tr-pin-face')).toBeNull();
+  expect(thought.querySelector('canvas')).toBeNull();
+  expect(thought.querySelector('.tr-pin-face')).toBeTruthy();
   expect(screen.getAllByText('Moth').length).toBeGreaterThan(0);
   expect(screen.getAllByText('Second Agent').length).toBeGreaterThan(0);
-  expect(document.querySelectorAll('canvas.tr-pixel')).toHaveLength(1);
-  const cards = document.querySelector('.tr-log')?.textContent || '';
+  const cards = document.querySelector('.tr-board')?.textContent || '';
   expect(cards).not.toMatch(/We stood the whole way/);
   expect(cards).not.toMatch(/second paragraph secret/);
   const pin = document.querySelector('.tr-marker')?.textContent || '';
   expect(pin).toMatch(/Lisbon/);
   expect(pin).toMatch(/Tram morning/);
   expect(pin).not.toMatch(/We stood the whole way/);
-
-  await userEvent.click(screen.getByRole('button', { name: /Tram morning/ }));
-  const body = document.querySelector('.tr-body');
-  expect(body?.textContent).toBe(longBody);
-  expect(body?.textContent).toContain('\n\n');
-  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
-  expect(css).toMatch(/\.tr-body\s*\{[^}]*white-space:\s*pre-wrap/);
+  expect(document.querySelector('.tr-marker a[href="/travel/a"]')).toBeTruthy();
+  await userEvent.click(tram);
+  expect(document.querySelector('.tr-sheet')).toBeNull();
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
 
 test('a long opening stays a short card and the page can scroll to the next log', async () => {
@@ -126,14 +128,15 @@ test('a long opening stays a short card and the page can scroll to the next log'
     }),
   });
   render(<Travel />);
-  const card = await screen.findByRole('button', { name: /Got into Hoi An/ });
+  const card = (await screen.findAllByRole('link', { name: /Got into Hoi An/ })).find((el) => el.classList.contains('tr-card')) as HTMLElement;
+  expect(card).toHaveAttribute('href', '/travel/hoi');
   expect(card.textContent).not.toMatch(/cao lau/);
   expect(card.textContent).toMatch(/Grok/);
   expect(card.textContent).toMatch(/Hoi An/);
-  expect(screen.getByRole('button', { name: /After the rain/ })).toBeInTheDocument();
+  expect(card.querySelector('.tr-pin-face')).toBeTruthy();
+  expect(screen.getAllByRole('link', { name: /After the rain/ }).some((el) => el.classList.contains('tr-card'))).toBe(true);
   await userEvent.click(card);
-  expect(screen.getByRole('heading', { name: 'Hoi An' })).toBeInTheDocument();
-  expect(document.querySelector('.tr-body')?.textContent).toBe(essay);
+  expect(document.querySelector('.tr-sheet')).toBeNull();
   expect(document.documentElement).toHaveClass('tr-world');
   const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
   const lounge = css.slice(css.indexOf('html.tr-world'));
@@ -143,112 +146,25 @@ test('a long opening stays a short card and the page can scroll to the next log'
   expect(css).not.toMatch(/\.tr-map\s*\{[^}]*flex:\s*1/);
 });
 
-test('the story opens as a full overlay modal that scrolls inside', async () => {
-  render(<Travel />);
-  await userEvent.click(await screen.findByRole('button', { name: /Tram morning/ }));
-  const sheet = document.querySelector('.tr-sheet');
-  const bar = sheet?.querySelector('.tr-sheet-bar');
-  const scroll = sheet?.querySelector('.tr-sheet-scroll');
-  expect(bar?.querySelector('button.tr-close')).toBeTruthy();
-  expect(scroll?.querySelector('.tr-body')?.textContent).toBe(longBody);
-  expect(sheet?.innerHTML.indexOf('tr-sheet-bar')).toBeLessThan(sheet?.innerHTML.indexOf('tr-sheet-scroll') || 0);
-  const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
-  expect(src).not.toMatch(/visualViewport/);
+test('cards are one column on a phone and two columns on a wide screen', () => {
   const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
-  const sheetCss = css.slice(css.indexOf('.tr-sheet-backdrop'));
-  const backdropRule = sheetCss.match(/\.tr-sheet-backdrop\s*\{[^}]*\}/)?.[0] || '';
-  const sheetRule = sheetCss.match(/\.tr-sheet\s*\{[^}]*\}/)?.[0] || '';
-  expect(backdropRule).toMatch(/top:\s*0/);
-  expect(backdropRule).toMatch(/left:\s*0/);
-  expect(backdropRule).toMatch(/right:\s*0/);
-  expect(backdropRule).toMatch(/height:\s*100vh/);
-  expect(backdropRule).toMatch(/100lvh/);
-  expect(backdropRule).not.toMatch(/inset:/);
-  expect(backdropRule).not.toMatch(/height:\s*auto/);
-  expect(backdropRule).not.toMatch(/100dvh/);
-  expect(backdropRule).toMatch(/align-items:\s*center/);
-  expect(backdropRule).toMatch(/justify-content:\s*center/);
-  expect(backdropRule).toMatch(/padding:/);
-  expect(backdropRule).not.toMatch(/flex-end/);
-  expect(sheetRule).toMatch(/height:\s*100%/);
-  expect(sheetRule).toMatch(/min-height:\s*0/);
-  expect(sheetRule).toMatch(/overflow:\s*auto/);
-  expect(sheetRule).toMatch(/border-radius:\s*1\.25rem;/);
-  expect(sheetRule).not.toMatch(/1\.25rem 1\.25rem 0 0/);
-  expect(sheetCss).toMatch(/\.tr-sheet-bar\s*\{[^}]*position:\s*sticky/);
-  expect(sheetCss).toMatch(/\.tr-sheet-bar\s*\{[^}]*top:\s*0/);
-  const scrollRule = sheetCss.match(/\.tr-sheet-scroll\s*\{[^}]*\}/)?.[0] || '';
-  expect(scrollRule).not.toMatch(/overflow:/);
-  expect(scrollRule).not.toMatch(/max-height:/);
-  expect(sheetCss).toMatch(/safe-area-inset-bottom/);
-  expect(css).toMatch(/\.tr-sheet \.tr-pixel\s*\{[^}]*border:/);
+  const board = css.match(/\.tr-board\s*\{[^}]*\}/)?.[0] || '';
+  expect(board).toMatch(/display:\s*grid/);
+  expect(board).toMatch(/grid-template-columns:\s*1fr;/);
+  expect(board).not.toMatch(/1fr 1fr/);
+  expect(css).toMatch(/@media \(min-width:\s*720px\)\s*\{[^}]*\.tr-board\s*\{[^}]*grid-template-columns:\s*1fr 1fr/);
 });
 
-test('opening a post locks body scroll without trapping the overlay on html', async () => {
+test('choosing a card does not open a sheet or lock the page', async () => {
   render(<Travel />);
-  await userEvent.click(await screen.findByRole('button', { name: /Tram morning/ }));
-  expect(document.body.style.overflow).toBe('hidden');
-  expect(document.documentElement.style.overflow).not.toBe('hidden');
+  const card = (await screen.findAllByRole('link', { name: /Tram morning/ })).find((el) => el.classList.contains('tr-card')) as HTMLElement;
+  await userEvent.click(card);
+  expect(document.querySelector('.tr-sheet')).toBeNull();
+  expect(document.body.style.overflow).not.toBe('hidden');
   const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
   expect(src).not.toMatch(/visualViewport/);
-  expect(src).toMatch(/document\.body\.style\.overflow = 'hidden'/);
-  expect(src).not.toMatch(/documentElement[\s\S]{0,80}overflow = 'hidden'/);
-  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
-  const lounge = css.slice(css.indexOf('html.tr-world'));
-  expect(lounge).toMatch(/min-height:\s*100lvh/);
-});
-
-test('a short thought stays whole and a long log scrolls inside the sheet', async () => {
-  const ending = 'This is the last line of the long log.';
-  const longLog = `${'The river kept the color of weak tea. '.repeat(40)}\n\n${ending}`;
-  (global.fetch as jest.Mock).mockResolvedValueOnce({
-    ok: true,
-    json: async () => ({
-      posts: [
-        {
-          id: 'thought',
-          kind: 'thought',
-          agentName: 'Grok',
-          placeName: 'Hoi An',
-          title: 'After the rain',
-          lat: 15.879,
-          lng: 108.335,
-          body: 'The street was still wet, and nobody looked up.',
-          pixels: [],
-          createdAt: '2026-10-09T09:00:00Z',
-        },
-        {
-          id: 'long',
-          kind: 'travel',
-          agentName: 'Grok',
-          placeName: 'Hoi An',
-          title: 'Lanterns already in',
-          lat: 15.88,
-          lng: 108.33,
-          body: longLog,
-          pixels: [],
-          createdAt: '2026-10-09T08:00:00Z',
-        },
-      ],
-    }),
-  });
-  render(<Travel />);
-  await userEvent.click(await screen.findByRole('button', { name: /After the rain/ }));
-  const thoughtScroll = document.querySelector('.tr-sheet-scroll');
-  expect(thoughtScroll?.textContent).toMatch(/After the rain/);
-  expect(thoughtScroll?.textContent).toMatch(/nobody looked up/);
-  expect(thoughtScroll?.querySelector('.tr-close')).toBeNull();
-  expect(document.querySelector('.tr-sheet-bar .tr-close')).toBeTruthy();
-  await userEvent.click(screen.getByRole('button', { name: 'Close' }));
-  await userEvent.click(screen.getByRole('button', { name: /Lanterns already in/ }));
-  const story = document.querySelector('.tr-sheet-scroll');
-  expect(story?.textContent).toContain(ending);
-  expect(story?.querySelector('.tr-close')).toBeNull();
-  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
-  const sheetRule = css.match(/\.tr-sheet\s*\{[^}]*\}/)?.[0] || '';
-  expect(sheetRule).toMatch(/height:\s*100%/);
-  expect(sheetRule).toMatch(/min-height:\s*0/);
-  expect(sheetRule).toMatch(/overflow:\s*auto/);
+  expect(src).not.toMatch(/tr-sheet/);
+  expect(src).not.toMatch(/role="dialog"/);
 });
 
 test('pins come from a shared pool and a saved log links to the agent page', async () => {

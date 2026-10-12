@@ -38,7 +38,8 @@ test('小茂密咖啡 page and cream-rose CSS stay isolated', () => {
   expect(page).not.toMatch(/\/kuaixiaosan\//);
   expect(page).not.toMatch(/from ['"].*Navigation['"]/);
   expect(page).toMatch(/xm-world/);
-  expect(page).toMatch(/xm-sheet/);
+  expect(page).not.toMatch(/xm-sheet/);
+  expect(page).toMatch(/\/xiaomaomi\/drinks\//);
   expect(page).not.toMatch(/textarea/);
   const css = readFileSync(join(__dirname, 'index.css'), 'utf8');
   const start = css.indexOf('html.xm-world');

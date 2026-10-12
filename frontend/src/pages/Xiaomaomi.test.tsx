@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Xiaomaomi from './Xiaomaomi';
@@ -32,22 +34,32 @@ test('fresh visit is 小茂密咖啡 in Chinese, with a hero and no officer chro
   expect(screen.queryByRole('button', { name: '好了' })).not.toBeInTheDocument();
 });
 
-test('chips filter tea on the same path and a sheet shows the sugar kitten', async () => {
+test('chips filter tea on the same path and a drink card links to its page', async () => {
   render(<Xiaomaomi />);
   expect(screen.getByRole('button', { name: '全部' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '咖啡' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '茶' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '茶咖' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '暹罗糖云' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /暹罗糖云/ })).toHaveAttribute('href', '/xiaomaomi/drinks/siamese-sugar');
   await userEvent.click(screen.getByRole('button', { name: '茶' }));
   expect(window.location.pathname).toBe('/xiaomaomi');
-  expect(screen.queryByRole('button', { name: '暹罗糖云' })).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '茉莉奶绒' })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /暹罗糖云/ })).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /茉莉奶绒/ })).toHaveAttribute('href', '/xiaomaomi/drinks/jasmine-velvet');
   await userEvent.click(screen.getByRole('button', { name: '全部' }));
   expect(window.location.pathname).toBe('/xiaomaomi');
-  await userEvent.click(screen.getByRole('button', { name: '暹罗糖云' }));
-  expect(document.querySelector('.xm-sheet')).toHaveTextContent('Siamese Baby Kitten Sugar Coffee');
+  await userEvent.click(screen.getByRole('link', { name: /暹罗糖云/ }));
+  expect(document.querySelector('.xm-sheet')).toBeNull();
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(document.body.textContent).not.toMatch(/[¥￥]/);
+});
+
+test('drink pictures are one column on a phone and two columns on a wide screen', () => {
+  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
+  const gallery = css.match(/\.xm-gallery\s*\{[^}]*\}/)?.[0] || '';
+  expect(gallery).toMatch(/display:\s*grid/);
+  expect(gallery).toMatch(/grid-template-columns:\s*1fr;/);
+  expect(gallery).not.toMatch(/1fr 1fr/);
+  expect(css).toMatch(/@media \(min-width:\s*720px\)\s*\{[^}]*\.xm-gallery\s*\{[^}]*grid-template-columns:\s*1fr 1fr/);
 });
 
 test('the menu links to the guest book and does not list visits', () => {

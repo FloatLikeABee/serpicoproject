@@ -2,14 +2,14 @@ const fs = require('fs');
 const path = require('path');
 
 /** Copy index.html to SPA client routes so static hosts return HTTP 200 without _redirects. */
-const build = path.join(__dirname, '..', 'build');
+const build = process.env.SPA_BUILD || path.join(__dirname, '..', 'build');
 const indexSrc = path.join(build, 'index.html');
 if (!fs.existsSync(indexSrc)) {
   console.error('spa-routes: missing', indexSrc);
   process.exit(1);
 }
 const html = fs.readFileSync(indexSrc);
-const routes = ['x-hard-data', 'x-hard-data/hw', 'login', 'fridge-raid', 'lalem', 'shuileme', 'shuileme/chat', 'xiaomaomi', 'xiaomaomi/visitors', 'travel', 'markets', 'souvenir', 'agent-skill'];
+const routes = ['x-hard-data', 'x-hard-data/hw', 'login', 'fridge-raid', 'lalem', 'shuileme', 'shuileme/chat', 'xiaomaomi', 'xiaomaomi/visitors', 'xiaomaomi/drinks/:id', 'travel', 'travel/:id', 'markets', 'souvenir', 'agent-skill'];
 for (const route of routes) {
   const dir = path.join(build, route);
   fs.mkdirSync(dir, { recursive: true });

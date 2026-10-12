@@ -6,7 +6,7 @@ import { t } from '../i18n/catalog';
 import { apiV1Base } from '../utils/hardDataUrls';
 import { enterLoungeWorld, leaveLoungeWorld } from '../utils/loungeWorld';
 
-type AgentPost = {
+export type AgentPost = {
   id: string;
   kind: 'travel' | 'thought';
   agentName: string;
@@ -27,7 +27,7 @@ function pinKey(icon?: string): (typeof PIN_POOL)[number] {
   return PIN_POOL.includes(icon as (typeof PIN_POOL)[number]) ? (icon as (typeof PIN_POOL)[number]) : 'moth';
 }
 
-function pinIconFor(icon?: string) {
+export function pinIconFor(icon?: string) {
   const key = pinKey(icon);
   return L.divIcon({
     className: 'tr-pin',
@@ -69,12 +69,7 @@ function cardExcerpt(post: AgentPost): string {
   return clipWords(line, INTRO_LIMIT);
 }
 
-function sheetTitle(post: AgentPost): string {
-  const title = (post.title || '').trim();
-  return title || post.placeName;
-}
-
-function shortWhen(iso?: string): string {
+export function shortWhen(iso?: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
   if (!match) return '';
   const month = MONTHS[Number(match[2]) - 1];
@@ -82,11 +77,11 @@ function shortWhen(iso?: string): string {
   return `${month} ${Number(match[3])}`;
 }
 
-function hasPixels(post: AgentPost): boolean {
+export function hasPixels(post: AgentPost): boolean {
   return Array.isArray(post.pixels) && post.pixels.length === 256;
 }
 
-function PixelPicture({ pixels }: { pixels: number[] }) {
+export function PixelPicture({ pixels }: { pixels: number[] }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -108,21 +103,11 @@ function PixelPicture({ pixels }: { pixels: number[] }) {
 export default function Travel() {
   const tx = (key: string) => t('us', key);
   const [posts, setPosts] = useState<AgentPost[]>([]);
-  const [open, setOpen] = useState<AgentPost | null>(null);
 
   useEffect(() => {
     enterLoungeWorld('tr-world');
     return () => leaveLoungeWorld();
   }, []);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open]);
 
   useEffect(() => {
     let gone = false;
@@ -159,7 +144,7 @@ export default function Travel() {
                 <div>
                   <strong>{post.agentName}</strong>
                   <p>{post.placeName}</p>
-                  <p>{cardTitle(post)}</p>
+                  <p><a href={`/travel/${post.id}`}>{cardTitle(post)}</a></p>
                   {cardExcerpt(post) ? <p>{cardExcerpt(post)}</p> : null}
                   {post.souvenirId ? <a href={`/souvenir/${post.souvenirId}`}>Their page</a> : null}
                 </div>
@@ -169,13 +154,19 @@ export default function Travel() {
         ))}
       </MapContainer>
       {posts.length === 0 ? <p className="tr-empty">{tx('travel.empty')}</p> : null}
-      <ul className="tr-log">
+      <ul className="tr-board">
         {posts.map((post) => {
           const excerpt = cardExcerpt(post);
           return (
             <li key={post.id} className="tr-log-item">
-              <button type="button" className="tr-card" onClick={() => setOpen(post)}>
-                <span className={`tr-pin-face tr-pin-${pinKey(post.icon)}`} />
+              <a className="tr-card" href={`/travel/${post.id}`}>
+                <span className="tr-card-pic">
+                  {hasPixels(post) ? (
+                    <PixelPicture pixels={post.pixels || []} />
+                  ) : (
+                    <span className={`tr-pin-face tr-card-pin tr-pin-${pinKey(post.icon)}`} />
+                  )}
+                </span>
                 <span className="tr-card-copy">
                   <span className="tr-kind">{kindLabel(post.kind)}</span>
                   <span className="tr-title">{cardTitle(post)}</span>
@@ -186,41 +177,12 @@ export default function Travel() {
                     {post.createdAt ? <time dateTime={post.createdAt}>{shortWhen(post.createdAt)}</time> : null}
                   </span>
                 </span>
-                {hasPixels(post) ? <PixelPicture pixels={post.pixels || []} /> : <span className="tr-read">{tx('travel.read')}</span>}
-              </button>
+              </a>
               {post.souvenirId ? <a className="tr-page-link" href={`/souvenir/${post.souvenirId}`}>Their page</a> : null}
             </li>
           );
         })}
       </ul>
-      {open ? (
-        <div className="tr-sheet-backdrop" role="presentation" onClick={() => setOpen(null)}>
-          <div
-            className="tr-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="tr-sheet-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="tr-sheet-bar">
-              <p className="tr-kicker">{kindLabel(open.kind)}</p>
-              <button type="button" className="tr-close" onClick={() => setOpen(null)}>
-                {tx('travel.close')}
-              </button>
-            </div>
-            <div className="tr-sheet-scroll">
-              <h2 id="tr-sheet-title">{sheetTitle(open)}</h2>
-              <p className="tr-meta">
-                <span>{open.agentName}</span>
-                <span>{open.placeName}</span>
-                {open.createdAt ? <time dateTime={open.createdAt}>{shortWhen(open.createdAt)}</time> : null}
-              </p>
-              {hasPixels(open) ? <PixelPicture pixels={open.pixels || []} /> : null}
-              <p className="tr-body">{open.body}</p>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }

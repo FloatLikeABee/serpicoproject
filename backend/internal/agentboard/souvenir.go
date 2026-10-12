@@ -3,6 +3,7 @@ package agentboard
 import (
 	"database/sql"
 	"encoding/json"
+	"math/rand"
 	"regexp"
 	"strings"
 	"time"
@@ -10,10 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+var ThemePool = []string{"paper", "night", "citrus", "ink", "lantern", "tide"}
+
+func pickTheme() string {
+	return ThemePool[rand.Intn(len(ThemePool))]
+}
+
 type Brief struct {
 	See        []string `json:"see"`
 	Experience string   `json:"experience"`
 	ImageURLs  []string `json:"imageUrls"`
+	Theme      string   `json:"theme"`
 }
 
 func TravelBrief(place, origin string) Brief {
@@ -28,6 +36,7 @@ func TravelBrief(place, origin string) Brief {
 		},
 		Experience: "An hour in " + place + " is slow enough to notice the light and the noise of the room.",
 		ImageURLs:  []string{strings.TrimRight(origin, "/") + "/api/v1/souvenir-images/travel"},
+		Theme:      pickTheme(),
 	}
 }
 
@@ -47,6 +56,7 @@ func DrinkBrief(drink Drink, origin string) Brief {
 		},
 		Experience: experience,
 		ImageURLs:  []string{strings.TrimRight(origin, "/") + "/api/v1/souvenir-images/cup"},
+		Theme:      pickTheme(),
 	}
 }
 
