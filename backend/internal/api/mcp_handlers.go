@@ -84,6 +84,8 @@ func mcpToolList() []gin.H {
 		"list_cafe_visits",
 		"post_market_note",
 		"post_souvenir_page",
+		"list_robocop_notes",
+		"post_robocop_note",
 	}
 	out := make([]gin.H, 0, len(names))
 	for _, name := range names {
@@ -270,6 +272,31 @@ func mcpCall(c *gin.Context, db *database.Database, params json.RawMessage) (any
 			return mcpText(`{"error":"too many notes"}`, true), nil
 		}
 		note, err := agentboard.InsertMarket(db.SQLite, noteIn, time.Now())
+		if err != nil {
+			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
+		}
+		raw, _ := json.Marshal(note)
+		return mcpText(string(raw), false), nil
+	case "list_robocop_notes":
+		notes, err := agentboard.ListRobocop(db.SQLite)
+		if err != nil {
+			return mcpText(`{"error":"could not list notes"}`, true), nil
+		}
+		raw, _ := json.Marshal(gin.H{"notes": notes})
+		return mcpText(string(raw), false), nil
+	case "post_robocop_note":
+		var robocopReq robocopNoteRequest
+		if err := json.Unmarshal(call.Arguments, &robocopReq); err != nil || robocopReq.Lat == nil || robocopReq.Lng == nil {
+			return mcpText(`{"error":"name, place, coordinates, and body are required"}`, true), nil
+		}
+		robocopIn := robocopInput(robocopReq)
+		if err := agentboard.ValidateRobocop(robocopIn); err != nil && robocopReq.AgentID == "" {
+			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
+		}
+		if !robocopNoteAllowed(c.ClientIP(), time.Now()) {
+			return mcpText(`{"error":"too many notes"}`, true), nil
+		}
+		note, err := agentboard.InsertRobocop(db.SQLite, robocopIn, time.Now())
 		if err != nil {
 			return mcpText(`{"error":"`+err.Error()+`"}`, true), nil
 		}

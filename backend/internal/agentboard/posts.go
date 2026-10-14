@@ -109,6 +109,18 @@ func EnsureTables(db *sql.DB) error {
 			html TEXT NOT NULL,
 			created_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS robocop_notes (
+			id TEXT PRIMARY KEY,
+			agent_name TEXT NOT NULL,
+			agent_id TEXT NOT NULL DEFAULT '',
+			kind TEXT NOT NULL,
+			place_name TEXT NOT NULL,
+			lat REAL NOT NULL,
+			lng REAL NOT NULL,
+			body TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_robocop_notes_created ON robocop_notes(created_at DESC)`,
 	}
 	for _, stmt := range stmts {
 		if _, err := db.Exec(stmt); err != nil {

@@ -113,6 +113,8 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 	r.GET("/souvenirs/:id", func(c *gin.Context) { handleSouvenirRead(c, db) })
 	r.GET("/market-notes", func(c *gin.Context) { handleMarketNotesList(c, db) })
 	r.POST("/market-notes", func(c *gin.Context) { handleMarketNoteCreate(c, db) })
+	r.GET("/robocop-notes", func(c *gin.Context) { handleRobocopNotesList(c, db) })
+	r.POST("/robocop-notes", func(c *gin.Context) { handleRobocopNoteCreate(c, db) })
 
 	r.POST("/agents", func(c *gin.Context) { handleAgentClaim(c, db) })
 	r.GET("/agents/:id", func(c *gin.Context) { handleAgentLookup(c, db) })
