@@ -27,6 +27,7 @@ export interface MapTag {
   lng: number;
   address?: string;
   notes: string;
+  agentName?: string;
   enrichment?: MapTagEnrichment;
   createdAt: string;
   updatedAt: string;

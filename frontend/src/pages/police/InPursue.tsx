@@ -18,6 +18,33 @@ import {
   tagMeta,
 } from '../../utils/mapTags';
 import type { SearchablePin } from '../../utils/mapPinSearch';
+import { apiV1Base } from '../../utils/hardDataUrls';
+
+type RobocopNote = {
+  id: string;
+  agentName: string;
+  kind: MapTagKind;
+  placeName: string;
+  lat: number;
+  lng: number;
+  body: string;
+  createdAt?: string;
+};
+
+function robocopTag(note: RobocopNote): MapTag & { agentName: string } {
+  const when = note.createdAt || '';
+  return {
+    id: `robocop-${note.id}`,
+    kind: note.kind,
+    name: note.placeName,
+    lat: note.lat,
+    lng: note.lng,
+    notes: note.body,
+    agentName: note.agentName,
+    createdAt: when,
+    updatedAt: when,
+  };
+}
 
 const InPursue: React.FC = () => {
   const { user } = useAuth();
@@ -27,6 +54,7 @@ const InPursue: React.FC = () => {
   const region = pursueMapRegion(nation);
 
   const [mapTags, setMapTags] = useState<MapTag[]>(() => loadMapTags(userId));
+  const [robocopTags, setRobocopTags] = useState<Array<MapTag & { agentName: string }>>([]);
   const [placeKind, setPlaceKind] = useState<MapTagKind>('investigation');
   const [activeTag, setActiveTag] = useState<MapTag | null>(null);
   const [focusPinId, setFocusPinId] = useState<string | null>(null);
@@ -36,9 +64,10 @@ const InPursue: React.FC = () => {
   const placingBusyRef = useRef(false);
   const locationMappedRef = useRef<Set<string>>(new Set());
 
+  const drawnTags = useMemo(() => [...mapTags, ...robocopTags], [mapTags, robocopTags]);
   const searchablePins = useMemo<SearchablePin[]>(
     () =>
-      mapTags.map((tag) => ({
+      drawnTags.map((tag) => ({
         id: tag.id,
         name: tag.name,
         address: tag.address,
@@ -48,11 +77,11 @@ const InPursue: React.FC = () => {
         lat: tag.lat,
         lng: tag.lng,
       })),
-    [mapTags, t]
+    [drawnTags, t]
   );
   const focusPin = useMemo(
-    () => mapTags.find((tag) => tag.id === focusPinId) || null,
-    [mapTags, focusPinId]
+    () => drawnTags.find((tag) => tag.id === focusPinId) || null,
+    [drawnTags, focusPinId]
   );
 
   useEffect(() => {
@@ -66,6 +95,23 @@ const InPursue: React.FC = () => {
   useEffect(() => {
     setMapTags(loadMapTags(userId));
   }, [userId]);
+
+  useEffect(() => {
+    let gone = false;
+    fetch(`${apiV1Base()}/robocop-notes`)
+      .then((res) => (res.ok ? res.json() : { notes: [] }))
+      .then((body: { notes?: RobocopNote[] }) => {
+        if (gone) return;
+        const notes = Array.isArray(body.notes) ? body.notes : [];
+        setRobocopTags(notes.filter((note) => note.kind && note.placeName).map(robocopTag));
+      })
+      .catch(() => {
+        if (!gone) setRobocopTags([]);
+      });
+    return () => {
+      gone = true;
+    };
+  }, []);
 
   const syncTagLocation = useCallback((updated: MapTag) => {
     setMapTags((prev) => prev.map((t) => (t.id === updated.id ? mergePinLocation(t, updated) : t)));
@@ -124,11 +170,11 @@ const InPursue: React.FC = () => {
   }, []);
 
   const handleSearchSelect = useCallback((pin: SearchablePin) => {
-    const found = mapTags.find((tag) => tag.id === pin.id);
+    const found = drawnTags.find((tag) => tag.id === pin.id);
     if (!found) return;
     setFocusPinId(found.id);
     setActiveTag(found);
-  }, [mapTags]);
+  }, [drawnTags]);
 
   const upsertTag = useCallback((tag: MapTag) => {
     setMapTags((prev) => {
@@ -195,7 +241,7 @@ const InPursue: React.FC = () => {
           zoom={nation === 'cn' ? 12 : 14}
           vehicles={[]}
           landmarks={[]}
-          mapTags={mapTags}
+          mapTags={drawnTags}
           fitKey={`intel-${userId}-${nation}`}
           deployMode
           activeTagId={activeTag?.id}
@@ -218,7 +264,7 @@ const InPursue: React.FC = () => {
           </div>
         </div>
 
-        {mapTags.length === 0 ? (
+        {drawnTags.length === 0 ? (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1100] w-[min(360px,92vw)] pointer-events-none">
             <div className="rounded-lg border border-neon-cyan/30 bg-black/70 px-3 py-2 text-[11px] text-gray-200 text-center">
               {t('pursue.empty')}
@@ -239,12 +285,19 @@ const InPursue: React.FC = () => {
       {activeTag ? (
         <PlaceTagModal
           tag={activeTag}
+          readOnly={activeTag.id.startsWith('robocop-')}
+          agentName={activeTag.agentName}
           startInEditMode={autoEnrichTagId === activeTag.id}
-          onLocationUpdate={syncTagLocation}
+          onLocationUpdate={(tag) => {
+            if (tag.id.startsWith('robocop-')) return;
+            syncTagLocation(tag);
+          }}
           onChange={(tag) => {
+            if (tag.id.startsWith('robocop-')) return;
             upsertTag(tag);
           }}
           onDelete={(id) => {
+            if (id.startsWith('robocop-')) return;
             deleteTag(id);
             setAutoEnrichTagId(null);
           }}

@@ -25,6 +25,9 @@ interface PlaceTagModalProps {
   startInEditMode?: boolean;
   /** Limit type dropdown (Fleet uses stations / personnel / vehicles / scenes). */
   kindOptions?: typeof MAP_TAG_KINDS;
+  /** Shared agent pins can be read, not saved or deleted. */
+  readOnly?: boolean;
+  agentName?: string;
 }
 
 function cityFromMapAddress(address: string): string {
@@ -46,6 +49,8 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   onLocationUpdate,
   startInEditMode = false,
   kindOptions,
+  readOnly = false,
+  agentName,
 }) => {
   const t = useT();
   const nation = useNation();
@@ -106,13 +111,13 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
   }, [tag.id, startInEditMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    skipPersistRef.current = false;
+    skipPersistRef.current = readOnly;
     return () => {
-      if (skipPersistRef.current) return;
+      if (skipPersistRef.current || readOnly) return;
       persistDraft();
     };
     // Flush this pin's draft if the modal unmounts or switches pins.
-  }, [tag.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tag.id, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pull address updates from geocode without clobbering typed notes/name.
   useEffect(() => {
@@ -244,7 +249,7 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
     <div
       className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4"
       role="presentation"
-      onClick={persistAndClose}
+      onClick={readOnly ? onClose : persistAndClose}
     >
       <div
         className="w-full sm:max-w-lg flex flex-col h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] sm:h-auto sm:max-h-[85vh] game-panel border border-neon-cyan/35 rounded-t-xl sm:rounded-xl shadow-2xl"
@@ -263,13 +268,14 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
               <h2 id="place-tag-title" className="text-lg font-display font-bold text-white truncate">
                 {editing ? t('pin.modalTitle') : draft.name || meta.short}
               </h2>
+              {agentName ? <p className="text-[11px] text-neon-cyan mt-0.5">{agentName}</p> : null}
               <p className="text-[11px] text-synth-muted mt-0.5 truncate">
                 {mappingLocation ? t('pin.mapping') : draft.address || `${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}`}
               </p>
             </div>
             <button
               type="button"
-              onClick={persistAndClose}
+              onClick={readOnly ? onClose : persistAndClose}
               className="text-synth-muted hover:text-white text-sm px-2 min-h-0 min-w-0 flex-shrink-0"
               aria-label="Close"
             >
@@ -388,7 +394,17 @@ const PlaceTagModal: React.FC<PlaceTagModalProps> = ({
 
         {/* Footer — fixed */}
         <div className="flex-shrink-0 px-4 py-3 border-t border-white/10 bg-[#061428]/95">
-          {editing ? (
+          {readOnly ? (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 rounded-md text-[10px] font-display uppercase bg-serpico-blue/80 text-white hover:bg-serpico-blue"
+              >
+                {t('pin.close')}
+              </button>
+            </div>
+          ) : editing ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <button
                 type="button"
