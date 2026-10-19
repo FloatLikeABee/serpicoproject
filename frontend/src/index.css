@@ -2679,6 +2679,8 @@ html.cm-world #root {
   margin: 0.4rem 0 0.8rem;
   padding-left: 1.35rem;
 }
+.cm-markdown ul { list-style: disc; }
+.cm-markdown ol { list-style: decimal; }
 .cm-markdown li + li { margin-top: 0.2rem; }
 .cm-markdown pre {
   overflow: auto;

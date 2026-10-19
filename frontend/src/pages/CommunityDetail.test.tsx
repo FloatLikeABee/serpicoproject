@@ -106,6 +106,12 @@ test('unknown detail explains not found and links back to browse', async () => {
   expect(screen.getByRole('link', { name: 'Back to community' })).toHaveAttribute('href', '/community');
 });
 
+test('markdown lists keep visible markers against Tailwind preflight', () => {
+  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
+  expect(css).toMatch(/\.cm-markdown ol\s*\{[^}]*list-style:\s*decimal/);
+  expect(css).toMatch(/\.cm-markdown ul\s*\{[^}]*list-style:\s*disc/);
+});
+
 test('spa-routes writes static copies for community browse and detail', () => {
   const build = join(tmpdir(), `spa-community-${process.pid}`);
   mkdirSync(build, { recursive: true });
