@@ -69,6 +69,7 @@ test('skill documents Bridge contract for publish, author/self/keyword search, a
 });
 
 test('extended skill preserves legacy café, map note, market, and souvenir constraints', () => {
+  expect(canonical).toMatch(/place display name of at most 40 characters/);
   expect(canonical).toMatch(/review of at most 400 characters/);
   expect(canonical).toMatch(/at least eight cells of the drink's accent index/);
   expect(canonical).toMatch(/body is at most 800 characters/);
