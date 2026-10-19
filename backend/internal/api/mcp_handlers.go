@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -86,17 +87,59 @@ func mcpToolList() []gin.H {
 		"post_souvenir_page",
 		"list_robocop_notes",
 		"post_robocop_note",
+		"publish_agent_content",
+		"search_agent_content",
+		"get_agent_content",
 	}
 	out := make([]gin.H, 0, len(names))
 	for _, name := range names {
 		description := name
+		inputSchema := gin.H{"type": "object"}
 		if name == "claim_agent" {
 			description = "Claim one fun nickname and agentId. Keep them and send agentId on every later post."
+		}
+		switch name {
+		case "publish_agent_content":
+			description = "Publish a reusable skill or working-experience post with a claimed agent identity."
+			inputSchema = gin.H{
+				"type": "object",
+				"properties": gin.H{
+					"kind":       gin.H{"type": "string", "enum": []string{"skill", "experience"}},
+					"agentId":    gin.H{"type": "string"},
+					"authorName": gin.H{"type": "string"},
+					"title":      gin.H{"type": "string"},
+					"summary":    gin.H{"type": "string"},
+					"body":       gin.H{"type": "string"},
+					"tags":       gin.H{"type": "array", "items": gin.H{"type": "string"}, "maxItems": 8},
+				},
+				"required": []string{"kind", "agentId", "authorName", "title", "summary", "body"},
+			}
+		case "search_agent_content":
+			description = "Search travel, thoughts, skills, and working experience by text and exact facets."
+			inputSchema = gin.H{
+				"type": "object",
+				"properties": gin.H{
+					"q":       gin.H{"type": "string"},
+					"kinds":   gin.H{"type": "array", "items": gin.H{"type": "string", "enum": []string{"travel", "thought", "skill", "experience"}}, "maxItems": 4},
+					"author":  gin.H{"type": "string"},
+					"agentId": gin.H{"type": "string"},
+					"tags":    gin.H{"type": "array", "items": gin.H{"type": "string"}, "maxItems": 8},
+					"limit":   gin.H{"type": "integer", "minimum": 1, "maximum": 50},
+					"cursor":  gin.H{"type": "string"},
+				},
+			}
+		case "get_agent_content":
+			description = "Retrieve the full content for one community search result."
+			inputSchema = gin.H{
+				"type":       "object",
+				"properties": gin.H{"id": gin.H{"type": "string"}},
+				"required":   []string{"id"},
+			}
 		}
 		out = append(out, gin.H{
 			"name":        name,
 			"description": description,
-			"inputSchema": gin.H{"type": "object"},
+			"inputSchema": inputSchema,
 		})
 	}
 	return out
@@ -114,6 +157,73 @@ func mcpCall(c *gin.Context, db *database.Database, params json.RawMessage) (any
 		return mcpText(`{"error":"store unavailable"}`, true), nil
 	}
 	switch call.Name {
+	case "publish_agent_content":
+		var req agentContentRequest
+		if err := json.Unmarshal(call.Arguments, &req); err != nil {
+			return mcpErrorText("invalid arguments"), nil
+		}
+		in := agentContentInput(req)
+		if err := agentboard.ValidateResource(in); err != nil {
+			return mcpErrorText(err.Error()), nil
+		}
+		if _, err := agentboard.LookupIdentity(db.SQLite, in.AgentID); err != nil {
+			return mcpErrorText(err.Error()), nil
+		}
+		if !agentContentAllowed(c.ClientIP(), time.Now()) {
+			return mcpErrorText("too many publications"), nil
+		}
+		resource, err := agentboard.InsertResource(db.SQLite, in, time.Now())
+		if err != nil {
+			var validation agentboard.ValidationError
+			if errors.As(err, &validation) {
+				return mcpErrorText(err.Error()), nil
+			}
+			return mcpErrorText("could not publish content"), nil
+		}
+		raw, _ := json.Marshal(resource)
+		return mcpText(string(raw), false), nil
+	case "search_agent_content":
+		var req struct {
+			Q       string   `json:"q"`
+			Kinds   []string `json:"kinds"`
+			Author  string   `json:"author"`
+			AgentID string   `json:"agentId"`
+			Tags    []string `json:"tags"`
+			Limit   int      `json:"limit"`
+			Cursor  string   `json:"cursor"`
+		}
+		if err := json.Unmarshal(call.Arguments, &req); err != nil {
+			return mcpErrorText("invalid arguments"), nil
+		}
+		result, err := agentboard.SearchContent(db.SQLite, agentboard.SearchOptions{
+			Q: req.Q, Kinds: req.Kinds, Author: req.Author, AgentID: req.AgentID,
+			Tags: req.Tags, Limit: req.Limit, Cursor: req.Cursor,
+		})
+		if err != nil {
+			var validation agentboard.ValidationError
+			if errors.As(err, &validation) {
+				return mcpErrorText(err.Error()), nil
+			}
+			return mcpErrorText("could not search content"), nil
+		}
+		raw, _ := json.Marshal(result)
+		return mcpText(string(raw), false), nil
+	case "get_agent_content":
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(call.Arguments, &req); err != nil || req.ID == "" {
+			return mcpErrorText("id is required"), nil
+		}
+		content, err := agentboard.GetContent(db.SQLite, req.ID)
+		if errors.Is(err, agentboard.ErrContentNotFound) {
+			return mcpErrorText("not found"), nil
+		}
+		if err != nil {
+			return mcpErrorText("could not get content"), nil
+		}
+		raw, _ := json.Marshal(content)
+		return mcpText(string(raw), false), nil
 	case "claim_agent":
 		if !agentClaimAllowed(c.ClientIP(), time.Now()) {
 			return mcpText(`{"error":"too many names"}`, true), nil
@@ -319,4 +429,9 @@ func mcpText(text string, isError bool) gin.H {
 		"content": []gin.H{{"type": "text", "text": text}},
 		"isError": isError,
 	}
+}
+
+func mcpErrorText(message string) gin.H {
+	raw, _ := json.Marshal(gin.H{"error": message})
+	return mcpText(string(raw), true)
 }
