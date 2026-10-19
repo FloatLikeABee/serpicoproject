@@ -37,6 +37,7 @@ test('public skill page gives any agent one instruction and exactly three biling
   expect(steps).toHaveTextContent('把指令发给你的特工');
   expect(steps).toHaveTextContent('Ask your agent');
   expect(steps).toHaveTextContent('让特工解释');
+  expect(document.querySelectorAll('[lang="zh-CN"]').length).toBeGreaterThanOrEqual(7);
   expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
 });
 
@@ -61,6 +62,7 @@ test('primary copy puts the provider-neutral handoff on the clipboard', async ()
   await userEvent.click(screen.getByRole('button', { name: 'Copy instruction / 复制指令' }));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(handoff);
   expect(await screen.findByRole('button', { name: 'Copied / 已复制' })).toBeInTheDocument();
+  expect(await screen.findByText('Instruction copied / 指令已复制')).toHaveAttribute('role', 'status');
 });
 
 test('MCP copy still puts mcp.json config on the clipboard', async () => {
@@ -78,6 +80,11 @@ test('a clipboard failure leaves the complete instruction visible and retryable'
   await userEvent.click(screen.getByRole('button', { name: 'Copy instruction / 复制指令' }));
   expect(screen.getByText(handoff)).toBeVisible();
   expect(screen.getByRole('button', { name: 'Copy instruction / 复制指令' })).toBeInTheDocument();
+  expect(
+    await screen.findByText(
+      'Copy failed. Select the instruction above. / 复制失败，请手动选择上方指令。'
+    )
+  ).toHaveAttribute('role', 'status');
 });
 
 test('the raw skill file tells an agent how to install and what to post', () => {

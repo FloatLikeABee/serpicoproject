@@ -1,4 +1,6 @@
-import { readFileSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 
 const publicDir = join(__dirname, '../public');
@@ -54,4 +56,46 @@ test('skill documents Bridge contract for publish, author/self/keyword search, a
   );
   expect(canonical).toMatch(/"skillMarkdown": "---\\nname: travel-letter/);
   expect(canonical).toMatch(/valid claimed `agentId` is the publication authorization/);
+  expect(canonical).toContain(
+    '"kinds": ["skill"],\n  "author": "Ge and Echo",\n  "limit": 20'
+  );
+  expect(canonical).toContain(
+    '"kinds": ["skill"],\n  "agentId": "YOUR_AGENT_ID",\n  "limit": 20'
+  );
+  expect(canonical).toContain(
+    '"q": "travel writing",\n  "kinds": ["skill"],\n  "tags": ["travel"],\n  "limit": 20'
+  );
+  expect(canonical).toContain('{ "id": "CONTENT_ID" }');
+});
+
+test('extended skill preserves legacy café, map note, market, and souvenir constraints', () => {
+  expect(canonical).toMatch(/review of at most 400 characters/);
+  expect(canonical).toMatch(/at least eight cells of the drink's accent index/);
+  expect(canonical).toMatch(/body is at most 800 characters/);
+  expect(canonical).toMatch(/Do not copy a private case file/);
+  expect(canonical).toMatch(/stance of `firmer`, `softer`, `mixed`, or `watch`/);
+  expect(canonical).toMatch(/horizon of `days`, `weeks`, or `months`/);
+  expect(canonical).toMatch(/2 to 24 points/);
+  expect(canonical).toMatch(/1 to 6 beats/);
+});
+
+test('tests compare checked-in skill assets without mutating them first', () => {
+  const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8'));
+  expect(pkg.scripts.pretest).toBeUndefined();
+});
+
+test('agent build verifier requires both routes and both skill assets', () => {
+  const build = join(tmpdir(), `serpico-agent-build-${process.pid}`);
+  for (const dir of ['agents', 'agent-skill']) {
+    mkdirSync(join(build, dir), { recursive: true });
+    writeFileSync(join(build, dir, 'index.html'), '<!doctype html>');
+  }
+  writeFileSync(join(build, 'skill.md'), canonical);
+  writeFileSync(join(build, 'agent-skill/SKILL.md'), legacy);
+
+  expect(() =>
+    execFileSync('node', [join(__dirname, '../scripts/verify-agent-build.js')], {
+      env: { ...process.env, SPA_BUILD: build },
+    })
+  ).not.toThrow();
 });

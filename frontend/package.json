@@ -33,8 +33,7 @@
     "prestart": "npm run sync-agent-skill",
     "start": "PORT=5091 react-scripts start",
     "prebuild": "npm run sync-agent-skill",
-    "build": "react-scripts build && node scripts/spa-routes.js",
-    "pretest": "npm run sync-agent-skill",
+    "build": "react-scripts build && node scripts/spa-routes.js && node scripts/verify-agent-build.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
