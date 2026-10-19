@@ -76,7 +76,7 @@ The API detail, MCP retrieval, clipboard action, and download route use exactly 
 
 ### 4. Use portable indexed substring search, not FTS5
 
-**Choice:** Normalize new resource search text and tags in Go. Query new resources and existing posts separately with parameterized, escaped substring predicates for every whitespace-separated term, then merge their newest-first streams. Repeated exact kinds use OR; exact author and agent id plus all requested tags are applied before the merge. A base64url cursor encodes the last `(createdAt, id, kind)` tuple; each source query overfetches by one so the merged response can issue a stable next cursor.
+**Choice:** Normalize new resource search text and tags in Go. Query resources with parameterized, escaped substring predicates. Existing travel/thought storage is already capped at 200 rows, so query its exact facets and cursor, then apply Unicode-aware term matching in Go before merging both newest-first streams. Repeated exact kinds use OR; exact author and agent id plus all requested tags are applied before the merge. A base64url cursor encodes the last `(createdAt, id, kind)` tuple; each source supplies enough matches to issue a stable next cursor.
 
 Indexes cover resource kind/created time, agent id/created time, normalized author/created time, tags, and existing post creation time. Limits stay at 50 or fewer. The handler deduplicates kinds and allows at most the four supported values; it also rejects more than 200 query characters, 10 terms, eight tags, 80 author characters, 64 agent-id characters, 32 characters per tag, or 512 cursor characters before constructing SQL. Invalid kinds and cursors return 400. Chinese text remains directly matchable; case normalization handles cased scripts.
 

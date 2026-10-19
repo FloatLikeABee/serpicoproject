@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,6 +27,12 @@ const (
 )
 
 var ErrContentNotFound = errors.New("content not found")
+
+var (
+	markdownLinkPattern = regexp.MustCompile(`!?\[([^\]]+)\]\([^)]+\)`)
+	htmlTagPattern      = regexp.MustCompile(`<[^>]*>`)
+	markdownMarkPattern = regexp.MustCompile("[`*_~>#]+")
+)
 
 type ResourceInput struct {
 	Kind       string
@@ -135,9 +142,6 @@ func ValidateResource(in ResourceInput) error {
 	if utf8.RuneCountInString(body) > ResourceMaxBody {
 		return ValidationError{Msg: "body is longer than 32000 characters"}
 	}
-	if len(in.Tags) > ResourceMaxTags {
-		return ValidationError{Msg: "no more than 8 tags are allowed"}
-	}
 	for _, tag := range in.Tags {
 		normalized := normalizeTag(tag)
 		if normalized == "" {
@@ -146,6 +150,9 @@ func ValidateResource(in ResourceInput) error {
 		if utf8.RuneCountInString(normalized) > ResourceMaxTagRunes {
 			return ValidationError{Msg: "tag is longer than 32 characters"}
 		}
+	}
+	if len(normalizeTags(in.Tags)) > ResourceMaxTags {
+		return ValidationError{Msg: "no more than 8 unique tags are allowed"}
 	}
 	return nil
 }
@@ -343,7 +350,7 @@ func summaryFromResource(resource Resource) ContentSummary {
 		ID:         resource.ID,
 		Kind:       resource.Kind,
 		Title:      resource.Title,
-		Excerpt:    clipRunes(resource.Summary, 200),
+		Excerpt:    plainExcerpt(resource.Summary, 200),
 		AgentID:    resource.AgentID,
 		AgentName:  resource.AgentName,
 		AuthorName: resource.AuthorName,
@@ -434,17 +441,13 @@ func searchPosts(db *sql.DB, options SearchOptions, cursor *contentCursor) ([]Co
 			args = append(args, kind)
 		}
 	}
-	for _, term := range strings.Fields(options.Q) {
-		query += ` AND lower(p.title || ' ' || p.body || ' ' || p.agent_name || ' ' || p.place_name) LIKE ? ESCAPE '\'`
-		args = append(args, "%"+escapeLike(normalizeSearchText(term))+"%")
-	}
 	if options.AgentID != "" {
 		query += ` AND p.agent_id = ?`
 		args = append(args, options.AgentID)
 	}
 	query, args = addCursorCondition(query, args, "p", cursor)
 	query += ` ORDER BY p.created_at DESC, p.id DESC, p.kind DESC LIMIT ?`
-	args = append(args, options.Limit+1)
+	args = append(args, MaxRows)
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
@@ -462,9 +465,15 @@ func searchPosts(db *sql.DB, options SearchOptions, cursor *contentCursor) ([]Co
 			return nil, err
 		}
 		item.Title = contentTitle(storedTitle, body, item.PlaceName)
-		item.Excerpt = clipRunes(firstNonEmptyLine(body), 200)
+		if !matchesSearchTerms(options.Q, item.Title, body, item.AgentName, item.PlaceName) {
+			continue
+		}
+		item.Excerpt = plainExcerpt(firstNonEmptyLine(body), 200)
 		item.Tags = []string{}
 		out = append(out, item)
+		if len(out) > options.Limit {
+			break
+		}
 	}
 	return out, rows.Err()
 }
@@ -538,6 +547,9 @@ func decodeContentCursor(raw string) (*contentCursor, error) {
 	}
 	if cursor.CreatedAt == "" || cursor.ID == "" || !validContentKind(cursor.Kind) {
 		return nil, fmt.Errorf("cursor fields are invalid")
+	}
+	if _, err := time.Parse(time.RFC3339Nano, cursor.CreatedAt); err != nil {
+		return nil, fmt.Errorf("cursor time is invalid")
 	}
 	return &cursor, nil
 }
@@ -642,6 +654,23 @@ func clipRunes(value string, limit int) string {
 		return value
 	}
 	return strings.TrimSpace(string(runes[:limit-1])) + "…"
+}
+
+func plainExcerpt(value string, limit int) string {
+	value = markdownLinkPattern.ReplaceAllString(value, "$1")
+	value = htmlTagPattern.ReplaceAllString(value, "")
+	value = markdownMarkPattern.ReplaceAllString(value, "")
+	return clipRunes(strings.Join(strings.Fields(value), " "), limit)
+}
+
+func matchesSearchTerms(query string, fields ...string) bool {
+	haystack := normalizeSearchText(strings.Join(fields, " "))
+	for _, term := range strings.Fields(normalizeSearchText(query)) {
+		if !strings.Contains(haystack, term) {
+			return false
+		}
+	}
+	return true
 }
 
 func (resource *Resource) decorateSkill() {

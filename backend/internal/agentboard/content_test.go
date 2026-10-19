@@ -30,7 +30,7 @@ func TestInsertResourceRequiresClaimAndBuildsPortableSkill(t *testing.T) {
 		Title:      "Go & Mapping: Field Notes",
 		Summary:    "Use \"safe\" routes.",
 		Body:       "# Route planning\n\nKeep `<raw>` as Markdown source.",
-		Tags:       []string{" Go ", "mapping", "GO"},
+		Tags:       []string{" Go ", "mapping", "GO", " go", "GO ", "Go", "go", "MAPPING", " mapping "},
 	}, now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -186,6 +186,39 @@ func TestInsertResourceIsAtomicAndPrunesTagsWithOldRows(t *testing.T) {
 			}
 		}
 	}
+	if _, err := db.Exec(`CREATE TRIGGER reject_resource_prune BEFORE DELETE ON agent_resources
+		BEGIN SELECT RAISE(FAIL, 'prune failed'); END`); err != nil {
+		t.Fatal(err)
+	}
+	_, err = InsertResource(db, ResourceInput{
+		Kind:       "skill",
+		AgentID:    ident.ID,
+		AuthorName: "Author",
+		Title:      "Will Roll Back",
+		Summary:    "summary",
+		Body:       "body",
+		Tags:       []string{"rollback"},
+	}, now.Add(time.Hour))
+	if err == nil {
+		t.Fatal("expected prune failure")
+	}
+	var rolledBackResources, rolledBackTags, retainedOldTags int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM agent_resources WHERE title = 'Will Roll Back'`).Scan(&rolledBackResources); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM agent_resource_tags WHERE normalized_tag = 'rollback'`).Scan(&rolledBackTags); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM agent_resource_tags WHERE normalized_tag = 'old-tag'`).Scan(&retainedOldTags); err != nil {
+		t.Fatal(err)
+	}
+	if rolledBackResources != 0 || rolledBackTags != 0 || retainedOldTags != 1 {
+		t.Fatalf("prune rollback resources=%d tags=%d retainedOld=%d", rolledBackResources, rolledBackTags, retainedOldTags)
+	}
+	if _, err := db.Exec(`DROP TRIGGER reject_resource_prune`); err != nil {
+		t.Fatal(err)
+	}
+
 	newest, err := InsertResource(db, ResourceInput{
 		Kind:       "skill",
 		AgentID:    ident.ID,
@@ -275,7 +308,7 @@ func TestSearchContentMatchesTermsAndFacetsAcrossResourcesAndPosts(t *testing.T)
 		PlaceName: "Harbor",
 		Lat:       1,
 		Lng:       2,
-		Body:      "Quiet water before dawn.",
+		Body:      "ÄRGER before dawn.",
 	}, start.Add(2*time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -324,6 +357,13 @@ func TestSearchContentMatchesTermsAndFacetsAcrossResourcesAndPosts(t *testing.T)
 	if len(own.Items) != 3 {
 		t.Fatalf("agent results: %+v", own.Items)
 	}
+	unicodeMatch, err := SearchContent(db, SearchOptions{Q: "ärger", Kinds: []string{"thought"}, Limit: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(unicodeMatch.Items) != 1 || unicodeMatch.Items[0].Kind != "thought" {
+		t.Fatalf("unicode results: %+v", unicodeMatch.Items)
+	}
 }
 
 func TestSearchContentPaginatesWithoutDuplicatesAndBuildsPlainExcerpts(t *testing.T) {
@@ -331,12 +371,16 @@ func TestSearchContentPaginatesWithoutDuplicatesAndBuildsPlainExcerpts(t *testin
 	start := time.Date(2026, 10, 19, 4, 0, 0, 0, time.UTC)
 	ident := claimForContent(t, db, start)
 	for i, title := range []string{"Oldest", "Middle", "Newest"} {
+		summary := strings.Repeat(title+" ", 35)
+		if title == "Newest" {
+			summary = strings.Repeat("**safe** [route](https://example.com) ", 6)
+		}
 		_, err := InsertResource(db, ResourceInput{
 			Kind:       "experience",
 			AgentID:    ident.ID,
 			AuthorName: "Author",
 			Title:      title,
-			Summary:    strings.Repeat(title+" ", 35),
+			Summary:    summary,
 			Body:       "# heading\n\nbody",
 		}, start.Add(time.Duration(i)*time.Second))
 		if err != nil {
@@ -351,7 +395,9 @@ func TestSearchContentPaginatesWithoutDuplicatesAndBuildsPlainExcerpts(t *testin
 	if len(first.Items) != 2 || first.Items[0].Title != "Newest" || first.Items[1].Title != "Middle" || first.NextCursor == "" {
 		t.Fatalf("first page: %+v", first)
 	}
-	if utf8.RuneCountInString(first.Items[0].Excerpt) > 200 || strings.Contains(first.Items[0].Excerpt, "#") {
+	if utf8.RuneCountInString(first.Items[0].Excerpt) > 200 ||
+		strings.ContainsAny(first.Items[0].Excerpt, "*[]") ||
+		strings.Contains(first.Items[0].Excerpt, "https://") {
 		t.Fatalf("excerpt %q", first.Items[0].Excerpt)
 	}
 
@@ -380,6 +426,7 @@ func TestSearchContentRejectsUnboundedInputs(t *testing.T) {
 		{Limit: 51},
 		{Cursor: strings.Repeat("c", 513)},
 		{Cursor: "not-a-cursor"},
+		{Cursor: encodeContentCursor(contentCursor{CreatedAt: "zzz", ID: "id", Kind: "skill"})},
 	}
 	for i, options := range cases {
 		if _, err := SearchContent(db, options); err == nil {

@@ -35,6 +35,7 @@ type mcpRequest struct {
 }
 
 func handleMCP(c *gin.Context, db *database.Database) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1024*1024)
 	var req mcpRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"jsonrpc": "2.0", "error": gin.H{"code": -32700, "message": "parse error"}})
@@ -110,7 +111,7 @@ func mcpToolList() []gin.H {
 					"title":      gin.H{"type": "string"},
 					"summary":    gin.H{"type": "string"},
 					"body":       gin.H{"type": "string"},
-					"tags":       gin.H{"type": "array", "items": gin.H{"type": "string"}, "maxItems": 8},
+					"tags":       gin.H{"type": "array", "items": gin.H{"type": "string"}},
 				},
 				"required": []string{"kind", "agentId", "authorName", "title", "summary", "body"},
 			}
@@ -169,7 +170,7 @@ func mcpCall(c *gin.Context, db *database.Database, params json.RawMessage) (any
 		if _, err := agentboard.LookupIdentity(db.SQLite, in.AgentID); err != nil {
 			return mcpErrorText(err.Error()), nil
 		}
-		if !agentContentAllowed(c.ClientIP(), time.Now()) {
+		if !agentContentAllowed(agentContentRateKey(c), time.Now()) {
 			return mcpErrorText("too many publications"), nil
 		}
 		resource, err := agentboard.InsertResource(db.SQLite, in, time.Now())

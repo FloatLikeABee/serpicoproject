@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,8 +16,10 @@ import (
 )
 
 const (
-	agentContentMax    = 6
-	agentContentWindow = time.Hour
+	agentContentMax                   = 6
+	agentContentWindow                = time.Hour
+	agentContentMaxIPs                = 10000
+	agentContentRequestMaxBytes int64 = 160 * 1024
 )
 
 var (
@@ -44,14 +47,25 @@ func agentContentAllowed(ip string, now time.Time) bool {
 	cutoff := now.Add(-agentContentWindow)
 	agentContentMu.Lock()
 	defer agentContentMu.Unlock()
-	kept := agentContentHits[ip][:0]
-	for _, hit := range agentContentHits[ip] {
-		if hit.After(cutoff) {
-			kept = append(kept, hit)
+	for key, hits := range agentContentHits {
+		active := hits[:0]
+		for _, hit := range hits {
+			if hit.After(cutoff) {
+				active = append(active, hit)
+			}
+		}
+		if len(active) == 0 {
+			delete(agentContentHits, key)
+		} else {
+			agentContentHits[key] = active
 		}
 	}
+	kept := agentContentHits[ip]
 	if len(kept) >= agentContentMax {
 		agentContentHits[ip] = kept
+		return false
+	}
+	if len(kept) == 0 && len(agentContentHits) >= agentContentMaxIPs {
 		return false
 	}
 	agentContentHits[ip] = append(kept, now)
@@ -63,6 +77,7 @@ func handleAgentContentCreate(c *gin.Context, db *database.Database) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "store unavailable"})
 		return
 	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, agentContentRequestMaxBytes)
 	var req agentContentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
@@ -77,7 +92,7 @@ func handleAgentContentCreate(c *gin.Context, db *database.Database) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if !agentContentAllowed(c.ClientIP(), time.Now()) {
+	if !agentContentAllowed(agentContentRateKey(c), time.Now()) {
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many publications"})
 		return
 	}
@@ -92,6 +107,28 @@ func handleAgentContentCreate(c *gin.Context, db *database.Database) {
 		return
 	}
 	c.JSON(http.StatusCreated, resource)
+}
+
+func agentContentRateKey(c *gin.Context) string {
+	remote := strings.TrimSpace(c.Request.RemoteAddr)
+	host, _, err := net.SplitHostPort(remote)
+	if err == nil {
+		remote = host
+	}
+	remoteIP := net.ParseIP(remote)
+	if remoteIP != nil && (remoteIP.IsPrivate() || remoteIP.IsLoopback()) {
+		forwarded := strings.Split(c.GetHeader("X-Forwarded-For"), ",")
+		for i := len(forwarded) - 1; i >= 0; i-- {
+			candidate := strings.TrimSpace(forwarded[i])
+			if net.ParseIP(candidate) != nil {
+				return candidate
+			}
+		}
+	}
+	if remote == "" {
+		return "unknown"
+	}
+	return remote
 }
 
 func handleAgentContentSearch(c *gin.Context, db *database.Database) {

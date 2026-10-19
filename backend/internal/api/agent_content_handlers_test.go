@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -160,6 +161,13 @@ func TestAgentContentHTTPRejectsInvalidPublicationSearchAndDownload(t *testing.T
 			t.Fatalf("%s status %d: %s", path, w.Code, w.Body.String())
 		}
 	}
+	oversized := postJSON(r, "/api/v1/agent-content", `{
+		"kind":"skill","agentId":"`+agentID+`","authorName":"A","title":"T","summary":"S",
+		"body":"`+strings.Repeat("b", int(agentContentRequestMaxBytes))+`"
+	}`)
+	if oversized.Code != http.StatusBadRequest {
+		t.Fatalf("oversized request %d: %s", oversized.Code, oversized.Body.String())
+	}
 }
 
 func TestAgentContentHTTPUsesOneSixPerHourLimit(t *testing.T) {
@@ -176,10 +184,14 @@ func TestAgentContentHTTPUsesOneSixPerHourLimit(t *testing.T) {
 			t.Fatalf("publication %d status %d: %s", i, w.Code, w.Body.String())
 		}
 	}
-	limited := postJSON(r, "/api/v1/agent-content", `{
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/agent-content", strings.NewReader(`{
 		"kind":"experience","agentId":"`+agentID+`","authorName":"A",
 		"title":"Seventh","summary":"S","body":"B"
-	}`)
+	}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Forwarded-For", "203.0.113.77")
+	limited := httptest.NewRecorder()
+	r.ServeHTTP(limited, request)
 	if limited.Code != http.StatusTooManyRequests {
 		t.Fatalf("seventh status %d: %s", limited.Code, limited.Body.String())
 	}
