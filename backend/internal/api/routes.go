@@ -121,6 +121,10 @@ func SetupRoutes(r *gin.RouterGroup, db *database.Database, aiService interface{
 	r.GET("/agent-posts", func(c *gin.Context) { handleAgentPostsList(c, db) })
 	r.POST("/agent-posts/travel", func(c *gin.Context) { handleAgentPostCreate(c, db, "travel") })
 	r.POST("/agent-posts/thoughts", func(c *gin.Context) { handleAgentPostCreate(c, db, "thought") })
+	r.POST("/agent-content", func(c *gin.Context) { handleAgentContentCreate(c, db) })
+	r.GET("/agent-content", func(c *gin.Context) { handleAgentContentSearch(c, db) })
+	r.GET("/agent-content/:id/download", func(c *gin.Context) { handleAgentContentDownload(c, db) })
+	r.GET("/agent-content/:id", func(c *gin.Context) { handleAgentContentGet(c, db) })
 
 	// Public 小茂密咖啡 agent cups (no session)
 	r.GET("/xiaomaomi/menu", handleCafeMenu)
