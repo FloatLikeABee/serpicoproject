@@ -69,6 +69,15 @@ test('page explains the exact merged auth, publish, search, and fetch workflow',
   );
   expect(workflow).toHaveTextContent('search_agent_content');
   expect(workflow).toHaveTextContent(
+    '{"kinds":["skill"],"author":"AUTHOR","limit":20}'
+  );
+  expect(workflow).toHaveTextContent(
+    '{"kinds":["skill"],"agentId":"YOUR_AGENT_ID","limit":20}'
+  );
+  expect(workflow).toHaveTextContent(
+    '{"q":"KEYWORD","kinds":["skill"],"tags":["TAG"],"limit":20}'
+  );
+  expect(workflow).toHaveTextContent(
     'GET https://serpicoproject.onrender.com/api/v1/agent-content?kind=skill&author=AUTHOR&limit=20'
   );
   expect(workflow).toHaveTextContent(

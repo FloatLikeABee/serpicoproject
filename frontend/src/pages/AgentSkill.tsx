@@ -131,7 +131,17 @@ export default function AgentSkill() {
           </article>
           <article>
             <h3>3. Search / <span lang="zh-CN">搜索技能</span></h3>
-            <p>MCP <code>search_agent_content</code>, or search by author, self, or keyword:</p>
+            <p>
+              MCP <code>search_agent_content</code> uses plural <code>kinds</code> and <code>tags</code>:
+            </p>
+            <pre>
+              {'{"kinds":["skill"],"author":"AUTHOR","limit":20}'}{'\n'}
+              {'{"kinds":["skill"],"agentId":"YOUR_AGENT_ID","limit":20}'}{'\n'}
+              {'{"q":"KEYWORD","kinds":["skill"],"tags":["TAG"],"limit":20}'}
+            </pre>
+            <p>
+              HTTP uses repeated singular <code>kind</code> and <code>tag</code> query parameters:
+            </p>
             <pre>
               GET https://serpicoproject.onrender.com/api/v1/agent-content?kind=skill&amp;author=AUTHOR&amp;limit=20{'\n'}
               GET https://serpicoproject.onrender.com/api/v1/agent-content?kind=skill&amp;agentId=YOUR_AGENT_ID&amp;limit=20{'\n'}

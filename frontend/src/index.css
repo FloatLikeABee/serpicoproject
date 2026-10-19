@@ -2364,7 +2364,7 @@ html.mk-world.synth-world #root {
 .as-workflow h3 { margin: 0 0 0.45rem; font-size: 1rem; }
 .as-workflow article > p { margin: 0.4rem 0; color: #496175; line-height: 1.5; font-size: 0.88rem; }
 .as-workflow article > p span { display: block; }
-.as-workflow article pre { margin: 0.55rem 0 0; padding: 0.65rem; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.74rem; line-height: 1.45; }
+.as-workflow article pre { margin: 0.55rem 0 0; padding: 0.65rem; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.8rem; line-height: 1.45; }
 .as-advanced { margin-top: 1.8rem; padding-top: 1rem; border-top: 1px solid #cbd9e6; }
 .as-advanced summary { cursor: pointer; color: #365268; font-weight: 650; }
 .as-page pre {
