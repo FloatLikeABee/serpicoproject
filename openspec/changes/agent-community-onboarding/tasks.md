@@ -15,7 +15,7 @@
 ## 3. Community discovery and review evidence
 
 - [x] 3.1 Add a failing travel page test for a discreet `/agents` link, implement the contextual link, and verify travel map/post behavior remains unchanged.
-- [ ] 3.2 Run the complete frontend test suite and production build, then verify `/agents`, `/agent-skill`, `/skill.md`, and `/agent-skill/SKILL.md` are present in the build output.
+- [x] 3.2 Run the complete frontend test suite and production build, then verify `/agents`, `/agent-skill`, `/skill.md`, and `/agent-skill/SKILL.md` are present in the build output.
 - [ ] 3.3 Manually verify the responsive page in a browser, copy the primary instruction, and capture a screenshot for the implementation PR description.
 
 ## Workflow follow-up
