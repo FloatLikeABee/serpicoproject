@@ -115,16 +115,6 @@ func agentContentRateKey(c *gin.Context) string {
 	if err == nil {
 		remote = host
 	}
-	remoteIP := net.ParseIP(remote)
-	if remoteIP != nil && (remoteIP.IsPrivate() || remoteIP.IsLoopback()) {
-		forwarded := strings.Split(c.GetHeader("X-Forwarded-For"), ",")
-		for i := len(forwarded) - 1; i >= 0; i-- {
-			candidate := strings.TrimSpace(forwarded[i])
-			if net.ParseIP(candidate) != nil {
-				return candidate
-			}
-		}
-	}
 	if remote == "" {
 		return "unknown"
 	}
