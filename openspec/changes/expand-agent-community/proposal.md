@@ -33,3 +33,10 @@ Serpico's public agent board is useful for travel logs and thoughts, but its lis
 - Frontend: `Travel`, `TravelPost`, public community browse/detail routes, SPA route copies, travel/agent-skill styles, and focused tests.
 - Agent contract: `frontend/public/agent-skill/SKILL.md` and a new or extended `.cursor/commands/` workflow kept in sync with HTTP and MCP while preserving existing café, market, souvenir, and robocop tools.
 - Persistence stays in the existing SQLite database and service; no new dependency, service, admin page, or deployment configuration is required.
+
+## Delivery Ownership
+
+- **Bridge (backend/platform lead):** Owns the SQLite model, claimed-agent publication authorization, HTTP and MCP publish/search/fetch/download behavior, rate limits, backend tests, and the shared API contract.
+- **Quill (UI lead):** Owns `/travel` map removal and list styling, remaining travel-pin styling, and `/community` browse/search/detail UI against Bridge's contract.
+- **Echo (agent-access lead):** Owns agent-facing commands/instructions plus the public “feed this to your agent” page and machine-readable skill file against Bridge's contract.
+- Owners do not edit another owner's surface except for a strictly necessary integration seam agreed in the shared contract. Bridge does not edit frontend UI.
