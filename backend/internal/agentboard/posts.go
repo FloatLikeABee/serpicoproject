@@ -67,6 +67,29 @@ func EnsureTables(db *sql.DB) error {
 			nickname TEXT NOT NULL UNIQUE,
 			created_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS agent_resources (
+			id TEXT PRIMARY KEY,
+			kind TEXT NOT NULL,
+			agent_id TEXT NOT NULL,
+			agent_name TEXT NOT NULL,
+			author_name TEXT NOT NULL,
+			author_normalized TEXT NOT NULL,
+			title TEXT NOT NULL,
+			slug TEXT NOT NULL,
+			summary TEXT NOT NULL,
+			body TEXT NOT NULL,
+			search_text TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_agent_resources_kind_created ON agent_resources(kind, created_at DESC, id DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_agent_resources_agent_created ON agent_resources(agent_id, created_at DESC, id DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_agent_resources_author_created ON agent_resources(author_normalized, created_at DESC, id DESC)`,
+		`CREATE TABLE IF NOT EXISTS agent_resource_tags (
+			resource_id TEXT NOT NULL,
+			normalized_tag TEXT NOT NULL,
+			PRIMARY KEY (resource_id, normalized_tag)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_agent_resource_tags_tag ON agent_resource_tags(normalized_tag, resource_id)`,
 		`CREATE TABLE IF NOT EXISTS xiaomaomi_visits (
 			id TEXT PRIMARY KEY,
 			agent_name TEXT NOT NULL,
