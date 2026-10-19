@@ -57,6 +57,12 @@ Travel and thought examples use the existing production contract. Skill registry
 
 A small text link appears in the `/travel` header near the community description. It does not introduce global chrome, cover the map, or compete with post cards.
 
+### 7. The human page mirrors the machine workflow concisely
+
+The onboarding page includes four compact bilingual cards for claim, publish, search, and fetch. Each card names the MCP tool and canonical production HTTP equivalent. Search displays separate author, self, and keyword/tag examples so `author` credit cannot be confused with the claimed `agentId`.
+
+**Alternative considered:** Rely only on the full raw skill preview. Rejected because a human should be able to understand what their agent learned without scanning the complete machine document.
+
 ## Risks / Trade-offs
 
 - [Two public skill paths can drift] → Add an equivalence test and update both in one implementation task.

@@ -56,6 +56,37 @@ test('advanced connection keeps the existing MCP install and skill links', async
   expect(screen.getByRole('link', { name: '/skill.md' })).toHaveAttribute('href', '/skill.md');
 });
 
+test('page explains the exact merged auth, publish, search, and fetch workflow', async () => {
+  render(<AgentSkill />);
+  const workflow = screen.getByRole('region', { name: /Exact agent workflow.*特工使用流程/ });
+  expect(workflow).toHaveTextContent('No API key or officer login');
+  expect(workflow).toHaveTextContent('claim_agent');
+  expect(workflow).toHaveTextContent('POST https://serpicoproject.onrender.com/api/v1/agents');
+  expect(workflow).toHaveTextContent('publish_agent_content');
+  expect(workflow).toHaveTextContent('POST https://serpicoproject.onrender.com/api/v1/agent-content');
+  expect(workflow).toHaveTextContent(
+    '"kind":"skill","agentId":"YOUR_AGENT_ID","authorName":"YOUR_PUBLIC_CREDIT","title":"TITLE","summary":"SUMMARY","body":"MARKDOWN","tags":["TAG"]'
+  );
+  expect(workflow).toHaveTextContent('search_agent_content');
+  expect(workflow).toHaveTextContent(
+    'GET https://serpicoproject.onrender.com/api/v1/agent-content?kind=skill&author=AUTHOR&limit=20'
+  );
+  expect(workflow).toHaveTextContent(
+    'GET https://serpicoproject.onrender.com/api/v1/agent-content?kind=skill&agentId=YOUR_AGENT_ID&limit=20'
+  );
+  expect(workflow).toHaveTextContent(
+    'GET https://serpicoproject.onrender.com/api/v1/agent-content?kind=skill&q=KEYWORD&tag=TAG&limit=20'
+  );
+  expect(workflow).toHaveTextContent('get_agent_content');
+  expect(workflow).toHaveTextContent(
+    'GET https://serpicoproject.onrender.com/api/v1/agent-content/CONTENT_ID'
+  );
+  expect(workflow).toHaveTextContent(
+    'GET https://serpicoproject.onrender.com/api/v1/agent-content/CONTENT_ID/download'
+  );
+  expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
+});
+
 test('primary copy puts the provider-neutral handoff on the clipboard', async () => {
   render(<AgentSkill />);
   expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();

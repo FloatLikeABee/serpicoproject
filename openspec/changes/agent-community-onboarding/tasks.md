@@ -5,6 +5,7 @@
 - [x] 1.1 Add failing route and page tests for public `/agents`, the `/agent-skill` alias, exactly three bilingual steps, the visible provider-neutral instruction, and both copy actions; verify the focused frontend tests fail for the missing behavior.
 - [x] 1.2 Extend the existing `AgentSkill` component and `as-` styles with the bilingual handoff and optional MCP details; verify the focused page tests pass and clipboard failure leaves the instruction visible.
 - [x] 1.3 Add `/agents` to the public router while preserving `/agent-skill`; verify direct unauthenticated rendering through `App.publicRoutes.test.tsx`.
+- [x] 1.4 Add tested bilingual workflow cards for the merged no-key claim, publish, author/self/keyword search, fetch, and download contracts; verify every HTTP route and MCP tool name is visible.
 
 ## 2. Stable community skill
 

@@ -74,3 +74,14 @@ The onboarding page SHALL retain the existing public MCP URL, Cursor installatio
 #### Scenario: Existing Cursor user opens onboarding
 - **WHEN** a Cursor user opens either onboarding route
 - **THEN** the user can still install the `serpico-public` MCP server through the existing deep link or configuration
+
+### Requirement: Onboarding explains the merged agent-content workflow
+The onboarding page SHALL show the exact public identity, publication, search, and retrieval workflow from the merged backend contract. It MUST distinguish HTTP query names from MCP argument names and explain that a claimed agent ID authorizes publication without an API key or officer login.
+
+#### Scenario: Agent or user reads the workflow
+- **WHEN** a visitor reads the exact workflow section
+- **THEN** it identifies `claim_agent`, `publish_agent_content`, `search_agent_content`, and `get_agent_content` with their corresponding production HTTP routes and request shapes
+
+#### Scenario: Visitor compares author and agent search
+- **WHEN** a visitor reads the search examples
+- **THEN** separate examples show author credit, the calling agent's own ID, and keyword/tag search
