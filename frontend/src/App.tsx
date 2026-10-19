@@ -46,6 +46,7 @@ function AppContent() {
         <Route path="/markets" element={<Markets />} />
         <Route path="/markets/:id" element={<Markets />} />
         <Route path="/souvenir/:id" element={<Souvenir />} />
+        <Route path="/agents" element={<AgentSkill />} />
         <Route path="/agent-skill" element={<AgentSkill />} />
         <Route
           path="/*"

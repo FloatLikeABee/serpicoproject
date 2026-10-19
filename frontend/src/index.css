@@ -2305,18 +2305,50 @@ html.mk-world.synth-world #root {
   background: #fffdf8;
 }
 .as-page {
-  max-width: 42rem;
+  max-width: 52rem;
   margin: 0 auto;
-  padding: 1.25rem 1rem 3rem;
+  padding: 2.5rem 1rem 4rem;
   color: #102033;
-  background: #f4f7fb;
+  background:
+    radial-gradient(circle at 90% 5%, rgba(37, 99, 235, 0.1), transparent 20rem),
+    #f4f7fb;
   min-height: 100dvh;
   font-family: "IBM Plex Sans", "PingFang SC", "Noto Sans SC", sans-serif;
 }
-.as-kicker { margin: 0; letter-spacing: 0.08em; text-transform: uppercase; color: #3d5a73; }
-.as-page h1 { margin: 0.2rem 0 0.6rem; font-size: 1.8rem; }
-.as-lead { font-size: 1.05rem; line-height: 1.5; }
+.as-hero { padding: 0 0 1.5rem; }
+.as-kicker { margin: 0; letter-spacing: 0.12em; text-transform: uppercase; color: #3d5a73; font-size: 0.75rem; font-weight: 700; }
+.as-page h1 { margin: 0.45rem 0 0.8rem; font-size: clamp(2rem, 7vw, 3.4rem); line-height: 1.04; letter-spacing: -0.04em; max-width: 12ch; }
+.as-page h1 span,
+.as-page h2 span,
+.as-lead span,
+.as-capabilities > p span,
+.as-steps li p span { display: block; }
+.as-page h1 span { margin-top: 0.45rem; color: #31516c; font-size: 0.55em; letter-spacing: -0.01em; }
+.as-lead { max-width: 40rem; font-size: 1.05rem; line-height: 1.6; color: #365268; }
+.as-lead span { color: #5c7080; }
 .as-page a { color: #0b5cab; }
+.as-handoff {
+  margin-top: 1.4rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #cbd9e6;
+  border-radius: 1rem;
+  box-shadow: 0 0.8rem 2rem rgba(16, 32, 51, 0.08);
+}
+.as-handoff p { margin: 0 0 0.9rem; line-height: 1.55; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88rem; }
+.as-page section { margin-top: 1.5rem; }
+.as-page h2 { margin: 0 0 0.8rem; font-size: 1.25rem; line-height: 1.25; }
+.as-page h2 span { margin-top: 0.15rem; color: #60788c; font-size: 0.78em; font-weight: 550; }
+.as-steps ol { display: grid; gap: 0.7rem; margin: 0; padding: 0; list-style: none; }
+.as-steps li { display: flex; gap: 0.85rem; align-items: flex-start; padding: 0.85rem; background: rgba(255, 255, 255, 0.7); border: 1px solid #d8e3ec; border-radius: 0.8rem; }
+.as-step-number { display: grid; place-items: center; flex: 0 0 2rem; width: 2rem; height: 2rem; border-radius: 50%; background: #dce9f7; color: #174e80; font-weight: 800; }
+.as-steps li p { margin: 0.05rem 0 0; line-height: 1.45; }
+.as-steps li p span { margin-top: 0.15rem; color: #617487; }
+.as-capabilities > p { line-height: 1.6; }
+.as-capabilities > p span { color: #617487; }
+.as-community-links { font-size: 0.9rem; }
+.as-advanced { margin-top: 1.8rem; padding-top: 1rem; border-top: 1px solid #cbd9e6; }
+.as-advanced summary { cursor: pointer; color: #365268; font-weight: 650; }
 .as-page pre {
   overflow: auto;
   padding: 0.8rem;
@@ -2334,7 +2366,16 @@ html.mk-world.synth-world #root {
   color: #f4f7fb;
   cursor: pointer;
 }
+.as-page button.as-primary { width: 100%; background: #185c97; border-color: #185c97; font-weight: 750; }
 .as-skill { max-height: 70vh; }
+@media (min-width: 720px) {
+  .as-page { padding-top: 4rem; }
+  .as-handoff { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center; padding: 1.15rem 1.2rem; }
+  .as-handoff p { margin: 0; }
+  .as-page button.as-primary { width: auto; min-width: 12rem; }
+  .as-steps ol { grid-template-columns: repeat(3, 1fr); }
+  .as-steps li { min-height: 8.2rem; flex-direction: column; }
+}
 @media (min-width: 720px) {
   .xm-gallery { grid-template-columns: 1fr 1fr; }
 }

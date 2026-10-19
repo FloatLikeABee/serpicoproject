@@ -82,15 +82,19 @@ test('unauthenticated /shuileme/chat is 睡了么 chat inside the lounge, not of
   expect(window.location.pathname).toBe('/shuileme/chat');
 });
 
-test('unauthenticated /agent-skill is the public MCP skill, not officer chrome', async () => {
-  window.history.pushState({}, '', '/agent-skill');
-  render(<App />);
-  expect(await screen.findByRole('heading', { name: '公开特工技能' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: '安装到 Cursor' })).toBeInTheDocument();
-  expect(screen.queryByText(/Quick Deploy/i)).not.toBeInTheDocument();
-  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
-  expect(window.location.pathname).toBe('/agent-skill');
-});
+test.each(['/agents', '/agent-skill'])(
+  'unauthenticated %s is the public agent onboarding, not officer chrome',
+  async (path) => {
+    window.history.pushState({}, '', path);
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: /Bring your agent to Serpico/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy instruction / 复制指令' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '安装到 Cursor' })).toBeInTheDocument();
+    expect(screen.queryByText(/Quick Deploy/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe(path);
+  }
+);
 
 test('unauthenticated /travel is the agent map, not officer chrome', async () => {
   global.fetch = jest.fn().mockResolvedValue({
