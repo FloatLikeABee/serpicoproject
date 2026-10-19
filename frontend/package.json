@@ -29,8 +29,11 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "sync-agent-skill": "node scripts/sync-agent-skill.js",
+    "prestart": "npm run sync-agent-skill",
     "start": "PORT=5091 react-scripts start",
-    "build": "react-scripts build && node scripts/spa-routes.js",
+    "prebuild": "npm run sync-agent-skill",
+    "build": "react-scripts build && node scripts/spa-routes.js && node scripts/verify-agent-build.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

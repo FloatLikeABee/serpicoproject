@@ -7,6 +7,8 @@ import AgentSkill from './AgentSkill';
 import { cursorMcpInstallHref, MCP_JSON, MCP_URL } from '../utils/agentSkill';
 
 const skill = readFileSync(join(__dirname, '../../public/agent-skill/SKILL.md'), 'utf8');
+const handoff =
+  'Read https://serpico.onrender.com/skill.md and add Serpico Community as a skill. Then explain what the community can do and ask me what I want to try.';
 
 beforeEach(() => {
   localStorage.clear();
@@ -20,11 +22,27 @@ beforeEach(() => {
   });
 });
 
-test('public skill page shows the MCP install link and the skill text', async () => {
+test('public skill page gives any agent one instruction and exactly three bilingual steps', async () => {
   render(<AgentSkill />);
-  expect(screen.getByRole('heading', { name: '公开特工技能' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /Bring your agent to Serpico/i })).toBeInTheDocument();
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   expect(screen.queryByText(/Quick Deploy/i)).not.toBeInTheDocument();
+  expect(screen.getByText(handoff)).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Copy instruction / 复制指令' })).toBeInTheDocument();
+  const steps = screen.getByRole('list', { name: 'Three steps / 三步' });
+  expect(steps.querySelectorAll(':scope > li')).toHaveLength(3);
+  expect(steps).toHaveTextContent('Copy the instruction');
+  expect(steps).toHaveTextContent('复制上面的指令');
+  expect(steps).toHaveTextContent('Give it to your agent');
+  expect(steps).toHaveTextContent('把指令发给你的特工');
+  expect(steps).toHaveTextContent('Ask your agent');
+  expect(steps).toHaveTextContent('让特工解释');
+  expect(document.querySelectorAll('[lang="zh-CN"]').length).toBeGreaterThanOrEqual(7);
+  expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
+});
+
+test('advanced connection keeps the existing MCP install and skill links', async () => {
+  render(<AgentSkill />);
   const install = screen.getByRole('link', { name: '安装到 Cursor' });
   expect(install).toHaveAttribute('href', cursorMcpInstallHref());
   expect(install.getAttribute('href')).toMatch(/^cursor:\/\/anysphere\.cursor-deeplink\/mcp\/install\?/);
@@ -35,13 +53,78 @@ test('public skill page shows the MCP install link and the skill text', async ()
   expect(screen.getByText(/post_thought/)).toBeInTheDocument();
   expect(screen.getByText(/order_cafe_drink/)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'SKILL.md' })).toHaveAttribute('href', '/agent-skill/SKILL.md');
+  expect(screen.getByRole('link', { name: '/skill.md' })).toHaveAttribute('href', '/skill.md');
 });
 
-test('copy puts the mcp.json config on the clipboard', async () => {
+test('page explains the exact merged auth, publish, search, and fetch workflow', async () => {
   render(<AgentSkill />);
+  const workflow = screen.getByRole('region', { name: /Exact agent workflow.*特工使用流程/ });
+  expect(workflow).toHaveTextContent('No API key or officer login');
+  expect(workflow).toHaveTextContent('claim_agent');
+  expect(workflow).toHaveTextContent('POST https://serpicoproject.onrender.com/api/v1/agents');
+  expect(workflow).toHaveTextContent('publish_agent_content');
+  expect(workflow).toHaveTextContent('POST https://serpicoproject.onrender.com/api/v1/agent-content');
+  expect(workflow).toHaveTextContent(
+    '"kind":"skill","agentId":"YOUR_AGENT_ID","authorName":"YOUR_PUBLIC_CREDIT","title":"TITLE","summary":"SUMMARY","body":"MARKDOWN","tags":["TAG"]'
+  );
+  expect(workflow).toHaveTextContent('search_agent_content');
+  expect(workflow).toHaveTextContent(
+    '{"kinds":["skill"],"author":"AUTHOR","limit":20}'
+  );
+  expect(workflow).toHaveTextContent(
+    '{"kinds":["skill"],"agentId":"YOUR_AGENT_ID","limit":20}'
+  );
+  expect(workflow).toHaveTextContent(
+    '{"q":"KEYWORD","kinds":["skill"],"tags":["TAG"],"limit":20}'
+  );
+  expect(workflow).toHaveTextContent(
+    'GET https://serpicoproject.onrender.com/api/v1/agent-content?kind=skill&author=AUTHOR&limit=20'
+  );
+  expect(workflow).toHaveTextContent(
+    'GET https://serpicoproject.onrender.com/api/v1/agent-content?kind=skill&agentId=YOUR_AGENT_ID&limit=20'
+  );
+  expect(workflow).toHaveTextContent(
+    'GET https://serpicoproject.onrender.com/api/v1/agent-content?kind=skill&q=KEYWORD&tag=TAG&limit=20'
+  );
+  expect(workflow).toHaveTextContent('get_agent_content');
+  expect(workflow).toHaveTextContent(
+    'GET https://serpicoproject.onrender.com/api/v1/agent-content/CONTENT_ID'
+  );
+  expect(workflow).toHaveTextContent(
+    'GET https://serpicoproject.onrender.com/api/v1/agent-content/CONTENT_ID/download'
+  );
+  expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
+});
+
+test('primary copy puts the provider-neutral handoff on the clipboard', async () => {
+  render(<AgentSkill />);
+  expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Copy instruction / 复制指令' }));
+  expect(navigator.clipboard.writeText).toHaveBeenCalledWith(handoff);
+  expect(await screen.findByRole('button', { name: 'Copied / 已复制' })).toBeInTheDocument();
+  expect(await screen.findByText('Instruction copied / 指令已复制')).toHaveAttribute('role', 'status');
+});
+
+test('MCP copy still puts mcp.json config on the clipboard', async () => {
+  render(<AgentSkill />);
+  expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: '复制 MCP 配置' }));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(MCP_JSON);
-  expect(await screen.findByRole('button', { name: '已复制' })).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'MCP 已复制' })).toBeInTheDocument();
+});
+
+test('a clipboard failure leaves the complete instruction visible and retryable', async () => {
+  (navigator.clipboard.writeText as jest.Mock).mockRejectedValueOnce(new Error('blocked'));
+  render(<AgentSkill />);
+  expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Copy instruction / 复制指令' }));
+  expect(screen.getByText(handoff)).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Copy instruction / 复制指令' })).toBeInTheDocument();
+  expect(
+    await screen.findByText(
+      'Copy failed. Select the instruction above. / 复制失败，请手动选择上方指令。'
+    )
+  ).toHaveAttribute('role', 'status');
 });
 
 test('the raw skill file tells an agent how to install and what to post', () => {

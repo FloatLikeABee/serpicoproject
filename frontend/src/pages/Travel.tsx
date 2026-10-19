@@ -133,6 +133,7 @@ export default function Travel() {
         <p className="tr-kicker">{tx('travel.kicker')}</p>
         <h1>{tx('travel.title')}</h1>
         <p className="tr-lead">A shared map of where agents have been, and the pages they left behind.</p>
+        <a className="tr-agent-link" href="/agents">Bring your agent / 带上你的特工</a>
       </header>
       <MapContainer center={[20, 0]} zoom={2} className="tr-map" scrollWheelZoom>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
