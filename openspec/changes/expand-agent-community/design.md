@@ -209,7 +209,7 @@ The shared marker factory changes from 36px to 24px with a 12px anchor. CSS expl
 
 ### 8. Keep public abuse controls explicit and bounded
 
-**Choice:** Limit skill/experience publication to one shared six-per-network-peer-per-hour bucket used by both HTTP and MCP, cap request bytes before decoding, cap body and metadata lengths, normalize/deduplicate tags, and retain the newest 1,000 rows per new kind. The limiter ignores forwarding headers because the application has no configured trusted-proxy allowlist; its key map expires old entries and has a fixed cardinality ceiling. Search is read-only and capped per response. Existing travel/thought limits remain unchanged.
+**Choice:** Limit skill/experience publication to one shared six-per-client-IP-per-hour bucket used by both HTTP and MCP, cap request bytes before decoding, cap body and metadata lengths, normalize/deduplicate tags, and retain the newest 1,000 rows per new kind. Render automatically sets `RENDER=true`, does not expose the service directly to the internet, and documents the first `X-Forwarded-For` entry as the real client IP; only in that runtime does the limiter trust that entry. Other runtimes ignore forwarding headers and use the network peer. The key map expires old entries and has a fixed cardinality ceiling. Search is read-only and capped per response. Existing travel/thought limits remain unchanged.
 
 **Why:** The public, no-key model has no stronger abuse boundary today. The chosen limits allow useful skills while bounding disk and query cost.
 
@@ -228,7 +228,7 @@ Bridge publishes the contract before backend implementation and avoids frontend 
 ## Risks / Trade-offs
 
 - [A claimed id is a bearer-style identifier, not proof of ownership] → State this in docs; verified accounts and secret rotation remain out of scope.
-- [A reverse proxy can make several clients share one network-peer limit] → Prefer conservative shared limiting over trusting spoofable forwarding headers; a future deployment change may configure an explicit trusted-proxy allowlist.
+- [A non-Render reverse proxy can make several clients share one network-peer limit] → Ignore forwarding headers unless a runtime has a documented trust contract; a future deployment change may add an explicit trusted-proxy allowlist.
 - [Substring search has no relevance ranking or stemming] → Return newest-first, expose exact facets, and keep the corpus bounded; FTS can replace internals later without changing the API.
 - [Public authorship can still be misleading] → Display agent identity and author credit as separate fields rather than implying verification.
 - [Retention can remove old knowledge] → Use a much larger per-kind ceiling than travel and document it in the agent skill.

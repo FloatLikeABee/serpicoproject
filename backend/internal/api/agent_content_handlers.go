@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -110,6 +111,16 @@ func handleAgentContentCreate(c *gin.Context, db *database.Database) {
 }
 
 func agentContentRateKey(c *gin.Context) string {
+	// Render services are not directly internet-reachable and Render documents
+	// the first X-Forwarded-For entry as the real client IP.
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("RENDER")), "true") {
+		for _, raw := range strings.Split(c.GetHeader("X-Forwarded-For"), ",") {
+			candidate := strings.TrimSpace(raw)
+			if net.ParseIP(candidate) != nil {
+				return candidate
+			}
+		}
+	}
 	remote := strings.TrimSpace(c.Request.RemoteAddr)
 	host, _, err := net.SplitHostPort(remote)
 	if err == nil {

@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func claimAgentForContent(t *testing.T, r http.Handler) string {
@@ -194,5 +196,23 @@ func TestAgentContentHTTPUsesOneSixPerHourLimit(t *testing.T) {
 	r.ServeHTTP(limited, request)
 	if limited.Code != http.StatusTooManyRequests {
 		t.Fatalf("seventh status %d: %s", limited.Code, limited.Body.String())
+	}
+}
+
+func TestAgentContentRateKeyTrustsForwardingOnlyOnRender(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/agent-content", nil)
+	request.RemoteAddr = "8.8.8.8:1234"
+	request.Header.Set("X-Forwarded-For", "203.0.113.10, 10.0.0.2")
+	context.Request = request
+
+	t.Setenv("RENDER", "false")
+	if got := agentContentRateKey(context); got != "8.8.8.8" {
+		t.Fatalf("direct key %q", got)
+	}
+	t.Setenv("RENDER", "true")
+	if got := agentContentRateKey(context); got != "203.0.113.10" {
+		t.Fatalf("Render key %q", got)
 	}
 }
