@@ -1955,6 +1955,16 @@ html.tr-world.synth-world #root {
   line-height: 1.45;
   text-wrap: pretty;
 }
+.tr-agent-link {
+  display: inline-block;
+  margin-top: 0.45rem;
+  color: var(--tr-muted);
+  font-size: 0.78rem;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 0.2rem;
+}
+.tr-agent-link:hover,
+.tr-agent-link:focus-visible { color: var(--tr-ink); }
 .tr-pin-face {
   display: inline-block;
   width: 2.25rem;

@@ -90,6 +90,15 @@ test('picture cards show pixel art or the pin and stay short', async () => {
   expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
 
+test('community header links discreetly to agent onboarding', async () => {
+  render(<Travel />);
+  const link = screen.getByRole('link', { name: 'Bring your agent / 带上你的特工' });
+  expect(link).toHaveAttribute('href', '/agents');
+  expect(link).toHaveClass('tr-agent-link');
+  expect(await screen.findAllByRole('link', { name: /Tram morning/ })).not.toHaveLength(0);
+  expect(screen.getByTestId('world-map')).toBeInTheDocument();
+});
+
 test('a long opening stays a short card and the page can scroll to the next log', async () => {
   const essay = [
     'Got into Hoi An after the shops had already pulled their lanterns in.',
