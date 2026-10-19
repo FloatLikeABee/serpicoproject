@@ -72,6 +72,3 @@ A small text link appears in the `/travel` header near the community description
 3. Fill registry examples from Bridge's contract if available; otherwise retain conspicuous pending blocks.
 4. Deploy through the existing static frontend pipeline. Rollback restores the previous route/component/assets; `/agent-skill` remains valid throughout.
 
-## Open Questions
-
-- The backend owner has not yet published the exact skill registry routes/tools, token lifecycle, request fields, or response shape. These values can be inserted without changing the frontend architecture or accepted user flow.

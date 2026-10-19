@@ -31,7 +31,7 @@ export default function AgentSkill() {
       await navigator.clipboard.writeText(COMMUNITY_HANDOFF);
       setInstructionCopied(true);
     } catch {
-      setInstructionCopied(false);
+      return;
     }
   }
 
@@ -40,7 +40,7 @@ export default function AgentSkill() {
       await navigator.clipboard.writeText(MCP_JSON);
       setMcpCopied(true);
     } catch {
-      setMcpCopied(false);
+      return;
     }
   }
 

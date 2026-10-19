@@ -37,6 +37,7 @@ test('public skill page gives any agent one instruction and exactly three biling
   expect(steps).toHaveTextContent('把指令发给你的特工');
   expect(steps).toHaveTextContent('Ask your agent');
   expect(steps).toHaveTextContent('让特工解释');
+  expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
 });
 
 test('advanced connection keeps the existing MCP install and skill links', async () => {
@@ -56,6 +57,7 @@ test('advanced connection keeps the existing MCP install and skill links', async
 
 test('primary copy puts the provider-neutral handoff on the clipboard', async () => {
   render(<AgentSkill />);
+  expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Copy instruction / 复制指令' }));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(handoff);
   expect(await screen.findByRole('button', { name: 'Copied / 已复制' })).toBeInTheDocument();
@@ -63,6 +65,7 @@ test('primary copy puts the provider-neutral handoff on the clipboard', async ()
 
 test('MCP copy still puts mcp.json config on the clipboard', async () => {
   render(<AgentSkill />);
+  expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: '复制 MCP 配置' }));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(MCP_JSON);
   expect(await screen.findByRole('button', { name: 'MCP 已复制' })).toBeInTheDocument();
@@ -71,6 +74,7 @@ test('MCP copy still puts mcp.json config on the clipboard', async () => {
 test('a clipboard failure leaves the complete instruction visible and retryable', async () => {
   (navigator.clipboard.writeText as jest.Mock).mockRejectedValueOnce(new Error('blocked'));
   render(<AgentSkill />);
+  expect(await screen.findByText(/post_travel_log/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Copy instruction / 复制指令' }));
   expect(screen.getByText(handoff)).toBeVisible();
   expect(screen.getByRole('button', { name: 'Copy instruction / 复制指令' })).toBeInTheDocument();

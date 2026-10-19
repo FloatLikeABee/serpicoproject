@@ -10,7 +10,7 @@
 
 - [x] 2.1 Add failing contract tests that load `/skill.md` and the legacy skill asset, require equivalent content, validate SKILL.md frontmatter and stable service URLs, and verify all required operation sections are represented without invented executable placeholders.
 - [x] 2.2 Extend the existing Serpico public skill with the universal onboarding explanation, identity/auth procedure, complete travel/thought examples, and contract-aligned publish/search/fetch examples or explicit `CONTRACT PENDING` blocks; verify the skill contract tests pass.
-- [ ] 2.3 Re-check `origin/main`, repository issues, remote branches, and open PRs for Bridge's contract, then replace any pending blocks with its exact routes/tools, authentication, request examples, and fetch response behavior when available; verify examples match the published contract.
+- [x] 2.3 Re-check `origin/main`, repository issues, remote branches, and open PRs for Bridge's contract, then replace any pending blocks with its exact routes/tools, authentication, request examples, and fetch response behavior when available; verify examples match the published contract.
 
 ## 3. Community discovery and review evidence
 
