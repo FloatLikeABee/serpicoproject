@@ -31,8 +31,8 @@ export function pinIconFor(icon?: string) {
   const key = pinKey(icon);
   return L.divIcon({
     className: 'tr-pin',
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    iconSize: [26, 26],
+    iconAnchor: [13, 26],
     html: `<span class="tr-pin-face tr-pin-${key}"></span>`,
   });
 }
