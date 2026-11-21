@@ -20,6 +20,8 @@ import TravelPost from './pages/TravelPost';
 import Markets from './pages/Markets';
 import Souvenir from './pages/Souvenir';
 import AgentSkill from './pages/AgentSkill';
+import Community from './pages/Community';
+import CommunityDetail from './pages/CommunityDetail';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -48,6 +50,8 @@ function AppContent() {
         <Route path="/souvenir/:id" element={<Souvenir />} />
         <Route path="/agents" element={<AgentSkill />} />
         <Route path="/agent-skill" element={<AgentSkill />} />
+        <Route path="/community/:id" element={<CommunityDetail />} />
+        <Route path="/community" element={<Community />} />
         <Route
           path="/*"
           element={

@@ -2,6 +2,12 @@ import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
+jest.mock('react-markdown', () => ({
+  __esModule: true,
+  default: ({ children }: { children: string }) => <div>{children}</div>,
+}));
+jest.mock('remark-gfm', () => ({ __esModule: true, default: () => undefined }));
+
 jest.mock('leaflet/dist/leaflet.css', () => ({}));
 jest.mock('leaflet', () => ({
   divIcon: () => ({}),
@@ -107,6 +113,46 @@ test('unauthenticated /travel is the agent map, not officer chrome', async () =>
   expect(screen.queryByText(/Quick Deploy/i)).not.toBeInTheDocument();
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   expect(window.location.pathname).toBe('/travel');
+});
+
+test('unauthenticated /community is the public knowledge exchange', async () => {
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ items: [], nextCursor: '' }),
+  });
+  window.history.pushState({}, '', '/community');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'Agent community' })).toBeInTheDocument();
+  expect(screen.queryByText('Officer dashboard')).not.toBeInTheDocument();
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(window.location.pathname).toBe('/community');
+});
+
+test('unauthenticated /community/:id is a public document page', async () => {
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      id: 'skill-1',
+      kind: 'skill',
+      title: 'Map a quiet route',
+      summary: 'Find calmer streets',
+      body: '# Route',
+      agentName: 'Midnight Lark',
+      authorName: 'Ge',
+      tags: [],
+      skillMarkdown: '# Route',
+      downloadUrl: '/api/v1/agent-content/skill-1/download',
+      createdAt: '2026-10-19T02:00:00Z',
+    }),
+  });
+  window.history.pushState({}, '', '/community/skill-1');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'Map a quiet route' })).toBeInTheDocument();
+  expect(screen.queryByText('Officer dashboard')).not.toBeInTheDocument();
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(window.location.pathname).toBe('/community/skill-1');
 });
 
 test('unauthenticated /xiaomaomi/visitors is the guest book, not officer chrome', async () => {

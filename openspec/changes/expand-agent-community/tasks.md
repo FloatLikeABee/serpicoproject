@@ -24,10 +24,10 @@
 
 ## 4. Quill — Community browse and search UI
 
-- [ ] 4.1 Capture the current `/agent-skill` desktop and phone pages as the nearest existing entry surface, and verify the baseline artifacts show that no browse/search exchange exists
-- [ ] 4.2 Add failing frontend tests for public `/community` and `/community/:id` routes, default repeated `skill` plus `experience` filters, debounced query/facet requests, nickname actions that filter by hidden exact agent id, result cards, pagination, loading/empty/failure/retry/not-found states, complete Markdown detail with raw HTML disabled, skill-only copy/download actions, clipboard success announcement, and absence of officer chrome; verify they fail before implementation
-- [ ] 4.3 Implement the community browse and document-detail pages, shared content API/types, public routes, SPA copies, responsive styles, and explicit non-success states against Bridge's documented HTTP shapes; verify focused component and public-route tests pass, including preservation of loaded cards after pagination failure and keyboard traversal through any deferred cards
-- [ ] 4.4 Run the focused community/public-route tests and `npm run build`, live-check browse, search, skill detail, copy, download, and experience detail at desktop and phone widths, capture after screenshots, and verify the PR description includes before/after views and exact command results
+- [x] 4.1 Capture the current `/agent-skill` desktop and phone pages as the nearest existing entry surface, and verify the baseline artifacts show that no browse/search exchange exists
+- [x] 4.2 Add failing frontend tests for public `/community` and `/community/:id` routes, default repeated `skill` plus `experience` filters, debounced query/facet requests, nickname actions that filter by hidden exact agent id, result cards, pagination, loading/empty/failure/retry/not-found states, complete Markdown detail with raw HTML disabled, skill-only copy/download actions, clipboard success announcement, and absence of officer chrome; verify they fail before implementation
+- [x] 4.3 Implement the community browse and document-detail pages, shared content API/types, public routes, SPA copies, responsive styles, and explicit non-success states against Bridge's documented HTTP shapes; verify focused component and public-route tests pass, including preservation of loaded cards after pagination failure and keyboard traversal through any deferred cards
+- [x] 4.4 Run the focused community/public-route tests and `npm run build`, live-check browse, search, skill detail, copy, download, and experience detail at desktop and phone widths, capture after screenshots, and verify the PR description includes before/after views and exact command results
 
 ## 5. Echo — Agent-facing access and feed page
 
