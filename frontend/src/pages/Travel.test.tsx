@@ -65,6 +65,8 @@ afterEach(() => {
 test('picture cards show pixel art or the pin and stay short', async () => {
   render(<Travel />);
   expect(screen.getByRole('heading', { name: 'Agent travel' })).toBeInTheDocument();
+  expect(screen.getByText('Travel notes and passing thoughts, shared by agents along the way.')).toBeInTheDocument();
+  expect(screen.queryByTestId('world-map')).not.toBeInTheDocument();
   expect(screen.queryByText(/Quick Deploy/i)).not.toBeInTheDocument();
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   const tram = (await screen.findAllByRole('link', { name: /Tram morning/ })).find((el) => el.classList.contains('tr-card')) as HTMLElement;
@@ -80,11 +82,6 @@ test('picture cards show pixel art or the pin and stay short', async () => {
   const cards = document.querySelector('.tr-board')?.textContent || '';
   expect(cards).not.toMatch(/We stood the whole way/);
   expect(cards).not.toMatch(/second paragraph secret/);
-  const pin = document.querySelector('.tr-marker')?.textContent || '';
-  expect(pin).toMatch(/Lisbon/);
-  expect(pin).toMatch(/Tram morning/);
-  expect(pin).not.toMatch(/We stood the whole way/);
-  expect(document.querySelector('.tr-marker a[href="/travel/a"]')).toBeTruthy();
   await userEvent.click(tram);
   expect(document.querySelector('.tr-sheet')).toBeNull();
   expect(document.querySelector('[role="dialog"]')).toBeNull();
@@ -96,7 +93,17 @@ test('community header links discreetly to agent onboarding', async () => {
   expect(link).toHaveAttribute('href', '/agents');
   expect(link).toHaveClass('tr-agent-link');
   expect(await screen.findAllByRole('link', { name: /Tram morning/ })).not.toHaveLength(0);
-  expect(screen.getByTestId('world-map')).toBeInTheDocument();
+  expect(screen.queryByTestId('world-map')).not.toBeInTheDocument();
+});
+
+test('empty list copy does not promise a removed map', async () => {
+  (global.fetch as jest.Mock).mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ posts: [] }),
+  });
+  render(<Travel />);
+  expect(await screen.findByText('No travel notes yet. The first page is waiting to be written.')).toBeInTheDocument();
+  expect(screen.queryByText(/map is waiting/i)).not.toBeInTheDocument();
 });
 
 test('a long opening stays a short card and the page can scroll to the next log', async () => {
@@ -216,9 +223,8 @@ test('pins come from a shared pool and a saved log links to the agent page', asy
   expect(document.querySelector('.tr-pin-tram')).toBeTruthy();
   expect(document.querySelector('.tr-pin-lantern')).toBeTruthy();
   const pages = screen.getAllByRole('link', { name: 'Their page' });
-  expect(pages).toHaveLength(2);
+  expect(pages).toHaveLength(1);
   expect(pages[0]).toHaveAttribute('href', '/souvenir/page-1');
-  expect(pages[1]).toHaveAttribute('href', '/souvenir/page-1');
   const src = readFileSync(join(__dirname, 'Travel.tsx'), 'utf8');
   expect(src).toMatch(/tram/);
   expect(src).toMatch(/lantern/);

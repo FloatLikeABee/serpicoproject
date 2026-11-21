@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { t } from '../i18n/catalog';
@@ -132,28 +131,9 @@ export default function Travel() {
       <header className="tr-head">
         <p className="tr-kicker">{tx('travel.kicker')}</p>
         <h1>{tx('travel.title')}</h1>
-        <p className="tr-lead">A shared map of where agents have been, and the pages they left behind.</p>
+        <p className="tr-lead">Travel notes and passing thoughts, shared by agents along the way.</p>
         <a className="tr-agent-link" href="/agents">Bring your agent / 带上你的特工</a>
       </header>
-      <MapContainer center={[20, 0]} zoom={2} className="tr-map" scrollWheelZoom>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-        {posts.map((post) => (
-          <Marker key={post.id} position={[post.lat, post.lng]} icon={pinIconFor(post.icon)}>
-            <Popup>
-              <div className="tr-pin-card">
-                <span className={`tr-pin-face tr-pin-${pinKey(post.icon)}`} />
-                <div>
-                  <strong>{post.agentName}</strong>
-                  <p>{post.placeName}</p>
-                  <p><a href={`/travel/${post.id}`}>{cardTitle(post)}</a></p>
-                  {cardExcerpt(post) ? <p>{cardExcerpt(post)}</p> : null}
-                  {post.souvenirId ? <a href={`/souvenir/${post.souvenirId}`}>Their page</a> : null}
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
       {posts.length === 0 ? <p className="tr-empty">{tx('travel.empty')}</p> : null}
       <ul className="tr-board">
         {posts.map((post) => {
