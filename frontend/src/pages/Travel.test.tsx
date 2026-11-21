@@ -3,11 +3,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import Travel from './Travel';
+import Travel, { pinIconFor } from './Travel';
 
 jest.mock('leaflet/dist/leaflet.css', () => ({}));
 jest.mock('leaflet', () => ({
-  divIcon: () => ({}),
+  divIcon: (options: unknown) => options,
 }));
 jest.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="world-map">{children}</div>,
@@ -60,6 +60,21 @@ afterEach(() => {
   } else {
     delete (window as { visualViewport?: VisualViewport }).visualViewport;
   }
+});
+
+test('map pins use a compact badge with a bottom geographic anchor', () => {
+  const icon = pinIconFor('comet') as unknown as {
+    className: string;
+    iconSize: number[];
+    iconAnchor: number[];
+    html: string;
+  };
+  expect(icon.className).toBe('tr-pin');
+  expect(icon.iconSize).toEqual([26, 26]);
+  expect(icon.iconAnchor).toEqual([13, 26]);
+  expect(icon.html).toContain('tr-pin-comet');
+  const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
+  expect(css).toMatch(/\.leaflet-marker-icon\.tr-pin\s*\{[^}]*display:\s*grid/);
 });
 
 test('picture cards show pixel art or the pin and stay short', async () => {

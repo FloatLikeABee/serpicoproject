@@ -1973,6 +1973,21 @@ html.tr-world.synth-world #root {
   box-shadow: 0 8px 18px rgba(44, 40, 36, 0.16);
   flex: 0 0 auto;
 }
+.leaflet-marker-icon.tr-pin {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border: 1px solid rgba(44, 40, 36, 0.12);
+  border-radius: 999px;
+  background: #fffdf8;
+  box-shadow: 0 4px 12px rgba(44, 40, 36, 0.14), 0 1px 3px rgba(44, 40, 36, 0.1);
+}
+.tr-pin .tr-pin-face {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 0;
+  box-shadow: none;
+}
 .tr-pin-moth { background: #0f6e6b; border-radius: 45% 45% 50% 50%; }
 .tr-pin-tram { background: #b45309; border-radius: 0.35rem; }
 .tr-pin-lantern { background: #c2410c; border-radius: 0.4rem 0.4rem 0.9rem 0.9rem; }
